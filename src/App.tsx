@@ -24,7 +24,9 @@ import {
   Shuffle, 
   History,
   ArrowRight,
-  RotateCcw
+  RotateCcw,
+  Snowflake,
+  GraduationCap
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
@@ -71,8 +73,8 @@ export default function App() {
       return 'english';
     }
   });
-  // Open subject selector modal when opening the web app
-  const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(true);
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+  const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
 
   // Batch size state (Default: 20 questions)
@@ -259,13 +261,8 @@ export default function App() {
     }
   }, [flagged]);
 
-  // Timer interval
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsElapsed((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+
+
 
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -417,6 +414,19 @@ export default function App() {
   const unansweredCount = useMemo(() => {
     return questions.length - answeredCount;
   }, [questions, answeredCount]);
+
+  const isBatchFinished = questions.length > 0 && answeredCount === questions.length;
+
+  // Timer interval - Pauses on landing page, summary view, or when all questions are answered
+  useEffect(() => {
+    if (showLandingPage || showSummaryView || isBatchFinished) {
+      return;
+    }
+    const interval = setInterval(() => {
+      setSecondsElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showLandingPage, showSummaryView, isBatchFinished]);
 
   // Category statistics in current batch
   const categoryStats: CategoryStat[] = useMemo(() => {
@@ -601,6 +611,215 @@ export default function App() {
   };
 
   const isDark = theme === 'dark';
+
+  if (showLandingPage) {
+    return (
+      <div
+        className={`min-h-screen flex flex-col font-sans transition-colors duration-200 justify-between relative overflow-hidden ${
+          isDark ? 'bg-[#0b0c12] text-zinc-100' : 'bg-stone-50 text-stone-900'
+        }`}
+      >
+        {/* Decorative subtle background glows */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Landing Page Header / Quick settings */}
+        <header className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-2">
+            <Snowflake className="w-6 h-6 text-blue-400 animate-pulse" />
+            <span className="font-extrabold text-lg tracking-wider">WINTER exam</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Sound Toggle */}
+            <button
+              onClick={handleToggleSound}
+              className={`p-2 rounded-xl border transition-all ${
+                isDark
+                  ? 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                  : 'bg-white border-stone-200 text-stone-600 hover:text-stone-900 hover:bg-stone-100 shadow-2xs'
+              }`}
+              title={soundEnabled ? 'ปิดเสียงเอฟเฟกต์' : 'เปิดเสียงเอฟเฟกต์'}
+            >
+              {soundEnabled ? (
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  <span className="text-xs font-bold text-amber-400">เสียงเปิดอยู่</span>
+                </div>
+              ) : (
+                <span className="text-xs font-bold text-stone-400">เสียงปิดอยู่</span>
+              )}
+            </button>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={handleToggleTheme}
+              className={`p-2 rounded-xl border transition-all ${
+                isDark
+                  ? 'bg-zinc-900/60 border-zinc-800 text-amber-400 hover:bg-zinc-800'
+                  : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100 shadow-2xs'
+              }`}
+              title={isDark ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด (ถนอมสายตา)'}
+            >
+              {isDark ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-amber-400">โหมดมืด</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-stone-600">โหมดสว่าง</span>
+                </div>
+              )}
+            </button>
+          </div>
+        </header>
+
+        {/* Main Hero Panel */}
+        <main className="flex-1 flex flex-col justify-center items-center max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-12 relative z-10">
+          <div className="text-center space-y-6 max-w-3xl">
+            {/* Giant Rotating Snowflake Logo */}
+            <div className="inline-flex items-center justify-center relative mb-2">
+              <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-2xl animate-pulse" />
+              <div className="relative p-6 rounded-full bg-gradient-to-br from-blue-500/10 to-amber-500/10 border border-blue-500/20">
+                <Snowflake className="w-16 h-16 sm:w-20 sm:h-20 text-blue-400 animate-spin" style={{ animationDuration: '25s' }} />
+              </div>
+            </div>
+
+            {/* Site Title */}
+            <div className="space-y-2">
+              <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-zinc-100 to-amber-400">
+                WINTER exam
+              </h1>
+              
+              {/* Creator Credit Tag */}
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-amber-500/10 text-amber-300 border border-amber-500/25 shadow-sm animate-pulse">
+                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>สร้างสรรค์โดย WINTER</span>
+                </span>
+              </div>
+            </div>
+
+            <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+              ยินดีต้อนรับสู่ระบบคลังข้อสอบและแบบฝึกหัดอัจฉริยะที่รวบรวมโจทย์สอบวัดระดับคุณภาพสูงไว้มากถึง <strong>380 ข้อ</strong> ครอบคลุมเนื้อหาสำคัญอย่างเจาะลึก พร้อมระบบสุ่มคลัง ตัดโจทย์ซ้ำ และเฉลยอธิบายละเอียดภาษาไทย
+            </p>
+
+            {/* Subjects Showcase Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 max-w-4xl mx-auto text-left">
+              {/* Biology */}
+              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
+                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
+              }`}>
+                <div className="p-2.5 h-fit rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-sm sm:text-base">ชีววิทยา (Biology)</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">100 ข้อ</span>
+                  </div>
+                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                    โครงสร้างและการสืบพันธุ์ของพืชดอก, วัฏจักรชีวิตแบบสลับ และกลไกการสังเคราะห์ด้วยแสง (C3, C4, CAM)
+                  </p>
+                </div>
+              </div>
+
+              {/* History */}
+              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
+                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
+              }`}>
+                <div className="p-2.5 h-fit rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-sm sm:text-base">ประวัติศาสตร์ & อารยธรรม</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">100 ข้อ</span>
+                  </div>
+                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                    เจาะลึกอารยธรรมโลกโบราณอันทรงคุณค่า: อารยธรรมกรีก, อารยธรรมโรมัน, อารยธรรมจีน และอารยธรรมอินเดีย
+                  </p>
+                </div>
+              </div>
+
+              {/* Mathematics */}
+              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
+                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
+              }`}>
+                <div className="p-2.5 h-fit rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shrink-0">
+                  <LayoutGrid className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-sm sm:text-base">คณิตศาสตร์ ม.5</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">100 ข้อ</span>
+                  </div>
+                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                    หลักมูลฐานเกี่ยวกับการนับ, วิธีจัดหมู่, วิธีเรียงสับเปลี่ยน (P, C, Factorial) และความน่าจะเป็นพื้นฐาน
+                  </p>
+                </div>
+              </div>
+
+              {/* English */}
+              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
+                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
+              }`}>
+                <div className="p-2.5 h-fit rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-sm sm:text-base">ภาษาอังกฤษ (English)</h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400">80 ข้อ</span>
+                  </div>
+                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                    ไวยากรณ์เชิงลึกและคำศัพท์: Modal Verbs (Can, Could, May, Must), Future Forms, และโครงสร้างที่มักสับสน
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Giant Action Button */}
+            <div className="pt-8">
+              <button
+                onClick={() => {
+                  setShowLandingPage(false);
+                  setShowSubjectSelector(true);
+                  if (soundEnabled) {
+                    try { soundFX.playTap(); } catch (e) {}
+                  }
+                }}
+                className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] ${
+                  isDark
+                    ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black'
+                    : 'bg-stone-900 hover:bg-stone-800 text-white'
+                }`}
+              >
+                <span>เริ่มทำข้อสอบเลย</span>
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <p className={`text-[11px] mt-2.5 font-semibold ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                คลิกเพื่อไปที่หน้าต่างเลือกวิชาและเลือกจำนวนข้อสอบที่ต้องการสุ่มได้ตามต้องการ
+              </p>
+            </div>
+          </div>
+        </main>
+
+        {/* Landing Page Footer */}
+        <footer className={`py-6 border-t text-center text-xs relative z-10 ${
+          isDark ? 'border-zinc-900/60 text-zinc-500 bg-[#08090d]' : 'border-stone-200/80 text-stone-500 bg-stone-100/30'
+        }`}>
+          <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-medium">
+            <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ 4 วิชา (380 ข้อ) • WINTER exam</span>
+            <span className="flex items-center gap-1 font-bold text-amber-500/95">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>สร้างสรรค์โดย WINTER ด้วยความปราณีต ❄️</span>
+            </span>
+          </div>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -788,6 +1007,7 @@ export default function App() {
               completedBankCount={completedBankCount}
               totalBankCount={totalBankCount}
               batchSize={batchSize}
+              subjectId={currentSubjectId}
             />
           </div>
         )}

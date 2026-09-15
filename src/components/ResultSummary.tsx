@@ -32,6 +32,7 @@ interface ResultSummaryProps {
   completedBankCount: number;
   totalBankCount: number;
   batchSize: number;
+  subjectId: string;
 }
 
 export const ResultSummary: React.FC<ResultSummaryProps> = ({
@@ -53,24 +54,51 @@ export const ResultSummary: React.FC<ResultSummaryProps> = ({
   completedBankCount,
   totalBankCount,
   batchSize,
+  subjectId,
 }) => {
   const isDark = theme === 'dark';
   const percent = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
 
   let message = 'ทำได้ดีมาก! ลองทบทวนข้อที่ตอบผิด หรือกดทำต่อเพื่อสุ่มโจทย์ใหม่ที่ยังไม่เคยทำ';
+  if (subjectId === 'biology') {
+    message = 'ทำได้ดีพอสมควร! มีความเข้าใจในบทเรียนชีววิทยาที่ดี แต่อ่านสรุปเพื่อเพิ่มความแม่นยำ';
+  } else if (subjectId === 'history') {
+    message = 'ทำได้ดีพอสมควร! มีความรอบรู้ในเรื่องประวัติศาสตร์และอารยธรรมที่ดี ทบทวนจุดสำคัญอีกนิด';
+  } else if (subjectId === 'math') {
+    message = 'ทำได้ดีพอสมควร! ทำโจทย์คณิตศาสตร์ได้ดี แต่อ่านทบทวนวิธีคิดและสมบัติของความน่าจะเป็นเพิ่มเติมได้';
+  } else if (subjectId === 'english') {
+    message = 'ทำได้ดีพอสมควร! มีความเข้าใจพื้นฐานไวยากรณ์ที่ดี แต่อ่านสรุปเพื่อเพิ่มความมั่นใจได้';
+  }
+
   let badgeText = 'ระดับดี (Proficient)';
   let badgeColor = isDark
     ? 'bg-amber-950/80 text-amber-300 border-amber-800'
     : 'bg-amber-100 text-amber-900 border-amber-300';
 
   if (percent >= 80) {
-    message = 'ยอดเยี่ยมมาก! เข้าใจหลักไวยากรณ์ Modal Verbs & Future Forms ได้อย่างแม่นยำ';
+    if (subjectId === 'biology') {
+      message = 'ยอดเยี่ยมมาก! มีความเข้าใจอย่างถ่องแท้ในเรื่องโครงสร้างพืชดอก วัฏจักรชีวิต และการลำเลียงสาร';
+    } else if (subjectId === 'history') {
+      message = 'ยอดเยี่ยมมาก! แม่นยำในอารยธรรมโลกโบราณ ทั้งตะวันตก (กรีก, โรมัน) และตะวันออก (จีน, อินเดีย)';
+    } else if (subjectId === 'math') {
+      message = 'ยอดเยี่ยมมาก! มีทักษะการคำนวณและเข้าใจกฎการนับ ความน่าจะเป็น และวิธีจัดหมู่เป็นอย่างดี';
+    } else {
+      message = 'ยอดเยี่ยมมาก! เข้าใจหลักไวยากรณ์ Modal Verbs & Future Forms ได้อย่างแม่นยำ';
+    }
     badgeText = percent === 100 ? '⭐ คะแนนเต็ม 100% สมบูรณ์แบบ!' : '🏆 ผ่านเกณฑ์ระดับดีเยี่ยม (Mastery)';
     badgeColor = isDark
       ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
       : 'bg-emerald-100 text-emerald-900 border-emerald-300';
   } else if (percent < 50) {
-    message = 'สู้ๆ นะ! ลองอ่านคู่มือสรุปกฎไวยากรณ์ภาษาไทย แล้วฝึกทำซ้ำอีกครั้ง';
+    if (subjectId === 'biology') {
+      message = 'สู้ๆ นะ! ลองอ่านคู่มือสรุปชีววิทยาเพิ่มเติม โดยเฉพาะกลไก C3/C4/CAM และการปฏิสนธิซ้อน';
+    } else if (subjectId === 'history') {
+      message = 'สู้ๆ นะ! ลองอ่านคู่มือสรุปประวัติศาสตร์และอารยธรรมโบราณเพิ่มเติม แล้วกลับมาท้าทายใหม่อีกครั้ง';
+    } else if (subjectId === 'math') {
+      message = 'สู้ๆ นะ! ลองอ่านคู่มือสรุปสูตรคณิตศาสตร์ กฎการบวก/คูณ และการคำนวณแฟกทอเรียลเพิ่มเติม';
+    } else {
+      message = 'สู้ๆ นะ! ลองอ่านคู่มือสรุปกฎไวยากรณ์ภาษาอังกฤษเพิ่มเติม และฝึกฝนทำข้อสอบซ้ำอีกครั้ง';
+    }
     badgeText = 'ควรทบทวนเพิ่มเติม (Needs Practice)';
     badgeColor = isDark
       ? 'bg-rose-950/80 text-rose-300 border-rose-800'
@@ -184,7 +212,7 @@ export const ResultSummary: React.FC<ResultSummaryProps> = ({
             isDark ? 'bg-emerald-950/30 border-emerald-800 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
           }`}>
             <Sparkles className="w-6 h-6 mx-auto mb-1 text-emerald-400" />
-            <p className="font-bold text-sm">คุณทำครบทุกข้อในคลัง 80 ข้อเรียบร้อยแล้ว!</p>
+            <p className="font-bold text-sm">คุณทำครบทุกข้อในคลัง {totalBankCount} ข้อเรียบร้อยแล้ว!</p>
             <p className="text-xs opacity-80 mt-0.5">สามารถกดรีเซ็ตเพื่อเริ่มสุ่มรอบใหม่ หรือเปิดดูประวัติเฉลยทั้งหมดได้</p>
           </div>
         )}
@@ -255,7 +283,7 @@ export const ResultSummary: React.FC<ResultSummaryProps> = ({
           <div className="flex items-center gap-2">
             <PieChart className="w-4 h-4 text-amber-400" />
             <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-200' : 'text-stone-900'}`}>
-              สถิติแยกตามหมวดหมู่ไวยากรณ์ (รอบปัจจุบัน)
+              สถิติแยกตามหัวข้อบทเรียน (รอบปัจจุบัน)
             </h3>
           </div>
           <button
@@ -265,7 +293,7 @@ export const ResultSummary: React.FC<ResultSummaryProps> = ({
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>เปิดสรุปไวยากรณ์ภาษาไทย</span>
+            <span>เปิดคู่มือสรุปเนื้อหาประจำวิชา</span>
           </button>
         </div>
 

@@ -309,19 +309,21 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Grammar Study Guide */}
+          {/* Dynamic Subject Study Guide */}
           <button
             onClick={onOpenGuide}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition shadow-2xs ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition shadow-2xs ${
               isDark
                 ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
                 : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
             }`}
             id="grammar-guide-btn"
-            title="เปิดคู่มือสรุปไวยากรณ์ภาษาไทย"
+            title={`เปิดคู่มือสรุปเนื้อหาวิชา ${currentSubjectName}`}
           >
             <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">สรุปไวยากรณ์</span>
+            <span className="hidden sm:inline">
+              {currentSubjectName.includes('อังกฤษ') ? 'สรุปไวยากรณ์' : `สรุป${currentSubjectName}`}
+            </span>
           </button>
 
           {/* Reset Current Batch Button */}
