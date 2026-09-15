@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bookmark, CheckCircle2, XCircle, Sparkles, RotateCcw, Lightbulb } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bookmark, CheckCircle2, XCircle, Sparkles, RotateCcw, Lightbulb, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
 
 interface QuestionCardProps {
@@ -27,11 +27,26 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   index,
   theme,
 }) => {
-  // Reveal status: If instantFeedback is active, reveal once selected; otherwise reveal on submit
-  const isRevealed = instantFeedback ? selectedOption !== undefined : isSubmitted;
+  const [showLockedWarning, setShowLockedWarning] = useState<boolean>(false);
+
+  // Reveal status: ONLY reveal after user has actually selected an option
+  const isRevealed = selectedOption !== undefined;
   const isCorrect = isRevealed && selectedOption === question.answer;
-  const isWrong = isRevealed && selectedOption !== undefined && selectedOption !== question.answer;
-  const isUnanswered = isSubmitted && !selectedOption;
+  const isWrong = isRevealed && selectedOption !== question.answer;
+
+  const handleOptionClick = (option: string) => {
+    if (selectedOption !== undefined) {
+      // User has already answered this question and cannot change answer
+      if (selectedOption !== option) {
+        setShowLockedWarning(true);
+        setTimeout(() => {
+          setShowLockedWarning(false);
+        }, 3000);
+      }
+      return;
+    }
+    onSelectOption(option);
+  };
 
   const isDark = theme === 'dark';
 
@@ -206,7 +221,13 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             <label
               key={option}
               id={`option-label-${question.id}-${optIdx}`}
-              className={`flex items-center justify-between p-3 sm:px-4 rounded-xl border text-sm cursor-pointer transition-all select-none ${optionStyle}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleOptionClick(option);
+              }}
+              className={`flex items-center justify-between p-3 sm:px-4 rounded-xl border text-sm transition-all select-none ${
+                selectedOption !== undefined ? 'cursor-not-allowed' : 'cursor-pointer'
+              } ${optionStyle}`}
             >
               <div className="flex items-center gap-3 flex-1">
                 <span
@@ -239,7 +260,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 name={`question-${question.id}`}
                 value={option}
                 checked={isSelected}
-                onChange={() => onSelectOption(option)}
+                disabled={selectedOption !== undefined}
+                onChange={() => handleOptionClick(option)}
                 className="sr-only"
                 id={`radio-${question.id}-${optIdx}`}
               />
@@ -274,18 +296,18 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         })}
       </div>
 
-      {/* Unanswered banner when user manually submitted without choosing */}
-      {isUnanswered && (
+      {/* Warning banner when user tries to change their already submitted answer */}
+      {showLockedWarning && (
         <div
-          className={`mt-3.5 p-3 rounded-xl border flex items-center gap-2 text-xs ${
+          className={`mt-3.5 p-3 rounded-xl border flex items-center gap-2.5 text-xs font-semibold animate-in fade-in zoom-in-95 duration-200 ${
             isDark
-              ? 'bg-amber-950/40 border-amber-800/80 text-amber-200'
-              : 'bg-amber-50 border-amber-200 text-amber-800'
+              ? 'bg-yellow-950/70 border-yellow-500/80 text-yellow-300 shadow-[0_0_15px_rgba(234,179,8,0.2)]'
+              : 'bg-yellow-50 border-yellow-400 text-yellow-900 shadow-sm'
           }`}
         >
-          <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" />
+          <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
           <span>
-            ยังไม่ได้ตอบข้อนี้ คำตอบที่ถูกต้องคือ: <strong>"{question.answer}"</strong>
+            ไม่สามารถเปลี่ยนคำตอบได้: <strong>ข้อนี้เคยตอบผิดแล้ว</strong> (ระบบบันทึกคำตอบแรกไว้แล้ว)
           </span>
         </div>
       )}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, Flame, Sparkles, XCircle, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, Flame, Sparkles, XCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
 
 interface SingleQuestionViewProps {
@@ -37,10 +37,26 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
   theme,
   streakCount,
 }) => {
+  const [showLockedWarning, setShowLockedWarning] = useState<boolean>(false);
+
   const isDark = theme === 'dark';
-  const showFeedback = instantFeedback ? selectedOption !== undefined : isSubmitted;
+  // ONLY show feedback when the user has actually selected an option
+  const showFeedback = selectedOption !== undefined;
   const isCorrect = showFeedback && selectedOption === question.answer;
-  const isWrong = showFeedback && selectedOption !== undefined && selectedOption !== question.answer;
+  const isWrong = showFeedback && selectedOption !== question.answer;
+
+  const handleOptionClick = (option: string) => {
+    if (selectedOption !== undefined) {
+      if (selectedOption !== option) {
+        setShowLockedWarning(true);
+        setTimeout(() => {
+          setShowLockedWarning(false);
+        }, 3000);
+      }
+      return;
+    }
+    onSelectOption(option);
+  };
 
   const optionLetters = ['A', 'B', 'C', 'D'];
 
@@ -199,8 +215,10 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
             <button
               key={option}
               type="button"
-              onClick={() => onSelectOption(option)}
-              className={`w-full text-left flex items-center justify-between p-4 rounded-xl border text-base cursor-pointer transition-all ${optionStyle}`}
+              onClick={() => handleOptionClick(option)}
+              className={`w-full text-left flex items-center justify-between p-4 rounded-xl border text-base transition-all ${
+                selectedOption !== undefined ? 'cursor-not-allowed' : 'cursor-pointer'
+              } ${optionStyle}`}
               id={`single-option-btn-${question.id}-${optIdx}`}
             >
               <div className="flex items-center gap-3.5 flex-1">
@@ -256,6 +274,22 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
           );
         })}
       </div>
+
+      {/* Warning banner when user tries to change their already submitted answer */}
+      {showLockedWarning && (
+        <div
+          className={`mb-6 p-3.5 rounded-xl border flex items-center gap-2.5 text-xs sm:text-sm font-semibold animate-in fade-in zoom-in-95 duration-200 ${
+            isDark
+              ? 'bg-yellow-950/70 border-yellow-500/80 text-yellow-300 shadow-[0_0_15px_rgba(234,179,8,0.2)]'
+              : 'bg-yellow-50 border-yellow-400 text-yellow-900 shadow-sm'
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
+          <span>
+            ไม่สามารถเปลี่ยนคำตอบได้: <strong>ข้อนี้เคยตอบผิดแล้ว</strong> (ระบบบันทึกคำตอบแรกไว้แล้ว)
+          </span>
+        </div>
+      )}
 
       {/* Explanation banner with detailed Thai explanation */}
       {showFeedback && (

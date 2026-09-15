@@ -1,6 +1,6 @@
 {
   "name": "English Grammar Quiz",
-  "description": "Smart adaptive English grammar quiz with an 80-question bank on Modal Verbs & Future Forms, customizable batch size, instant Thai explanations, completed questions history, and automated unseen question sampling.",
+  "description": "Smart multi-subject quiz application with 380 questions across English, Biology, History, and Mathematics, featuring customizable batch sizes, locked answers with Thai feedback, completed question archiving, and creator branding by WINTER.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -8,6 +8,9 @@ import { GrammarGuideModal } from './components/GrammarGuideModal';
 import { SubjectSelector } from './components/SubjectSelector';
 import { CompletedHistoryModal } from './components/CompletedHistoryModal';
 import { allQuestions } from './data/questionsData';
+import { biologyQuestions } from './data/biologyQuestionsData';
+import { historyQuestions } from './data/historyQuestionsData';
+import { mathQuestions } from './data/mathQuestionsData';
 import { subjectsList } from './data/subjectsData';
 import { Question, QuizViewMode, CategoryStat, ThemeMode, CompletedQuestionRecord } from './types';
 import { 
@@ -57,8 +60,19 @@ export default function App() {
   });
 
   // Subject state
-  const [currentSubjectId, setCurrentSubjectId] = useState<string>('english');
-  const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
+  const [currentSubjectId, setCurrentSubjectId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('quiz_current_subject_id_v1');
+      if (saved && (saved === 'english' || saved === 'biology' || saved === 'history' || saved === 'math')) {
+        return saved;
+      }
+      return 'english';
+    } catch {
+      return 'english';
+    }
+  });
+  // Open subject selector modal when opening the web app
+  const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(true);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
 
   // Batch size state (Default: 20 questions)
@@ -87,10 +101,16 @@ export default function App() {
   }, [currentSubjectId]);
 
   const masterBank: Question[] = useMemo(() => {
-    if (currentSubjectId === 'english') {
-      return allQuestions;
+    if (currentSubjectId === 'biology') {
+      return biologyQuestions;
     }
-    return [];
+    if (currentSubjectId === 'history') {
+      return historyQuestions;
+    }
+    if (currentSubjectId === 'math') {
+      return mathQuestions;
+    }
+    return allQuestions; // default english
   }, [currentSubjectId]);
 
   // Current active batch question IDs
@@ -115,8 +135,9 @@ export default function App() {
       }
     })();
 
-    const unseen = allQuestions.filter((q) => !savedCompleted[q.id]);
-    const pool = unseen.length > 0 ? unseen : allQuestions;
+    const initialBank = allQuestions;
+    const unseen = initialBank.filter((q) => !savedCompleted[q.id]);
+    const pool = unseen.length > 0 ? unseen : initialBank;
     const shuffled = shuffleArray(pool);
     const count = 20;
     return shuffled.slice(0, Math.min(count, shuffled.length)).map((q) => q.id);
@@ -160,6 +181,15 @@ export default function App() {
   const [maxStreak, setMaxStreak] = useState<number>(0);
 
   const resultRef = useRef<HTMLDivElement>(null);
+
+  // Sync current subject id
+  useEffect(() => {
+    try {
+      localStorage.setItem('quiz_current_subject_id_v1', currentSubjectId);
+    } catch {
+      // ignore
+    }
+  }, [currentSubjectId]);
 
   // Sync theme
   useEffect(() => {
@@ -246,9 +276,10 @@ export default function App() {
   };
 
   // Helper: Draw a new batch of questions from uncompleted pool
-  const drawNewBatch = useCallback((customBatchSize?: number) => {
+  const drawNewBatch = useCallback((customBatchSize?: number, targetBank?: Question[]) => {
     const size = customBatchSize || batchSize;
-    const uncompleted = masterBank.filter((q) => !completedHistory[q.id]);
+    const bank = targetBank || masterBank;
+    const uncompleted = bank.filter((q) => !completedHistory[q.id]);
     
     let newBatch: Question[] = [];
     if (uncompleted.length > 0) {
@@ -256,7 +287,7 @@ export default function App() {
       newBatch = shuffled.slice(0, Math.min(size, shuffled.length));
     } else {
       // All questions in bank have been completed! Reshuffle from all
-      const shuffled = shuffleArray(masterBank);
+      const shuffled = shuffleArray(bank);
       newBatch = shuffled.slice(0, Math.min(size, shuffled.length));
     }
 
@@ -290,11 +321,19 @@ export default function App() {
   const handleSelectSubject = (subjectId: string, customSize?: number) => {
     soundFX.playTap();
     setCurrentSubjectId(subjectId);
+    const targetSize = customSize || batchSize;
     if (customSize) {
       setBatchSize(customSize);
     }
     setShowSubjectSelector(false);
-    drawNewBatch(customSize || batchSize);
+
+    // Determine target bank immediately for clean instant switch
+    let targetBank: Question[] = allQuestions;
+    if (subjectId === 'biology') targetBank = biologyQuestions;
+    else if (subjectId === 'history') targetBank = historyQuestions;
+    else if (subjectId === 'math') targetBank = mathQuestions;
+
+    drawNewBatch(targetSize, targetBank);
   };
 
   // Reshuffle current batch
@@ -330,7 +369,8 @@ export default function App() {
     if (missedIds.length === 0) return;
 
     const missedQuestions = masterBank.filter((q) => missedIds.includes(q.id));
-    const shuffled = shuffleArray(missedQuestions);
+    const pool = missedQuestions.length > 0 ? missedQuestions : masterBank;
+    const shuffled = shuffleArray(pool);
     const newBatch = shuffled.slice(0, Math.min(batchSize, shuffled.length));
 
     setCurrentBatchIds(newBatch.map((q) => q.id));
@@ -354,7 +394,11 @@ export default function App() {
 
   // Bank counts
   const totalBankCount = masterBank.length;
-  const completedBankCount = Object.keys(completedHistory).length;
+  const currentSubjectCompletedCount = useMemo(() => {
+    const bankIds = new Set(masterBank.map((q) => q.id));
+    return Object.keys(completedHistory).filter((idStr) => bankIds.has(parseInt(idStr, 10))).length;
+  }, [masterBank, completedHistory]);
+  const completedBankCount = currentSubjectCompletedCount;
   const remainingBankCount = Math.max(0, totalBankCount - completedBankCount);
 
   // Score for current batch
@@ -679,7 +723,7 @@ export default function App() {
             </div>
 
             <p className={`text-xs sm:text-sm leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-              คลังข้อสอบใหญ่ 80 ข้อ — ไม่ต้องแยกชุด ระบบจะสุ่มข้อที่ไม่เคยทำมาให้รอบละ {batchSize} ข้อ และเมื่อกดทำต่อจะตัดโจทย์เดิมออกไปเก็บในประวัติให้อัตโนมัติ
+              คลังข้อสอบวิชา {currentSubject.name} ทั้งหมด {totalBankCount} ข้อ — ระบบจะสุ่มข้อที่ไม่เคยทำมาให้รอบละ {batchSize} ข้อ และเมื่อกดทำต่อจะตัดโจทย์เดิมออกไปเก็บในประวัติให้อัตโนมัติ
             </p>
           </div>
 
@@ -961,11 +1005,17 @@ export default function App() {
                 <div className="flex items-center gap-2 font-bold">
                   <BookOpen className="w-4 h-4 text-amber-400" />
                   <span className={isDark ? 'text-zinc-100' : 'text-stone-900'}>
-                    คู่มือสรุปกฎไวยากรณ์ภาษาไทย
+                    คู่มือสรุปเนื้อหาวิชา {currentSubject.name}
                   </span>
                 </div>
                 <p className={`leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-                  ทบทวนความแตกต่างระหว่าง <em>can vs could vs will be able to</em>, <em>mustn't vs don't have to</em>, <em>'d better</em> และ <em>Future Forms</em> ได้ตลอดเวลา
+                  {currentSubjectId === 'english'
+                    ? 'ทบทวนความแตกต่างระหว่าง can vs could vs will be able to, mustn\'t vs don\'t have to, \'d better และ Future Forms ได้ตลอดเวลา'
+                    : currentSubjectId === 'biology'
+                    ? 'สรุปเนื้อหาโครงสร้างพืชดอก การสืบพันธุ์แบบอาศัยเพศ วัฏจักรชีวิตแบบสลับ และการงอกของเมล็ด'
+                    : currentSubjectId === 'history'
+                    ? 'สรุปประเด็นสำคัญของอารยธรรมกรีก โรมัน ระบอบฟิวดัล และสงครามครูเสด'
+                    : 'สรุปสูตรและหลักคิดสำคัญ: ความน่าจะเป็น, กฎการบวก/การคูณ, แฟกทอเรียล, P(n,r), C(n,r) และเหตุการณ์อิสระ'}
                 </p>
                 <button
                   onClick={() => setIsGuideOpen(true)}
@@ -976,7 +1026,7 @@ export default function App() {
                   }`}
                   id="open-guide-sidebar-btn"
                 >
-                  เปิดอ่านคู่มือสรุปไวยากรณ์
+                  เปิดอ่านคู่มือสรุปเนื้อหา
                 </button>
               </div>
 
@@ -995,11 +1045,12 @@ export default function App() {
         )}
       </main>
 
-      {/* Grammar Guide Modal */}
+      {/* Grammar / Study Guide Modal */}
       <GrammarGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         theme={theme}
+        subjectId={currentSubjectId}
       />
 
       {/* Footer with Creator Credit WINTER */}
@@ -1010,7 +1061,7 @@ export default function App() {
       >
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-            <span>แบบทดสอบไวยากรณ์ภาษาอังกฤษ (Modal Verbs & Future Forms)</span>
+            <span>แบบทดสอบ 4 วิชา (ภาษาอังกฤษ • ชีววิทยา • ประวัติศาสตร์สากล • คณิตศาสตร์)</span>
             <span>•</span>
             <span className="inline-flex items-center gap-1 font-bold text-amber-400">
               <Sparkles className="w-3 h-3" />
@@ -1018,7 +1069,7 @@ export default function App() {
             </span>
           </div>
           <div className="flex items-center gap-1 text-zinc-400">
-            <span>สุ่มคลังข้อสอบอัจฉริยะ • ตัดข้อเดิมอัตโนมัติเมื่อทำต่อ</span>
+            <span>สุ่มคลังข้อสอบอัจฉริยะ 380 ข้อ • ตัดข้อเดิมอัตโนมัติเมื่อทำต่อ</span>
           </div>
         </div>
       </footer>

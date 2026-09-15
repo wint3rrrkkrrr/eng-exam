@@ -37,7 +37,7 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
 }) => {
   const [selectedBatchSize, setSelectedBatchSize] = useState<number>(20);
 
-  const getSubjectIcon = (iconName: string, className: string) => {
+  const getSubjectIcon = (iconName: string, className: string, color: string) => {
     switch (iconName) {
       case 'Languages':
         return <Languages className={className} />;
@@ -79,9 +79,15 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
               <Shuffle className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <span>เลือกวิชาและจำนวนข้อสอบ</span>
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <span>เลือกวิชาและจำนวนข้อสอบ</span>
+                </h2>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  <span>สร้างสรรค์โดย WINTER</span>
+                </span>
+              </div>
               <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
                 สุ่มข้อสอบจากคลัง ไม่ต้องแยกชุด และตัดโจทย์ที่เคยทำแล้วออกให้อัตโนมัติ
               </p>
@@ -141,9 +147,9 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
 
             {/* Chips for batch count */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {[10, 20, 30, 40, 80].map((count) => {
+              {[10, 20, 30, 50, 100].map((count) => {
                 const isSelected = selectedBatchSize === count;
-                const label = count === 80 ? 'ทั้งหมด (80 ข้อ)' : `${count} ข้อ`;
+                const label = `${count} ข้อ`;
                 return (
                   <button
                     key={count}
@@ -160,7 +166,7 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
                   >
                     <span>{label}</span>
                     <span className={`text-[10px] font-normal ${isSelected ? (isDark ? 'text-zinc-800' : 'text-stone-300') : 'opacity-60'}`}>
-                      {count === 10 ? 'ชุดสั้น เร่งด่วน' : count === 20 ? 'กำลังพอดี (แนะนำ)' : count === 40 ? 'ชุดมาตรฐาน' : count === 80 ? 'ครบทั้งคลัง' : 'ชุดยาว'}
+                      {count === 10 ? 'ชุดสั้น เร่งด่วน' : count === 20 ? 'กำลังพอดี (แนะนำ)' : count === 30 ? 'ปานกลาง' : count === 50 ? 'ชุดมาตรฐาน' : 'ทั้งคลัง 100 ข้อ'}
                     </span>
                   </button>
                 );
@@ -171,10 +177,10 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
           {/* Subject Cards */}
           <div className="space-y-3">
             <span className={`text-xs font-bold uppercase tracking-wider block ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-              รายชื่อวิชาทั้งหมด
+              รายชื่อวิชาทั้งหมด (พร้อมใช้งาน 4 วิชา รวม 380 ข้อ)
             </span>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {availableSubjects.map((subject) => {
                 const isSelected = subject.id === currentSubjectId;
                 const isReady = subject.isReady;
@@ -202,10 +208,16 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
                           className={`w-11 h-11 rounded-xl flex items-center justify-center border ${
                             subject.id === 'english'
                               ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                              : subject.id === 'biology'
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : subject.id === 'history'
+                              ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
+                              : subject.id === 'math'
+                              ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
                               : 'bg-zinc-800 border-zinc-700 text-zinc-400'
                           }`}
                         >
-                          {getSubjectIcon(subject.icon, 'w-5 h-5')}
+                          {getSubjectIcon(subject.icon, 'w-5 h-5', subject.color)}
                         </div>
 
                         {isReady ? (
@@ -241,13 +253,17 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
                             if (onClose) onClose();
                           }}
                           className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition active:scale-98 flex items-center justify-center gap-2 ${
-                            isDark
-                              ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold shadow-sm'
-                              : 'bg-stone-900 hover:bg-stone-800 text-white'
+                            isSelected
+                              ? isDark
+                                ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold shadow-sm'
+                                : 'bg-stone-900 hover:bg-stone-800 text-white'
+                              : isDark
+                              ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700'
+                              : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300'
                           }`}
                         >
                           <Shuffle className="w-3.5 h-3.5" />
-                          <span>เริ่มสุ่มข้อสอบ ({selectedBatchSize} ข้อ)</span>
+                          <span>{isSelected ? `สุ่มข้อสอบ (${selectedBatchSize} ข้อ)` : `เลือกวิชานี้ (${selectedBatchSize} ข้อ)`}</span>
                         </button>
                       ) : (
                         <div className="flex items-center justify-between py-1 text-xs">
@@ -270,19 +286,26 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
 
         {/* Footer */}
         <div
-          className={`p-4 border-t text-center text-xs flex items-center justify-between ${
+          className={`p-4 border-t text-center text-xs flex items-center justify-between gap-2 flex-wrap ${
             isDark ? 'border-zinc-800 bg-[#161823] text-zinc-400' : 'border-stone-200 bg-stone-50 text-stone-500'
           }`}
         >
-          <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ • WINTER</span>
+          <div className="flex items-center gap-1.5 font-semibold">
+            <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ 4 วิชา (380 ข้อ)</span>
+            <span>•</span>
+            <span className="inline-flex items-center gap-1 font-bold text-amber-400">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>สร้างสรรค์โดย WINTER</span>
+            </span>
+          </div>
           {onClose && (
             <button
               onClick={onClose}
-              className={`px-4 py-1.5 rounded-xl font-bold text-xs ${
+              className={`px-4 py-1.5 rounded-xl font-bold text-xs transition ${
                 isDark ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200' : 'bg-stone-200 hover:bg-stone-300 text-stone-800'
               }`}
             >
-              ปิดหน้าต่าง
+              เข้าสู่แบบทดสอบ
             </button>
           )}
         </div>
