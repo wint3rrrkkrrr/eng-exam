@@ -31,7 +31,7 @@ import {
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
 import { getQuestionDifficulty } from './utils/difficulty';
-const logoImage = '/src/assets/images/winter_exam_logo_1789496745669.jpg';
+import logoImage from './assets/images/winter_exam_logo_1789496745669.jpg';
 
 // Helper to shuffle array (Fisher-Yates)
 function shuffleArray<T>(array: T[]): T[] {
