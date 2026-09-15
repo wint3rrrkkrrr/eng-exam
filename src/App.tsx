@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
+const logoImage = '/src/assets/images/winter_exam_logo_1789496745669.jpg';
 
 // Helper to shuffle array (Fisher-Yates)
 function shuffleArray<T>(array: T[]): T[] {
@@ -632,9 +633,9 @@ export default function App() {
 
         {/* Landing Page Header / Quick settings */}
         <header className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-2">
-            <Snowflake className="w-6 h-6 text-blue-400 animate-pulse" />
-            <span className="font-extrabold text-lg tracking-wider">WINTER exam</span>
+          <div className="flex items-center gap-2.5">
+            <img src={logoImage} alt="WINTER Prep Hub Logo" className="w-8 h-8 rounded-xl object-cover border border-blue-500/20 shadow-xs" referrerPolicy="no-referrer" />
+            <span className="font-extrabold text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-amber-300">WINTER Prep Hub</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -684,18 +685,23 @@ export default function App() {
         {/* Main Hero Panel */}
         <main className="flex-1 flex flex-col justify-center items-center max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-12 relative z-10">
           <div className="text-center space-y-6 max-w-3xl">
-            {/* Giant Rotating Snowflake Logo */}
-            <div className="inline-flex items-center justify-center relative mb-2">
-              <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-2xl animate-pulse" />
-              <div className="relative p-6 rounded-full bg-gradient-to-br from-blue-500/10 to-amber-500/10 border border-blue-500/20">
-                <Snowflake className="w-16 h-16 sm:w-20 sm:h-20 text-blue-400 animate-spin" style={{ animationDuration: '25s' }} />
+            {/* Giant Custom Generated Logo */}
+            <div className="inline-flex items-center justify-center relative mb-4 group">
+              <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-3xl animate-pulse transition-all duration-300 group-hover:scale-110" />
+              <div className="relative p-2.5 rounded-full bg-gradient-to-br from-blue-500/20 to-amber-500/20 border border-blue-500/20 shadow-xl transition-all duration-500 hover:scale-105">
+                <img
+                  src={logoImage}
+                  alt="WINTER Prep Hub Giant Logo"
+                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-2 border-amber-400/50 shadow-inner"
+                  referrerPolicy="no-referrer"
+                />
               </div>
             </div>
 
             {/* Site Title */}
             <div className="space-y-2">
               <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-zinc-100 to-amber-400">
-                WINTER exam
+                WINTER Prep Hub
               </h1>
               
               {/* Creator Credit Tag */}
