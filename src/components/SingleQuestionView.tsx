@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, Flame, Sparkles, XCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
+import { getQuestionDifficulty } from '../utils/difficulty';
 
 const formatOptionText = (option: string, isMath: boolean): string => {
   if (!isMath) return option;
@@ -149,6 +150,37 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
           >
             {question.topic}
           </span>
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${
+              isDark
+                ? 'bg-[#181a26]/80 border-zinc-800 text-zinc-400'
+                : 'bg-stone-50 border-stone-200 text-stone-500'
+            }`}
+          >
+            {question.category}
+          </span>
+          {(() => {
+            const diffVal = getQuestionDifficulty(question);
+            const diffLabel = diffVal === 'Easy' ? 'ง่าย' : diffVal === 'Medium' ? 'ปานกลาง' : 'ยาก';
+            const diffBadgeColor = diffVal === 'Easy'
+              ? isDark
+                ? 'bg-[#0f2d1e] text-emerald-400 border border-emerald-800/60'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : diffVal === 'Medium'
+              ? isDark
+                ? 'bg-[#332200]/80 text-amber-400 border border-amber-800/60'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+              : isDark
+              ? 'bg-[#331111]/80 text-rose-400 border border-rose-800/60'
+              : 'bg-rose-50 text-rose-700 border-rose-200';
+            return (
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${diffBadgeColor}`}
+              >
+                {diffLabel}
+              </span>
+            );
+          })()}
           {streakCount >= 2 && (
             <span className="flex items-center gap-1 text-xs font-bold text-orange-500 animate-pulse">
               <Flame className="w-3.5 h-3.5 fill-orange-500" />

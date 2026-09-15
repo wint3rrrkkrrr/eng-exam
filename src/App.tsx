@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
+import { getQuestionDifficulty } from './utils/difficulty';
 const logoImage = '/src/assets/images/winter_exam_logo_1789496745669.jpg';
 
 // Helper to shuffle array (Fisher-Yates)
@@ -85,6 +86,16 @@ export default function App() {
       return saved ? parseInt(saved, 10) : 20;
     } catch {
       return 20;
+    }
+  });
+
+  // Difficulty filter state (Default: 'All')
+  const [difficultyFilter, setDifficultyFilter] = useState<'All' | 'Easy' | 'Medium' | 'Hard'>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_difficulty_filter');
+      return (saved as 'All' | 'Easy' | 'Medium' | 'Hard') || 'All';
+    } catch {
+      return 'All';
     }
   });
 
@@ -234,6 +245,15 @@ export default function App() {
     }
   }, [batchSize]);
 
+  // Sync difficulty filter
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_difficulty_filter', difficultyFilter);
+    } catch {
+      // ignore
+    }
+  }, [difficultyFilter]);
+
   // Sync completed history
   useEffect(() => {
     try {
@@ -281,18 +301,30 @@ export default function App() {
   };
 
   // Helper: Draw a new batch of questions from uncompleted pool
-  const drawNewBatch = useCallback((customBatchSize?: number, targetBank?: Question[]) => {
+  const drawNewBatch = useCallback((customBatchSize?: number, targetBank?: Question[], targetDifficulty?: 'All' | 'Easy' | 'Medium' | 'Hard') => {
     const size = customBatchSize || batchSize;
     const bank = targetBank || masterBank;
-    const uncompleted = bank.filter((q) => !completedHistory[q.id]);
+    const diff = targetDifficulty !== undefined ? targetDifficulty : difficultyFilter;
+
+    // Filter by difficulty if specified
+    const filteredBank = diff === 'All' 
+      ? bank 
+      : bank.filter((q) => getQuestionDifficulty(q) === diff);
+
+    const uncompleted = filteredBank.filter((q) => !completedHistory[q.id]);
     
     let newBatch: Question[] = [];
     if (uncompleted.length > 0) {
       const shuffled = shuffleArray(uncompleted);
       newBatch = shuffled.slice(0, Math.min(size, shuffled.length));
+    } else if (filteredBank.length > 0) {
+      // All questions in this filtered bank have been completed! Reshuffle from all
+      const shuffled = shuffleArray(filteredBank);
+      newBatch = shuffled.slice(0, Math.min(size, shuffled.length));
     } else {
-      // All questions in bank have been completed! Reshuffle from all
-      const shuffled = shuffleArray(bank);
+      // Fallback if filtered bank is completely empty
+      const uncompletedUnfiltered = bank.filter((q) => !completedHistory[q.id]);
+      const shuffled = shuffleArray(uncompletedUnfiltered.length > 0 ? uncompletedUnfiltered : bank);
       newBatch = shuffled.slice(0, Math.min(size, shuffled.length));
     }
 
@@ -306,7 +338,7 @@ export default function App() {
     setShowSummaryView(false);
     setStreakCount(0);
     setSecondsElapsed(0);
-  }, [masterBank, completedHistory, batchSize]);
+  }, [masterBank, completedHistory, batchSize, difficultyFilter]);
 
   // Handle "ทำต่อ (Continue Next Batch)"
   const handleContinueNextBatch = () => {
@@ -323,12 +355,16 @@ export default function App() {
   };
 
   // Handle subject change from modal
-  const handleSelectSubject = (subjectId: string, customSize?: number) => {
+  const handleSelectSubject = (subjectId: string, customSize?: number, customDifficulty?: 'All' | 'Easy' | 'Medium' | 'Hard') => {
     soundFX.playTap();
     setCurrentSubjectId(subjectId);
     const targetSize = customSize || batchSize;
     if (customSize) {
       setBatchSize(customSize);
+    }
+    const targetDifficulty = customDifficulty !== undefined ? customDifficulty : difficultyFilter;
+    if (customDifficulty !== undefined) {
+      setDifficultyFilter(customDifficulty);
     }
     setShowSubjectSelector(false);
 
@@ -338,7 +374,7 @@ export default function App() {
     else if (subjectId === 'history') targetBank = historyQuestions;
     else if (subjectId === 'math') targetBank = mathQuestions;
 
-    drawNewBatch(targetSize, targetBank);
+    drawNewBatch(targetSize, targetBank, targetDifficulty);
   };
 
   // Reshuffle current batch
@@ -853,6 +889,8 @@ export default function App() {
             setShowSubjectSelector(false);
             setShowHistoryModal(true);
           }}
+          difficultyFilter={difficultyFilter}
+          onDifficultyFilterChange={setDifficultyFilter}
         />
       )}
 

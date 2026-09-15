@@ -18,12 +18,14 @@ import { availableSubjects } from '../data/subjectsData';
 
 interface SubjectSelectorProps {
   currentSubjectId: string;
-  onSelectSubject: (subjectId: string, batchSize?: number) => void;
+  onSelectSubject: (subjectId: string, batchSize?: number, difficulty?: 'All' | 'Easy' | 'Medium' | 'Hard') => void;
   completedCount: number;
   totalQuestionsInSubject: number;
   theme: ThemeMode;
   onClose?: () => void;
   onOpenHistory?: () => void;
+  difficultyFilter: 'All' | 'Easy' | 'Medium' | 'Hard';
+  onDifficultyFilterChange: (difficulty: 'All' | 'Easy' | 'Medium' | 'Hard') => void;
 }
 
 export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
@@ -34,6 +36,8 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
   theme,
   onClose,
   onOpenHistory,
+  difficultyFilter,
+  onDifficultyFilterChange,
 }) => {
   const [selectedBatchSize, setSelectedBatchSize] = useState<number>(20);
 
@@ -174,6 +178,54 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
             </div>
           </div>
 
+          {/* Difficulty Level Option */}
+          <div
+            className={`p-4 rounded-2xl border ${
+              isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-stone-50 border-stone-200'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div>
+                <span className="text-xs font-bold text-amber-500 uppercase tracking-wider block mb-0.5">
+                  ระดับความยาก (Difficulty Level)
+                </span>
+                <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                  เลือกเพื่อกรองระดับความยากของข้อสอบในการสุ่มรอบนี้ (มีครบทุกระดับในทุกวิชา)
+                </p>
+              </div>
+            </div>
+
+            {/* Chips for difficulty */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(['All', 'Easy', 'Medium', 'Hard'] as const).map((diff) => {
+                const isSelected = difficultyFilter === diff;
+                const label = diff === 'All' ? 'คละระดับทั้งหมด' : diff === 'Easy' ? 'ง่าย (Easy)' : diff === 'Medium' ? 'ปานกลาง (Medium)' : 'ยาก (Hard)';
+                const desc = diff === 'All' ? 'ทุกข้อในคลัง' : diff === 'Easy' ? 'เน้นปรับพื้นฐาน' : diff === 'Medium' ? 'ฝึกความคล่องตัว' : 'ท้าทายโจทย์สอบจริง';
+
+                return (
+                  <button
+                    key={diff}
+                    onClick={() => onDifficultyFilterChange(diff)}
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs border transition active:scale-95 flex flex-col items-center justify-center gap-0.5 ${
+                      isSelected
+                        ? isDark
+                          ? 'bg-amber-400 text-zinc-950 border-amber-300 shadow-md font-extrabold'
+                          : 'bg-stone-900 text-white border-stone-800 shadow-sm'
+                        : isDark
+                        ? 'bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 border-zinc-700'
+                        : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200'
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span className={`text-[10px] font-normal ${isSelected ? (isDark ? 'text-zinc-800' : 'text-stone-300') : 'opacity-60'}`}>
+                      {desc}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Subject Cards */}
           <div className="space-y-3">
             <span className={`text-xs font-bold uppercase tracking-wider block ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
@@ -249,7 +301,7 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
                       {isReady ? (
                         <button
                           onClick={() => {
-                            onSelectSubject(subject.id, selectedBatchSize);
+                            onSelectSubject(subject.id, selectedBatchSize, difficultyFilter);
                             if (onClose) onClose();
                           }}
                           className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition active:scale-98 flex items-center justify-center gap-2 ${

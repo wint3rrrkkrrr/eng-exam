@@ -8,6 +8,7 @@ export interface Question {
   answer: string;
   explanation: string;
   ruleSummary: string;
+  difficulty?: 'Easy' | 'Medium' | 'Hard';
 }
 
 export interface SubjectInfo {
