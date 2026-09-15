@@ -145,10 +145,17 @@ export default function App() {
     return shuffled.slice(0, Math.min(count, shuffled.length)).map((q) => q.id);
   });
 
-  // Current batch questions derived from master bank
+  // Current batch questions derived from master bank with shuffled options
   const questions: Question[] = useMemo(() => {
     return currentBatchIds
-      .map((id) => masterBank.find((q) => q.id === id))
+      .map((id) => {
+        const found = masterBank.find((q) => q.id === id);
+        if (!found) return undefined;
+        return {
+          ...found,
+          options: shuffleArray(found.options),
+        };
+      })
       .filter((q): q is Question => q !== undefined);
   }, [currentBatchIds, masterBank]);
 

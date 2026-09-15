@@ -314,8 +314,6 @@ export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  if (!isOpen) return null;
-
   const isDark = theme === 'dark';
 
   // Select rules according to subject
@@ -351,6 +349,8 @@ export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
 
     return matchesCategory && matchesSearch;
   });
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
