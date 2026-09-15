@@ -1,0 +1,1027 @@
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Header } from './components/Header';
+import { QuestionCard } from './components/QuestionCard';
+import { QuestionPalette } from './components/QuestionPalette';
+import { ResultSummary } from './components/ResultSummary';
+import { SingleQuestionView } from './components/SingleQuestionView';
+import { GrammarGuideModal } from './components/GrammarGuideModal';
+import { SubjectSelector } from './components/SubjectSelector';
+import { CompletedHistoryModal } from './components/CompletedHistoryModal';
+import { allQuestions } from './data/questionsData';
+import { subjectsList } from './data/subjectsData';
+import { Question, QuizViewMode, CategoryStat, ThemeMode, CompletedQuestionRecord } from './types';
+import { 
+  AlertCircle, 
+  ArrowUp, 
+  Sparkles, 
+  BookOpen, 
+  Flame, 
+  LayoutGrid, 
+  CheckCircle2, 
+  Shuffle, 
+  History,
+  ArrowRight,
+  RotateCcw
+} from 'lucide-react';
+import { soundFX } from './utils/audio';
+import { triggerConfetti } from './utils/confetti';
+
+// Helper to shuffle array (Fisher-Yates)
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+export default function App() {
+  // Theme state: defaults to Dark Mode
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_theme');
+      return (saved as ThemeMode) || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_sound');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // Subject state
+  const [currentSubjectId, setCurrentSubjectId] = useState<string>('english');
+  const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+
+  // Batch size state (Default: 20 questions)
+  const [batchSize, setBatchSize] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_batch_size');
+      return saved ? parseInt(saved, 10) : 20;
+    } catch {
+      return 20;
+    }
+  });
+
+  // Completed Questions History Pool across all sessions
+  const [completedHistory, setCompletedHistory] = useState<Record<number, CompletedQuestionRecord>>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_completed_history_v5');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Master bank of questions for the active subject
+  const currentSubject = useMemo(() => {
+    return subjectsList.find((s) => s.id === currentSubjectId) || subjectsList[0];
+  }, [currentSubjectId]);
+
+  const masterBank: Question[] = useMemo(() => {
+    if (currentSubjectId === 'english') {
+      return allQuestions;
+    }
+    return [];
+  }, [currentSubjectId]);
+
+  // Current active batch question IDs
+  const [currentBatchIds, setCurrentBatchIds] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_current_batch_ids_v5');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback below
+    }
+
+    // Initialize initial batch from unseen pool
+    const savedCompleted: Record<number, CompletedQuestionRecord> = (() => {
+      try {
+        const s = localStorage.getItem('grammar_quiz_completed_history_v5');
+        return s ? JSON.parse(s) : {};
+      } catch {
+        return {};
+      }
+    })();
+
+    const unseen = allQuestions.filter((q) => !savedCompleted[q.id]);
+    const pool = unseen.length > 0 ? unseen : allQuestions;
+    const shuffled = shuffleArray(pool);
+    const count = 20;
+    return shuffled.slice(0, Math.min(count, shuffled.length)).map((q) => q.id);
+  });
+
+  // Current batch questions derived from master bank
+  const questions: Question[] = useMemo(() => {
+    return currentBatchIds
+      .map((id) => masterBank.find((q) => q.id === id))
+      .filter((q): q is Question => q !== undefined);
+  }, [currentBatchIds, masterBank]);
+
+  // Current batch active answers
+  const [answers, setAnswers] = useState<Record<number, string>>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_current_answers_v5');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Flagged questions in current batch
+  const [flagged, setFlagged] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_flagged_v5');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [viewMode, setViewMode] = useState<QuizViewMode>('all');
+  const [currentSingleIdx, setCurrentSingleIdx] = useState<number>(0);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unanswered' | 'flagged' | 'correct' | 'wrong'>('all');
+  const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+  const [showSummaryView, setShowSummaryView] = useState<boolean>(false);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+  const [streakCount, setStreakCount] = useState<number>(0);
+  const [maxStreak, setMaxStreak] = useState<number>(0);
+
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  // Sync theme
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_theme', theme);
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  // Sync sound settings
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_sound', JSON.stringify(soundEnabled));
+      soundFX.enabled = soundEnabled;
+    } catch {
+      // ignore
+    }
+  }, [soundEnabled]);
+
+  // Sync batch size
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_batch_size', batchSize.toString());
+    } catch {
+      // ignore
+    }
+  }, [batchSize]);
+
+  // Sync completed history
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_completed_history_v5', JSON.stringify(completedHistory));
+    } catch {
+      // ignore
+    }
+  }, [completedHistory]);
+
+  // Sync current batch IDs
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_current_batch_ids_v5', JSON.stringify(currentBatchIds));
+    } catch {
+      // ignore
+    }
+  }, [currentBatchIds]);
+
+  // Sync current answers & flagged
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_current_answers_v5', JSON.stringify(answers));
+    } catch {
+      // ignore
+    }
+  }, [answers]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_flagged_v5', JSON.stringify(flagged));
+    } catch {
+      // ignore
+    }
+  }, [flagged]);
+
+  // Timer interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSecondsElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleToggleSound = () => {
+    setSoundEnabled((prev) => !prev);
+  };
+
+  // Helper: Draw a new batch of questions from uncompleted pool
+  const drawNewBatch = useCallback((customBatchSize?: number) => {
+    const size = customBatchSize || batchSize;
+    const uncompleted = masterBank.filter((q) => !completedHistory[q.id]);
+    
+    let newBatch: Question[] = [];
+    if (uncompleted.length > 0) {
+      const shuffled = shuffleArray(uncompleted);
+      newBatch = shuffled.slice(0, Math.min(size, shuffled.length));
+    } else {
+      // All questions in bank have been completed! Reshuffle from all
+      const shuffled = shuffleArray(masterBank);
+      newBatch = shuffled.slice(0, Math.min(size, shuffled.length));
+    }
+
+    const newIds = newBatch.map((q) => q.id);
+    setCurrentBatchIds(newIds);
+    setAnswers({});
+    setFlagged([]);
+    setCurrentSingleIdx(0);
+    setActiveFilter('all');
+    setSelectedTopic('all');
+    setShowSummaryView(false);
+    setStreakCount(0);
+    setSecondsElapsed(0);
+  }, [masterBank, completedHistory, batchSize]);
+
+  // Handle "ทำต่อ (Continue Next Batch)"
+  const handleContinueNextBatch = () => {
+    soundFX.playTap();
+    drawNewBatch();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handle changing batch size
+  const handleBatchSizeChange = (newSize: number) => {
+    soundFX.playTap();
+    setBatchSize(newSize);
+    drawNewBatch(newSize);
+  };
+
+  // Handle subject change from modal
+  const handleSelectSubject = (subjectId: string, customSize?: number) => {
+    soundFX.playTap();
+    setCurrentSubjectId(subjectId);
+    if (customSize) {
+      setBatchSize(customSize);
+    }
+    setShowSubjectSelector(false);
+    drawNewBatch(customSize || batchSize);
+  };
+
+  // Reshuffle current batch
+  const handleReshuffleBatch = () => {
+    soundFX.playTap();
+    drawNewBatch();
+  };
+
+  // Reset entire completed history and start fresh
+  const handleResetEntireHistory = () => {
+    soundFX.playTap();
+    setCompletedHistory({});
+    setAnswers({});
+    setFlagged([]);
+    setShowSummaryView(false);
+    setStreakCount(0);
+    setMaxStreak(0);
+    setSecondsElapsed(0);
+    
+    // Draw fresh batch from complete bank
+    const shuffled = shuffleArray(masterBank);
+    const newBatch = shuffled.slice(0, Math.min(batchSize, shuffled.length));
+    setCurrentBatchIds(newBatch.map((q) => q.id));
+  };
+
+  // Re-practice missed questions from completed history
+  const handlePracticeMissedFromHistory = () => {
+    soundFX.playTap();
+    const missedIds = (Object.values(completedHistory) as CompletedQuestionRecord[])
+      .filter((rec) => !rec.isCorrect)
+      .map((rec) => rec.questionId);
+
+    if (missedIds.length === 0) return;
+
+    const missedQuestions = masterBank.filter((q) => missedIds.includes(q.id));
+    const shuffled = shuffleArray(missedQuestions);
+    const newBatch = shuffled.slice(0, Math.min(batchSize, shuffled.length));
+
+    setCurrentBatchIds(newBatch.map((q) => q.id));
+    setAnswers({});
+    setFlagged([]);
+    setShowSummaryView(false);
+    setCurrentSingleIdx(0);
+    setActiveFilter('all');
+    setSelectedTopic('all');
+    setStreakCount(0);
+    setSecondsElapsed(0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Extract all unique topics in current batch
+  const allTopics = useMemo(() => {
+    const set = new Set<string>();
+    questions.forEach((q) => set.add(q.topic));
+    return Array.from(set);
+  }, [questions]);
+
+  // Bank counts
+  const totalBankCount = masterBank.length;
+  const completedBankCount = Object.keys(completedHistory).length;
+  const remainingBankCount = Math.max(0, totalBankCount - completedBankCount);
+
+  // Score for current batch
+  const correctCount = useMemo(() => {
+    let s = 0;
+    questions.forEach((q) => {
+      if (answers[q.id] === q.answer) s++;
+    });
+    return s;
+  }, [questions, answers]);
+
+  const answeredCount = useMemo(() => {
+    return questions.filter((q) => answers[q.id] !== undefined).length;
+  }, [questions, answers]);
+
+  const unansweredCount = useMemo(() => {
+    return questions.length - answeredCount;
+  }, [questions, answeredCount]);
+
+  // Category statistics in current batch
+  const categoryStats: CategoryStat[] = useMemo(() => {
+    const map = new Map<string, { total: number; correct: number }>();
+    questions.forEach((q) => {
+      const entry = map.get(q.topic) || { total: 0, correct: 0 };
+      entry.total += 1;
+      if (answers[q.id] === q.answer) {
+        entry.correct += 1;
+      }
+      map.set(q.topic, entry);
+    });
+
+    return Array.from(map.entries()).map(([topic, data]) => ({
+      topic,
+      total: data.total,
+      correct: data.correct,
+      percentage: Math.round((data.correct / data.total) * 100),
+    }));
+  }, [questions, answers]);
+
+  // Filter questions for list display
+  const filteredQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (selectedTopic !== 'all' && q.topic !== selectedTopic) {
+        return false;
+      }
+      if (activeFilter === 'unanswered') {
+        return answers[q.id] === undefined;
+      }
+      if (activeFilter === 'flagged') {
+        return flagged.includes(q.id);
+      }
+      if (activeFilter === 'correct') {
+        return answers[q.id] !== undefined && answers[q.id] === q.answer;
+      }
+      if (activeFilter === 'wrong') {
+        return answers[q.id] !== undefined && answers[q.id] !== q.answer;
+      }
+      return true;
+    });
+  }, [questions, selectedTopic, activeFilter, answers, flagged]);
+
+  // Instant Feedback Handler: also saves into completedHistory pool automatically
+  const handleSelectOption = (questionId: number, option: string) => {
+    const currentQ = questions.find((q) => q.id === questionId);
+    if (!currentQ) return;
+
+    const isCorrect = currentQ.answer === option;
+
+    if (isCorrect) {
+      soundFX.playCorrect();
+      setStreakCount((s) => {
+        const next = s + 1;
+        setMaxStreak((m) => Math.max(m, next));
+        if (next >= 5 && next % 5 === 0) {
+          triggerConfetti();
+        }
+        return next;
+      });
+    } else {
+      soundFX.playWrong();
+      setStreakCount(0);
+    }
+
+    // Save in batch answers
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: option,
+    }));
+
+    // Archive into completed history pool (โจทย์ที่เคยทำแล้ว)
+    setCompletedHistory((prev) => ({
+      ...prev,
+      [questionId]: {
+        questionId,
+        selectedOption: option,
+        isCorrect,
+        timestamp: Date.now(),
+      },
+    }));
+
+    // If all questions in the active batch are answered, trigger celebratory confetti
+    if (answeredCount + (answers[questionId] ? 0 : 1) === questions.length) {
+      triggerConfetti();
+    }
+  };
+
+  const handleToggleFlag = (questionId: number) => {
+    soundFX.playTap();
+    setFlagged((prev) =>
+      prev.includes(questionId)
+        ? prev.filter((id) => id !== questionId)
+        : [...prev, questionId]
+    );
+  };
+
+  const handleResetCurrentBatch = () => {
+    if (window.confirm('คุณต้องการรีเซ็ตคำตอบในรอบปัจจุบันนี้ใช่หรือไม่?')) {
+      soundFX.playTap();
+      const currentIds = new Set(questions.map((q) => q.id));
+      setAnswers({});
+      setFlagged((prev) => prev.filter((id) => !currentIds.has(id)));
+      setShowSummaryView(false);
+      setSecondsElapsed(0);
+      setStreakCount(0);
+      setActiveFilter('all');
+      setSelectedTopic('all');
+      setCurrentSingleIdx(0);
+    }
+  };
+
+  const handleRetakeMissedInBatch = () => {
+    soundFX.playTap();
+    const newAnswers: Record<number, string> = { ...answers };
+    questions.forEach((q) => {
+      if (answers[q.id] !== q.answer) {
+        delete newAnswers[q.id];
+      }
+    });
+    setAnswers(newAnswers);
+    setShowSummaryView(false);
+    setActiveFilter('unanswered');
+    setViewMode('all');
+  };
+
+  const handleRetakeAllInBatch = () => {
+    soundFX.playTap();
+    setAnswers({});
+    setShowSummaryView(false);
+    setActiveFilter('all');
+    setSelectedTopic('all');
+    setCurrentSingleIdx(0);
+    setStreakCount(0);
+  };
+
+  const handlePaletteSelectQuestion = (questionId: number) => {
+    soundFX.playTap();
+    if (viewMode === 'single') {
+      const idx = questions.findIndex((q) => q.id === questionId);
+      if (idx !== -1) setCurrentSingleIdx(idx);
+    } else {
+      if (activeFilter !== 'all' || selectedTopic !== 'all') {
+        setActiveFilter('all');
+        setSelectedTopic('all');
+      }
+      setTimeout(() => {
+        const el = document.getElementById(`question-card-${questionId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+    }
+  };
+
+  // Keyboard navigation for single view
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (viewMode === 'single') {
+        const currentQ = questions[currentSingleIdx];
+        if (e.key === 'ArrowRight' && currentSingleIdx < questions.length - 1) {
+          setCurrentSingleIdx((i) => i + 1);
+        } else if (e.key === 'ArrowLeft' && currentSingleIdx > 0) {
+          setCurrentSingleIdx((i) => i - 1);
+        } else if (['1', '2', '3', '4'].includes(e.key) && currentQ) {
+          const optIdx = parseInt(e.key) - 1;
+          if (currentQ.options[optIdx]) {
+            handleSelectOption(currentQ.id, currentQ.options[optIdx]);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, currentSingleIdx, questions]);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const isDark = theme === 'dark';
+
+  return (
+    <div
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
+        isDark ? 'bg-[#0b0c10] text-zinc-100 selection:bg-amber-400 selection:text-zinc-950' : 'bg-stone-100/70 text-stone-900 selection:bg-stone-200'
+      }`}
+    >
+      {/* Subject Selector Modal */}
+      {showSubjectSelector && (
+        <SubjectSelector
+          currentSubjectId={currentSubjectId}
+          onSelectSubject={handleSelectSubject}
+          completedCount={completedBankCount}
+          totalQuestionsInSubject={totalBankCount}
+          theme={theme}
+          onClose={() => setShowSubjectSelector(false)}
+          onOpenHistory={() => {
+            setShowSubjectSelector(false);
+            setShowHistoryModal(true);
+          }}
+        />
+      )}
+
+      {/* Completed Questions History Modal */}
+      <CompletedHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        completedRecords={completedHistory}
+        allQuestions={masterBank}
+        onResetHistory={handleResetEntireHistory}
+        onPracticeMissedFromHistory={handlePracticeMissedFromHistory}
+        theme={theme}
+      />
+
+      {/* Header */}
+      <Header
+        currentSubjectName={currentSubject.name}
+        totalQuestionsInBatch={questions.length}
+        totalQuestionsInBank={totalBankCount}
+        completedBankCount={completedBankCount}
+        answeredCount={answeredCount}
+        correctCount={correctCount}
+        viewMode={viewMode}
+        onToggleViewMode={setViewMode}
+        onOpenGuide={() => setIsGuideOpen(true)}
+        onOpenSubjectSelector={() => setShowSubjectSelector(true)}
+        onOpenHistory={() => setShowHistoryModal(true)}
+        onResetBatch={handleResetCurrentBatch}
+        onShowSummary={() => {
+          setShowSummaryView(true);
+          setTimeout(() => {
+            if (resultRef.current) {
+              resultRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 100);
+        }}
+        onReshuffleBatch={handleReshuffleBatch}
+        onBatchSizeChange={handleBatchSizeChange}
+        currentBatchSize={batchSize}
+        secondsElapsed={secondsElapsed}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        soundEnabled={soundEnabled}
+        onToggleSound={handleToggleSound}
+        streakCount={streakCount}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
+        {/* Dynamic Random Pool Info Banner */}
+        <div
+          className={`mb-5 rounded-2xl border p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+            isDark ? 'bg-[#161821] border-zinc-800' : 'bg-white border-stone-200'
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              {/* Random Batch Mode Badge */}
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                  isDark
+                    ? 'bg-amber-950/70 text-amber-300 border-amber-800'
+                    : 'bg-amber-100 text-amber-900 border-amber-300'
+                }`}
+              >
+                <Shuffle className="w-3 h-3 text-amber-400" />
+                <span>สุ่มรอบละ {questions.length} ข้อ</span>
+              </span>
+
+              {/* Bank Progress Badge */}
+              <button
+                onClick={() => setShowHistoryModal(true)}
+                className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition hover:opacity-80 ${
+                  isDark
+                    ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                    : 'bg-stone-100 text-stone-800 border-stone-200'
+                }`}
+                title="คลิกเพื่อดูคลังข้อที่เคยทำแล้ว"
+              >
+                <History className="w-3 h-3 text-amber-400" />
+                <span>คลังทำสะสม: {completedBankCount}/{totalBankCount} ข้อ</span>
+                {remainingBankCount > 0 ? (
+                  <span className="text-amber-400">(เหลืออีก {remainingBankCount} ข้อ)</span>
+                ) : (
+                  <span className="text-emerald-400">(ครบทั้งคลังแล้ว)</span>
+                )}
+              </button>
+
+              {/* Instant Feedback indicator badge */}
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>เฉลยทันทีที่ตอบ</span>
+              </span>
+
+              {/* Creator Tag */}
+              <span className={`text-[11px] font-semibold flex items-center gap-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                <span>สร้างสรรค์โดย</span>
+                <strong className={isDark ? 'text-amber-300 font-extrabold' : 'text-stone-800 font-extrabold'}>WINTER</strong>
+              </span>
+            </div>
+
+            <p className={`text-xs sm:text-sm leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+              คลังข้อสอบใหญ่ 80 ข้อ — ไม่ต้องแยกชุด ระบบจะสุ่มข้อที่ไม่เคยทำมาให้รอบละ {batchSize} ข้อ และเมื่อกดทำต่อจะตัดโจทย์เดิมออกไปเก็บในประวัติให้อัตโนมัติ
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
+            {/* Continue / Next Batch Button */}
+            <button
+              onClick={handleContinueNextBatch}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition active:scale-98 shadow-sm ${
+                isDark
+                  ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold'
+                  : 'bg-stone-900 hover:bg-stone-800 text-white'
+              }`}
+              title="สุ่มชุดใหม่ โดยตัดโจทย์เดิมที่เคยทำแล้วออก"
+              id="top-continue-next-btn"
+            >
+              <span>สุ่มชุดถัดไป</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => setShowHistoryModal(true)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition border ${
+                isDark
+                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-300'
+                  : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-800'
+              }`}
+              title="ดูคลังโจทย์ที่เคยทำแล้ว"
+            >
+              <History className="w-3.5 h-3.5 text-amber-400" />
+              <span>โจทย์ที่เคยทำแล้ว</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Results Banner when user clicks summary or answers all */}
+        {(showSummaryView || (questions.length > 0 && answeredCount === questions.length)) && (
+          <div ref={resultRef} className="mb-8 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            <ResultSummary
+              score={correctCount}
+              totalQuestions={questions.length}
+              unansweredCount={unansweredCount}
+              timeSpentSeconds={secondsElapsed}
+              categoryStats={categoryStats}
+              onRetakeAll={handleRetakeAllInBatch}
+              onRetakeMissed={handleRetakeMissedInBatch}
+              onContinueNextBatch={handleContinueNextBatch}
+              onOpenHistory={() => setShowHistoryModal(true)}
+              onOpenGuide={() => setIsGuideOpen(true)}
+              onFilterIncorrect={() => {
+                setActiveFilter('wrong');
+                setViewMode('all');
+                setShowSummaryView(false);
+              }}
+              onScrollToQuiz={() => {
+                setActiveFilter('all');
+                setViewMode('all');
+                setShowSummaryView(false);
+              }}
+              theme={theme}
+              maxStreak={maxStreak}
+              remainingBankCount={remainingBankCount}
+              completedBankCount={completedBankCount}
+              totalBankCount={totalBankCount}
+              batchSize={batchSize}
+            />
+          </div>
+        )}
+
+        {/* View Mode Switching */}
+        {viewMode === 'single' ? (
+          <div className="space-y-6">
+            {questions[currentSingleIdx] && (
+              <SingleQuestionView
+                question={questions[currentSingleIdx]}
+                currentIndex={currentSingleIdx}
+                totalQuestions={questions.length}
+                selectedOption={answers[questions[currentSingleIdx]?.id]}
+                isFlagged={flagged.includes(questions[currentSingleIdx]?.id)}
+                isSubmitted={true}
+                instantFeedback={true}
+                onSelectOption={(opt) => handleSelectOption(questions[currentSingleIdx].id, opt)}
+                onToggleFlag={() => handleToggleFlag(questions[currentSingleIdx].id)}
+                onNext={() => setCurrentSingleIdx((i) => Math.min(questions.length - 1, i + 1))}
+                onPrev={() => setCurrentSingleIdx((i) => Math.max(0, i - 1))}
+                onSubmit={() => {
+                  setShowSummaryView(true);
+                  setTimeout(() => {
+                    if (resultRef.current) {
+                      resultRef.current.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }, 100);
+                }}
+                theme={theme}
+                streakCount={streakCount}
+              />
+            )}
+
+            {/* Quick navigator palette */}
+            <div className="max-w-3xl mx-auto">
+              <QuestionPalette
+                questions={questions}
+                answers={answers}
+                flagged={flagged}
+                isSubmitted={true}
+                instantFeedback={true}
+                currentQuestionId={questions[currentSingleIdx]?.id}
+                onSelectQuestion={handlePaletteSelectQuestion}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                selectedTopic={selectedTopic}
+                onTopicChange={setSelectedTopic}
+                allTopics={allTopics}
+                theme={theme}
+              />
+            </div>
+          </div>
+        ) : (
+          /* List Mode (All Questions in Batch) */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Main Questions Column */}
+            <div className="lg:col-span-8 space-y-4" id="quiz-questions-list">
+              {/* Active Filter notification bar */}
+              {(activeFilter !== 'all' || selectedTopic !== 'all') && (
+                <div
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold ${
+                    isDark
+                      ? 'bg-amber-950/40 border-amber-800 text-amber-200'
+                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-400" />
+                    <span>
+                      กำลังแสดง {filteredQuestions.length} ข้อ (
+                      {activeFilter === 'correct' && 'ตัวกรอง: ตอบถูก'}
+                      {activeFilter === 'wrong' && 'ตัวกรอง: ตอบผิด'}
+                      {activeFilter === 'unanswered' && 'ตัวกรอง: ยังไม่ตอบ'}
+                      {activeFilter === 'flagged' && 'ตัวกรอง: ติดดาว'}
+                      {selectedTopic !== 'all' && ` • หมวดหมู่: ${selectedTopic}`})
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveFilter('all');
+                      setSelectedTopic('all');
+                    }}
+                    className="underline font-bold hover:opacity-80"
+                  >
+                    ล้างตัวกรอง
+                  </button>
+                </div>
+              )}
+
+              {filteredQuestions.length === 0 ? (
+                <div
+                  className={`p-8 text-center rounded-2xl border ${
+                    isDark ? 'bg-[#161821] border-zinc-800' : 'bg-white border-stone-200'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold mb-2 ${isDark ? 'text-zinc-300' : 'text-stone-700'}`}>
+                    ไม่พบข้อสอบที่ตรงกับตัวกรองที่คุณเลือก
+                  </p>
+                  <button
+                    onClick={() => {
+                      setActiveFilter('all');
+                      setSelectedTopic('all');
+                    }}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold ${
+                      isDark ? 'bg-amber-400 text-zinc-950' : 'bg-stone-900 text-white'
+                    }`}
+                  >
+                    แสดงข้อสอบทั้งหมด
+                  </button>
+                </div>
+              ) : (
+                filteredQuestions.map((q, idx) => {
+                  return (
+                    <QuestionCard
+                      key={q.id}
+                      question={q}
+                      selectedOption={answers[q.id]}
+                      isFlagged={flagged.includes(q.id)}
+                      isSubmitted={true}
+                      instantFeedback={true}
+                      onSelectOption={(opt) => handleSelectOption(q.id, opt)}
+                      onToggleFlag={() => handleToggleFlag(q.id)}
+                      index={idx}
+                      theme={theme}
+                    />
+                  );
+                })
+              )}
+
+              {/* Bottom Quick Summary & Continue Action Card */}
+              <div
+                className={`p-6 sm:p-7 rounded-2xl border text-center space-y-3 mt-6 shadow-xs ${
+                  isDark ? 'bg-[#161821] border-zinc-800' : 'bg-white border-stone-200'
+                }`}
+              >
+                <h3 className={`text-base sm:text-lg font-bold ${isDark ? 'text-zinc-100' : 'text-stone-900'}`}>
+                  ทำไปแล้ว {answeredCount} จาก {questions.length} ข้อในรอบนี้ (ตอบถูก {correctCount} ข้อ)
+                </h3>
+                <p className={`text-xs max-w-md mx-auto ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                  {unansweredCount > 0
+                    ? `เหลืออีก ${unansweredCount} ข้อในรอบนี้ หรือคลิก "ทำต่อ" เพื่อสุ่มชุดข้อสอบใหม่ทันที`
+                    : 'รอบนี้ครบทุกข้อแล้ว! กด "ทำต่อ" เพื่อสุ่มโจทย์ที่ยังไม่เคยทำชุดถัดไปได้เลย'}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  <button
+                    onClick={handleContinueNextBatch}
+                    className={`px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition active:scale-98 flex items-center gap-2 ${
+                      isDark
+                        ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold'
+                        : 'bg-stone-900 hover:bg-stone-800 text-white'
+                    }`}
+                    id="continue-next-bottom-btn"
+                  >
+                    <span>ทำข้อสอบต่อ (สุ่มชุดใหม่)</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowSummaryView(true);
+                      setTimeout(() => {
+                        if (resultRef.current) {
+                          resultRef.current.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }, 100);
+                    }}
+                    className={`px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition border ${
+                      isDark
+                        ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-200'
+                        : 'bg-stone-100 hover:bg-stone-200 border-stone-200 text-stone-800'
+                    }`}
+                  >
+                    ดูรายงานสรุปผล
+                  </button>
+
+                  <button
+                    onClick={() => setShowHistoryModal(true)}
+                    className={`px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition border ${
+                      isDark
+                        ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-amber-300'
+                        : 'bg-stone-100 hover:bg-stone-200 border-stone-200 text-amber-900'
+                    }`}
+                  >
+                    ดูคลังข้อที่เคยทำแล้ว
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sticky Sidebar */}
+            <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-20">
+              <QuestionPalette
+                questions={questions}
+                answers={answers}
+                flagged={flagged}
+                isSubmitted={true}
+                instantFeedback={true}
+                onSelectQuestion={handlePaletteSelectQuestion}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                selectedTopic={selectedTopic}
+                onTopicChange={setSelectedTopic}
+                allTopics={allTopics}
+                theme={theme}
+              />
+
+              {/* Study helper card */}
+              <div
+                className={`rounded-2xl border p-4 space-y-2.5 text-xs transition-colors ${
+                  isDark
+                    ? 'bg-[#161821] border-zinc-800 text-zinc-300'
+                    : 'bg-stone-50 border-stone-200/90 text-stone-700'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  <BookOpen className="w-4 h-4 text-amber-400" />
+                  <span className={isDark ? 'text-zinc-100' : 'text-stone-900'}>
+                    คู่มือสรุปกฎไวยากรณ์ภาษาไทย
+                  </span>
+                </div>
+                <p className={`leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                  ทบทวนความแตกต่างระหว่าง <em>can vs could vs will be able to</em>, <em>mustn't vs don't have to</em>, <em>'d better</em> และ <em>Future Forms</em> ได้ตลอดเวลา
+                </p>
+                <button
+                  onClick={() => setIsGuideOpen(true)}
+                  className={`w-full py-2.5 px-3 rounded-xl border font-bold text-center transition ${
+                    isDark
+                      ? 'bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-amber-300'
+                      : 'bg-white border-stone-300 hover:bg-stone-100 text-stone-800 shadow-2xs'
+                  }`}
+                  id="open-guide-sidebar-btn"
+                >
+                  เปิดอ่านคู่มือสรุปไวยากรณ์
+                </button>
+              </div>
+
+              {/* Scroll to Top */}
+              <button
+                onClick={scrollToTop}
+                className={`w-full py-2 text-xs font-semibold flex items-center justify-center gap-1 transition ${
+                  isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+                <span>กลับสู่ด้านบนสุด</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Grammar Guide Modal */}
+      <GrammarGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        theme={theme}
+      />
+
+      {/* Footer with Creator Credit WINTER */}
+      <footer
+        className={`mt-12 py-6 border-t text-center text-xs transition-colors ${
+          isDark ? 'bg-[#0f1117] border-zinc-800/80 text-zinc-500' : 'bg-white border-stone-200 text-stone-500'
+        }`}
+      >
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+            <span>แบบทดสอบไวยากรณ์ภาษาอังกฤษ (Modal Verbs & Future Forms)</span>
+            <span>•</span>
+            <span className="inline-flex items-center gap-1 font-bold text-amber-400">
+              <Sparkles className="w-3 h-3" />
+              <span>สร้างสรรค์โดย WINTER</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-zinc-400">
+            <span>สุ่มคลังข้อสอบอัจฉริยะ • ตัดข้อเดิมอัตโนมัติเมื่อทำต่อ</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

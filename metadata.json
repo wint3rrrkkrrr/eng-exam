@@ -1,0 +1,6 @@
+{
+  "name": "English Grammar Quiz",
+  "description": "Smart adaptive English grammar quiz with an 80-question bank on Modal Verbs & Future Forms, customizable batch size, instant Thai explanations, completed questions history, and automated unseen question sampling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
