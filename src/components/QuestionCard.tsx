@@ -2,6 +2,29 @@ import React, { useState } from 'react';
 import { Bookmark, CheckCircle2, XCircle, Sparkles, RotateCcw, Lightbulb, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
 
+const formatOptionText = (option: string, isMath: boolean): string => {
+  if (!isMath) return option;
+  if (!option.includes('/')) return option;
+
+  const fracRegex = /^(\d+)\/(\d+)$/;
+  const match = option.trim().match(fracRegex);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    const den = parseInt(match[2], 10);
+    if (den !== 0) {
+      const val = num / den;
+      let formattedVal: string;
+      if (val % 1 === 0) {
+        formattedVal = val.toString();
+      } else {
+        formattedVal = parseFloat(val.toFixed(4)).toString();
+      }
+      return `${option} (${formattedVal})`;
+    }
+  }
+  return option;
+};
+
 interface QuestionCardProps {
   question: Question;
   selectedOption?: string;
@@ -251,7 +274,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 >
                   {optionLetters[optIdx]}
                 </span>
-                <span className="leading-tight font-medium">{option}</span>
+                <span className="leading-tight font-medium">
+                  {formatOptionText(option, question.id >= 301 && question.id <= 400)}
+                </span>
               </div>
 
               {/* Radio input */}
@@ -343,7 +368,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                         : isDark ? 'text-amber-400' : 'text-amber-800'
                     }`}
                   >
-                    💡 ทำไมถึงตอบ "{question.answer}"?
+                    💡 ทำไมถึงตอบ "{formatOptionText(question.answer, question.id >= 301 && question.id <= 400)}"?
                   </span>
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
                     isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-200/70 text-stone-700'
