@@ -1,6 +1,8 @@
 import { Question } from '../types';
+import { biologyQuestionsPart2 } from './biologyQuestionsPart2';
+import { biologyQuestionsPart3 } from './biologyQuestionsPart3';
 
-export const biologyQuestions: Question[] = [
+const biologyQuestionsPart1: Question[] = [
   // ตอนที่ 1 วัฏจักรชีวิตแบบสลับของพืช (ข้อ 1–15)
   {
     id: 101,
@@ -1179,4 +1181,10 @@ export const biologyQuestions: Question[] = [
     explanation: 'เมื่อ CO₂ อิ่มตัวและไม่จำกัดกระบวนการอีกต่อไป ปัจจัยอื่น เช่น แสง หรืออุณหภูมิ หรือความจุของระบบเอนไซม์จะกลายมาเป็นปัจจัยจำกัดแทน',
     ruleSummary: 'เมื่อ CO₂ อิ่มตัว -> แสงหรืออุณหภูมิกลายเป็นปัจจัยจำกัดแทน'
   }
+];
+
+export const biologyQuestions: Question[] = [
+  ...biologyQuestionsPart1,
+  ...biologyQuestionsPart2,
+  ...biologyQuestionsPart3
 ];

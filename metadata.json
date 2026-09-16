@@ -1,6 +1,6 @@
 {
   "name": "WINTER Prep Hub",
-  "description": "Smart multi-subject prep center with 380 questions across English, Biology, History, and Mathematics, featuring customizable batch sizes, locked answers with Thai feedback, completed question archiving, and creator branding by WINTER.",
+  "description": "Smart multi-subject prep center with 800 questions across English M.5 (Tenses & Grammar), Biology M.5, History, and Mathematics, featuring difficulty filtering, customizable batch sizes, locked answers with Thai feedback, completed question archiving, and creator branding by WINTER.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

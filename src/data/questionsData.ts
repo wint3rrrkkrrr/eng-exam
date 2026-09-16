@@ -1,4 +1,5 @@
 import { Question } from '../types';
+import { m5EnglishQuestions } from './m5EnglishQuestionsData';
 
 export const set1Questions: Question[] = [
   {
@@ -946,4 +947,4 @@ export const set2Questions: Question[] = [
   },
 ];
 
-export const allQuestions: Question[] = [...set1Questions, ...set2Questions];
+export const allQuestions: Question[] = [...set1Questions, ...set2Questions, ...m5EnglishQuestions];
