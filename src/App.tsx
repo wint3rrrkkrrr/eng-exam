@@ -514,6 +514,9 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem('grammar_quiz_username_v1', username);
+      if (username) {
+        supabaseSim.registerUser(username);
+      }
     } catch {
       // ignore
     }
@@ -787,27 +790,24 @@ export default function App() {
       },
     }));
 
+    // Submit score in real-time to Leaderboard whenever a question is answered for the first time
+    const isFirstTimeAnswering = answers[questionId] === undefined;
+    if (username && isFirstTimeAnswering) {
+      const nextStreak = isCorrect ? streakCount + 1 : 0;
+      supabaseSim.submitScore(
+        username,
+        currentSubjectId,
+        isCorrect ? 1 : 0,
+        1,
+        Math.max(maxStreak, nextStreak)
+      ).catch((e) => console.error("Error submitting real-time score", e));
+    }
+
     // If all questions in the active batch are answered, trigger celebratory confetti
     const nextAnswers = { ...answers, [questionId]: option };
     const nextAnsweredCount = questions.filter((q) => nextAnswers[q.id] !== undefined).length;
     if (nextAnsweredCount === questions.length) {
       triggerConfetti();
-
-      // Submit score to Supabase Sim
-      if (username) {
-        let currentCorrectCount = 0;
-        questions.forEach((q) => {
-          if (nextAnswers[q.id] === q.answer) currentCorrectCount++;
-        });
-
-        supabaseSim.submitScore(
-          username,
-          currentSubjectId,
-          currentCorrectCount,
-          questions.length,
-          Math.max(maxStreak, isCorrect ? streakCount + 1 : 0)
-        ).catch(e => console.error("Error submitting score", e));
-      }
     }
   };
 
@@ -1313,15 +1313,6 @@ export default function App() {
         onResetBatch={handleResetCurrentBatch}
         onShowSummary={() => {
           setShowSummaryView(true);
-          if (username) {
-            supabaseSim.submitScore(
-              username,
-              currentSubjectId,
-              correctCount,
-              questions.length,
-              maxStreak
-            ).catch(e => console.error("Error submitting manual score", e));
-          }
           setTimeout(() => {
             if (resultRef.current) {
               resultRef.current.scrollIntoView({ behavior: 'smooth' });
