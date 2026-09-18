@@ -100,9 +100,12 @@ export function detectDevice(): string {
   return `${icon} ${osName || 'ไม่ทราบอุปกรณ์'}${browserName ? ' (' + browserName + ')' : ''}`;
 }
 
-// syncWithServer kept for compatibility (no-op now — Supabase is source of truth)
+// syncWithServer: kept for compatibility with existing call sites (App.tsx
+// polls this every 4s). Now it re-warms the profile cache from Supabase —
+// this is what makes OTHER users' (and your own, on a fresh reload) saved
+// avatar/bio show up instead of the deterministic fallback.
 export async function syncWithServer() {
-  // No longer needed: data goes directly to/from Supabase
+  await supabaseSim.warmProfileCache();
   window.dispatchEvent(new Event('storage'));
 }
 
@@ -277,6 +280,30 @@ export const supabaseSim = {
       }
     } catch (e) { /* no profile yet */ }
     return supabaseSim.getProfile(username);
+  },
+
+  // Bulk-load every saved profile from Supabase into the in-memory cache.
+  // Call this on app start (and before rendering lists of other users'
+  // avatars) so getProfile() — which is synchronous — returns the real
+  // saved avatar/bio instead of falling back to the deterministic default.
+  warmProfileCache: async (): Promise<void> => {
+    try {
+      const { data, error } = await supabase.from('winter_profiles').select('*');
+      if (error) throw error;
+      (data || []).forEach((row: any) => {
+        const key = row.username.trim().toLowerCase();
+        profileCache[key] = {
+          username: row.username,
+          avatar: row.avatar || DEFAULT_AVATARS[0],
+          bio: row.bio || '',
+          joined_at: row.joined_at,
+          last_active: row.last_active,
+          device_info: row.device_info || '',
+        };
+      });
+    } catch (e) {
+      console.error('warmProfileCache error', e);
+    }
   },
 
   updateProfile: async (username: string, updates: { avatar?: string; bio?: string }) => {

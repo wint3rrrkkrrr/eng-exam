@@ -26,6 +26,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
       const [records, friends] = await Promise.all([
         supabaseSim.getAggregatedLeaderboard(),
         supabaseSim.getFriends(currentUsername),
+        supabaseSim.warmProfileCache(),
       ]);
       setData(records);
       setMyFriends(friends);

@@ -64,6 +64,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
 
   // Load chat data and friends (async — Supabase)
   const refreshChatData = async () => {
+    await supabaseSim.warmProfileCache();
     const gMsgs = await supabaseSim.getChatMessages(activeUsername);
     setGlobalMessages(gMsgs);
 
@@ -153,8 +154,8 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
 
   return (
     <>
-      {/* Floating Toggle Button */}
-      <div className="fixed bottom-5 right-5 z-[100] flex items-center gap-2">
+      {/* Floating Toggle Button (lifted above the Netlify badge) */}
+      <div className="fixed bottom-16 right-5 z-[100] flex items-center gap-2">
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -182,7 +183,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className={`fixed bottom-20 right-3 sm:right-6 z-[101] w-[calc(100vw-24px)] sm:w-[380px] h-[520px] max-h-[80vh] rounded-3xl shadow-2xl border flex flex-col overflow-hidden backdrop-blur-md ${
+            className={`fixed bottom-32 right-3 sm:right-6 z-[101] w-[calc(100vw-24px)] sm:w-[380px] h-[520px] max-h-[80vh] rounded-3xl shadow-2xl border flex flex-col overflow-hidden backdrop-blur-md ${
               isDark
                 ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100'
                 : 'bg-white/95 border-stone-200 text-stone-800'
