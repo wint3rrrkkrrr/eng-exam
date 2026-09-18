@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Camera, UserCheck, Sparkles, Edit3, Save, Smartphone, Calendar, Award } from 'lucide-react';
 import { supabaseSim, DEFAULT_AVATARS, UserProfile } from '../utils/supabaseSim';
+import { compressAndResizeImage } from '../utils/imageUtils';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -34,20 +35,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     }
   }, [isOpen, username]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 3 * 1024 * 1024) {
-        alert('ขนาดไฟล์รูปภาพต้องไม่เกิน 3MB ครับ');
-        return;
+      try {
+        const compressedDataUrl = await compressAndResizeImage(file, 250, 250, 0.75);
+        setSelectedAvatar(compressedDataUrl);
+      } catch (err) {
+        console.error('Error compressing image:', err);
+        alert('เกิดข้อผิดพลาดในการโหลดรูปภาพ ลองใช้อีกรูปครับ');
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setSelectedAvatar(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
     }
   };
 

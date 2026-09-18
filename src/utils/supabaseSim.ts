@@ -1,4 +1,5 @@
 import { subjectsList } from '../data/subjectsData';
+import claytonKimImg from '../assets/images/clayton_kim_1789743353081.jpg';
 
 export interface UserScoreRecord {
   id: string;
@@ -65,6 +66,7 @@ const STORAGE_KEY_FRIEND_REQ = 'winter_exam_friend_requests_v1';
 const STORAGE_KEY_CHAT = 'winter_exam_chat_messages_v1';
 
 export const DEFAULT_AVATARS = [
+  claytonKimImg,
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
@@ -368,7 +370,7 @@ export const supabaseSim = {
     if (cleanName === 'win') {
       return {
         username: 'WIN',
-        avatar: DEFAULT_AVATARS[0],
+        avatar: claytonKimImg,
         bio: '👑 RANK 0 TOP SUPREME VIP',
         joined_at: new Date().toISOString(),
         last_active: new Date().toISOString(),

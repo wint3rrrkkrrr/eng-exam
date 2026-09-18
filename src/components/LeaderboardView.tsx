@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { Trophy, Award, RefreshCw, Flame, UserCheck, Zap, Star, UserPlus } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Trophy, Award, RefreshCw, Flame, UserCheck, Zap, Star, UserPlus, Eye, X, Sparkles, Smartphone, Calendar } from 'lucide-react';
 import { supabaseSim, UserAggregatedLeaderboard } from '../utils/supabaseSim';
 
 interface LeaderboardViewProps {
@@ -16,6 +16,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
 }) => {
   const [data, setData] = useState<UserAggregatedLeaderboard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBioUser, setSelectedBioUser] = useState<UserAggregatedLeaderboard | null>(null);
   const isDark = theme === 'dark';
 
   const fetchLeaderboard = async () => {
@@ -82,7 +83,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   const formatDate = (isoStr: string, isWinRankZero?: boolean) => {
     if (isWinRankZero) {
       const d = new Date();
-      return `⚡ เรียลไทม์ (${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})`;
+      return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
     }
     if (!isoStr) return '-';
     try {
@@ -178,13 +179,17 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                         <div className="flex justify-center">{getRankBadge(idx, entry)}</div>
                       </td>
                       <td className="p-3.5 font-bold">
-                        <div className="flex items-center gap-2.5">
+                        <button
+                          onClick={() => setSelectedBioUser(entry)}
+                          className="flex items-center gap-2.5 group text-left transition-transform active:scale-95 cursor-pointer"
+                          title="กดเพื่อดูไบโอและโปรไฟล์"
+                        >
                           <img
                             src={userProfile.avatar}
                             alt={entry.username}
-                            className="w-7 h-7 rounded-full object-cover ring-2 ring-amber-400/50 shrink-0"
+                            className="w-7 h-7 rounded-full object-cover ring-2 ring-amber-400/50 shrink-0 group-hover:scale-110 transition-transform"
                           />
-                          <span className="truncate max-w-[120px] sm:max-w-[180px] font-extrabold text-sm">
+                          <span className="truncate max-w-[120px] sm:max-w-[180px] font-extrabold text-sm group-hover:text-amber-400 transition-colors">
                             {entry.username}
                           </span>
                           {isWinRankZero && (
@@ -197,7 +202,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                               YOU
                             </span>
                           )}
-                        </div>
+                        </button>
                       </td>
                       <td className="p-3.5 text-center font-black text-base text-amber-400">
                         <div className="flex items-center justify-center gap-1">
@@ -231,26 +236,35 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                         {formatDate(entry.lastActive, isWinRankZero)}
                       </td>
                       <td className="p-3.5 text-center">
-                        {!isCurrentUser ? (
-                          isAlreadyFriend ? (
-                            <span className="text-[11px] font-extrabold text-emerald-400 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-                              เพื่อนแล้ว
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                const res = supabaseSim.sendFriendRequest(currentUsername, entry.username);
-                                alert(res.message);
-                              }}
-                              className="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition-all flex items-center gap-1 mx-auto active:scale-95"
-                            >
-                              <UserPlus className="w-3.5 h-3.5" />
-                              <span>แอดเพื่อน</span>
-                            </button>
-                          )
-                        ) : (
-                          <span className="text-xs text-zinc-500 font-medium">-</span>
-                        )}
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedBioUser(entry)}
+                            className="px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-300 hover:bg-blue-500 hover:text-white transition-all flex items-center gap-1 active:scale-95"
+                            title="ดูสถานะและไบโอ"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>ดูไบโอ</span>
+                          </button>
+
+                          {!isCurrentUser && (
+                            isAlreadyFriend ? (
+                              <span className="text-[11px] font-extrabold text-emerald-400 px-2 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                เพื่อนแล้ว
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  const res = supabaseSim.sendFriendRequest(currentUsername, entry.username);
+                                  alert(res.message);
+                                }}
+                                className="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition-all flex items-center gap-1 active:scale-95"
+                              >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                <span>แอดเพื่อน</span>
+                              </button>
+                            )
+                          )}
+                        </div>
                       </td>
                     </motion.tr>
                   );
@@ -260,6 +274,169 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* User Bio Modal */}
+      <AnimatePresence>
+        {selectedBioUser && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl border overflow-hidden ${
+                isDark ? 'bg-[#0f1118] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
+              }`}
+            >
+              {/* Top Bar */}
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800/40">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span className="font-black text-sm text-amber-400 tracking-wider uppercase">
+                    โปรไฟล์ผู้เรียน
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedBioUser(null)}
+                  className="p-1.5 rounded-full hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Profile Card Body */}
+              {(() => {
+                const uProfile = supabaseSim.getProfile(selectedBioUser.username);
+                const isWin = selectedBioUser.isRankZero || selectedBioUser.username.trim().toLowerCase() === 'win';
+                const isFriend = supabaseSim.getFriends(currentUsername).some(f => f.toLowerCase() === selectedBioUser.username.toLowerCase());
+                const accuracy = selectedBioUser.totalAttempted > 0 ? Math.round((selectedBioUser.totalScore / selectedBioUser.totalAttempted) * 100) : 100;
+
+                return (
+                  <div className="mt-4 space-y-4">
+                    {/* Avatar & Badges */}
+                    <div className="flex flex-col items-center justify-center text-center space-y-2">
+                      <div className="relative">
+                        <img
+                          src={uProfile.avatar}
+                          alt={selectedBioUser.username}
+                          className={`w-24 h-24 rounded-full object-cover ring-4 shadow-xl ${
+                            isWin ? 'ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.5)]' : 'ring-amber-400/40'
+                          }`}
+                        />
+                        {isWin && (
+                          <span className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 text-zinc-950 font-black text-[10px] shadow-md border border-amber-200">
+                            👑 TOP VIP
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3 className="font-extrabold text-xl tracking-wide flex items-center justify-center gap-1.5">
+                          <span>{selectedBioUser.username}</span>
+                          {selectedBioUser.username.toLowerCase() === currentUsername.toLowerCase() && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-zinc-950">
+                              คุณ
+                            </span>
+                          )}
+                        </h3>
+                        <p className="text-xs text-amber-500 font-bold mt-0.5">
+                          {isWin ? '👑 RANK 0 TOP SUPREME VIP' : 'ผู้เรียน WINTER PREP 2026'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bio Box */}
+                    <div className={`p-3.5 rounded-2xl border text-center relative overflow-hidden ${
+                      isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}>
+                      <p className="text-xs font-extrabold italic">
+                        "{uProfile.bio || 'ไม่มีข้อความสถานะ'}"
+                      </p>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                      <div className={`p-3 rounded-2xl border flex flex-col items-center ${
+                        isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-stone-50 border-stone-200'
+                      }`}>
+                        <span className="text-zinc-500 text-[10px]">คะแนนสะสมรวม</span>
+                        <span className="text-amber-400 text-base font-black flex items-center gap-1 mt-0.5">
+                          <Star className="w-3.5 h-3.5 fill-amber-400" />
+                          {selectedBioUser.totalScore}
+                        </span>
+                      </div>
+
+                      <div className={`p-3 rounded-2xl border flex flex-col items-center ${
+                        isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-stone-50 border-stone-200'
+                      }`}>
+                        <span className="text-zinc-500 text-[10px]">สตรีคสูงสุด</span>
+                        <span className="text-orange-400 text-base font-black flex items-center gap-1 mt-0.5">
+                          <Flame className="w-3.5 h-3.5 fill-orange-400" />
+                          {selectedBioUser.maxStreak} วัน
+                        </span>
+                      </div>
+
+                      <div className={`p-3 rounded-2xl border flex flex-col items-center ${
+                        isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-stone-50 border-stone-200'
+                      }`}>
+                        <span className="text-zinc-500 text-[10px]">ความแม่นยำ</span>
+                        <span className="text-emerald-400 text-base font-black mt-0.5">
+                          {accuracy}%
+                        </span>
+                      </div>
+
+                      <div className={`p-3 rounded-2xl border flex flex-col items-center ${
+                        isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-stone-50 border-stone-200'
+                      }`}>
+                        <span className="text-zinc-500 text-[10px]">ข้อทำสะสม</span>
+                        <span className="text-blue-400 text-base font-black mt-0.5">
+                          {selectedBioUser.totalAttempted} ข้อ
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Meta info */}
+                    <div className={`p-3 rounded-2xl border text-[11px] space-y-1.5 ${
+                      isDark ? 'bg-zinc-900/30 border-zinc-800 text-zinc-400' : 'bg-stone-50 border-stone-200 text-stone-600'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="truncate">อุปกรณ์ที่ใช้: {selectedBioUser.deviceInfo || uProfile.device_info || 'ไม่ระบุ'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>เล่นล่าสุด: {formatDate(selectedBioUser.lastActive, isWin)}</span>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    {selectedBioUser.username.toLowerCase() !== currentUsername.toLowerCase() && (
+                      <div className="pt-2">
+                        {isFriend ? (
+                          <div className="w-full py-2.5 rounded-xl font-extrabold text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-center flex items-center justify-center gap-1.5">
+                            <UserCheck className="w-4 h-4" />
+                            <span>เป็นเพื่อนกันเรียบร้อยแล้ว</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const res = supabaseSim.sendFriendRequest(currentUsername, selectedBioUser.username);
+                              alert(res.message);
+                            }}
+                            className="w-full py-2.5 rounded-xl font-black text-xs bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            <span>ส่งคำขอเป็นเพื่อนกับ {selectedBioUser.username}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

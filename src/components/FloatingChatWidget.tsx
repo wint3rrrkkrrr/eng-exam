@@ -158,12 +158,12 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   return (
     <>
       {/* Floating Toggle Button */}
-      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2">
+      <div className="fixed bottom-5 right-5 z-[100] flex items-center gap-2">
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsOpen(!isOpen)}
-          className="relative flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-zinc-950 font-black shadow-2xl hover:shadow-amber-500/30 transition-all border border-amber-300/40 cursor-pointer"
+          className="relative flex items-center gap-2 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-orange-500 text-zinc-950 font-black shadow-[0_10px_25px_rgba(245,158,11,0.4)] hover:shadow-amber-500/50 transition-all border border-amber-200 cursor-pointer"
         >
           <div className="relative">
             <MessageCircle className="w-5 h-5 fill-zinc-950" />
@@ -173,7 +173,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
               </span>
             )}
           </div>
-          <span className="text-xs font-black tracking-wide hidden sm:inline">
+          <span className="text-xs font-black tracking-wide">
             {isOpen ? 'ซ่อนแชท' : 'แชทนักเรียน'}
           </span>
         </motion.button>
@@ -186,7 +186,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className={`fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-32px)] sm:w-[380px] h-[520px] max-h-[80vh] rounded-3xl shadow-2xl border flex flex-col overflow-hidden backdrop-blur-md ${
+            className={`fixed bottom-20 right-3 sm:right-6 z-[101] w-[calc(100vw-24px)] sm:w-[380px] h-[520px] max-h-[80vh] rounded-3xl shadow-2xl border flex flex-col overflow-hidden backdrop-blur-md ${
               isDark
                 ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100'
                 : 'bg-white/95 border-stone-200 text-stone-800'
