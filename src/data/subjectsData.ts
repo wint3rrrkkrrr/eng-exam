@@ -41,6 +41,26 @@ export const availableSubjects: SubjectInfo[] = [
     totalQuestions: 100,
     isReady: true,
   },
+  {
+    id: 'c-programming',
+    name: 'การเขียนโปรแกรมภาษาซี (C Programming)',
+    nameEn: 'พื้นฐานภาษาซี ม.5 (200 ข้อ)',
+    icon: 'Terminal',
+    color: 'blue',
+    description: 'คลังข้อสอบ 200 ข้อ อ้างอิงเนื้อหาจากเอกสารประกอบการเรียนภาษาซี ม.5 ครอบคลุม: ประวัติและโครงสร้างภาษาซี, อัลกอริทึม, ตัวแปร, ฟังก์ชันพื้นฐาน printf/scanf, ตัวดำเนินการ, เงื่อนไข (if/switch) และการลูป (for/while/do-while)',
+    totalQuestions: 200,
+    isReady: true,
+  },
+  {
+    id: 'physics',
+    name: 'ฟิสิกส์ ม.5 (Physics)',
+    nameEn: 'แสงและทัศนูปกรณ์ ม.5 (200 ข้อ)',
+    icon: 'Lightbulb',
+    color: 'orange',
+    description: 'คลังข้อสอบ 200 ข้อ ครบถ้วนตามระดับ ม.5 ครอบคลุมหัวข้อหลักเรื่องแสง: การสะท้อนของแสงและกระจกเงา, การหักเหของแสงและเลนส์บาง, ปรากฏการณ์ของแสง (รุ้งกินน้ำ มิราจ), ทัศนอุปกรณ์ (แว่นตา กล้องจุลทรรศน์), การเลี้ยวเบนแทรกสอด และการโพลาไรเซชัน',
+    totalQuestions: 200,
+    isReady: true,
+  },
 ];
 
 export const subjectsList = availableSubjects;

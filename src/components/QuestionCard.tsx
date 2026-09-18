@@ -74,38 +74,100 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
   const isDark = theme === 'dark';
 
-  const renderQuestionText = (text: string) => {
-    if (text.includes('___')) {
-      const parts = text.split('___');
-      return (
-        <span>
-          {parts[0]}
-          <span
-            className={`inline-block px-3 py-0.5 mx-1 font-mono font-bold rounded border-b-2 transition-colors ${
-              isRevealed
-                ? isCorrect
-                  ? isDark
-                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-400'
-                    : 'bg-emerald-100 text-emerald-900 border-emerald-600'
-                  : isDark
-                  ? 'bg-rose-950/80 text-rose-300 border-rose-400'
-                  : 'bg-rose-100 text-rose-900 border-rose-600'
-                : selectedOption
-                ? isDark
-                  ? 'bg-zinc-800 text-amber-300 border-amber-400'
-                  : 'bg-stone-100 text-stone-900 border-stone-600'
-                : isDark
-                ? 'bg-zinc-800 text-zinc-400 border-zinc-600'
-                : 'bg-stone-100 text-stone-400 border-stone-300'
-            }`}
-          >
-            {selectedOption || '_______'}
-          </span>
-          {parts[1]}
-        </span>
-      );
+  const parseQuestionSegments = (textString: string) => {
+    const segments: Array<{ type: 'text' | 'diagram'; content: string }> = [];
+    const parts = textString.split('```');
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) {
+        let content = parts[i];
+        if (content.startsWith('text\n')) {
+          content = content.substring(5);
+        } else if (content.startsWith('text\r\n')) {
+          content = content.substring(6);
+        } else if (content.startsWith('\n')) {
+          content = content.substring(1);
+        }
+        segments.push({ type: 'diagram', content: content.trimEnd() });
+      } else {
+        if (parts[i]) {
+          segments.push({ type: 'text', content: parts[i] });
+        }
+      }
     }
-    return <span>{text}</span>;
+    return segments;
+  };
+
+  const renderQuestionText = (text: string) => {
+    const segments = parseQuestionSegments(text);
+    return (
+      <div className="space-y-3">
+        {segments.map((seg, idx) => {
+          if (seg.type === 'diagram') {
+            return (
+              <div
+                key={idx}
+                className={`my-4 p-4 rounded-xl border font-mono text-xs sm:text-sm overflow-x-auto shadow-xs leading-relaxed ${
+                  isDark
+                    ? 'bg-zinc-950 border-zinc-800 text-amber-400/90'
+                    : 'bg-stone-100 border-stone-200 text-stone-800 font-semibold'
+                }`}
+              >
+                <div
+                  className={`text-[10px] uppercase tracking-wider font-sans font-bold mb-2 flex items-center gap-1.5 ${
+                    isDark ? 'text-zinc-500' : 'text-stone-400'
+                  }`}
+                >
+                  <span>📊 แผนภาพจำลองสถานการณ์ (Diagram)</span>
+                </div>
+                <pre className="font-mono whitespace-pre">{seg.content}</pre>
+              </div>
+            );
+          } else {
+            const textVal = seg.content;
+            if (textVal.includes('___')) {
+              const parts = textVal.split('___');
+              return (
+                <div key={idx} className="whitespace-pre-line inline">
+                  {parts.map((part, pIdx) => (
+                    <React.Fragment key={pIdx}>
+                      {part}
+                      {pIdx < parts.length - 1 && (
+                        <span
+                          className={`inline-block px-3 py-0.5 mx-1 font-mono font-bold rounded border-b-2 transition-colors ${
+                            isRevealed
+                              ? isCorrect
+                                ? isDark
+                                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-400'
+                                  : 'bg-emerald-100 text-emerald-900 border-emerald-600'
+                                : isDark
+                                ? 'bg-rose-950/80 text-rose-300 border-rose-400'
+                                : 'bg-rose-100 text-rose-900 border-rose-600'
+                              : selectedOption
+                              ? isDark
+                                ? 'bg-zinc-800 text-amber-300 border-amber-400'
+                                : 'bg-stone-100 text-stone-900 border-stone-600'
+                              : isDark
+                              ? 'bg-zinc-800 text-zinc-400 border-zinc-600'
+                              : 'bg-stone-100 text-stone-400 border-stone-300'
+                          }`}
+                        >
+                          {selectedOption || '_______'}
+                        </span>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              );
+            }
+            return (
+              <div key={idx} className="whitespace-pre-line inline">
+                {textVal}
+              </div>
+            );
+          }
+        })}
+      </div>
+    );
   };
 
   const optionLetters = ['A', 'B', 'C', 'D'];

@@ -14,7 +14,8 @@ import {
   englishRules, 
   biologyRules, 
   historyRules, 
-  mathRules 
+  mathRules,
+  cRules
 } from '../data/subjectGuides';
 
 export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
@@ -33,6 +34,7 @@ export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
     if (subjectId === 'biology') return biologyRules;
     if (subjectId === 'history') return historyRules;
     if (subjectId === 'math') return mathRules;
+    if (subjectId === 'c-programming') return cRules;
     return englishRules;
   }, [subjectId]);
 
@@ -40,6 +42,7 @@ export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
     if (subjectId === 'biology') return 'คู่มือสรุปชีววิทยา ม.5 (พืช & สังเคราะห์ด้วยแสง)';
     if (subjectId === 'history') return 'คู่มือสรุปประวัติศาสตร์ & อารยธรรมโลก (กรีก โรมัน จีน อินเดีย)';
     if (subjectId === 'math') return 'คู่มือสรุปคณิตศาสตร์ ม.5 (ความน่าจะเป็น & กฎการนับ)';
+    if (subjectId === 'c-programming') return 'คู่มือสรุปการเขียนโปรแกรมภาษาซี (C Programming)';
     return 'คู่มือสรุปหลักไวยากรณ์ภาษาอังกฤษ (Grammar Guide)';
   }, [subjectId]);
 

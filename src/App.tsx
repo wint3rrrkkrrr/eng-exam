@@ -11,6 +11,8 @@ import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
 import { historyQuestions } from './data/historyQuestionsData';
 import { mathQuestions } from './data/mathQuestionsData';
+import { cQuestions } from './data/cQuestionsData';
+import { physicsQuestions } from './data/physicsQuestionsData';
 import { subjectsList } from './data/subjectsData';
 import { Question, QuizViewMode, CategoryStat, ThemeMode, CompletedQuestionRecord } from './types';
 import { 
@@ -26,7 +28,13 @@ import {
   ArrowRight,
   RotateCcw,
   Snowflake,
-  GraduationCap
+  GraduationCap,
+  Languages,
+  Atom,
+  Calculator,
+  Terminal,
+  Lightbulb,
+  Globe
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
@@ -41,6 +49,46 @@ function shuffleArray<T>(array: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function getSubjectIcon(iconName: string, className: string) {
+  switch (iconName) {
+    case 'Languages':
+      return <Languages className={className} />;
+    case 'BookOpen':
+      return <BookOpen className={className} />;
+    case 'Atom':
+      return <Atom className={className} />;
+    case 'Globe':
+      return <Globe className={className} />;
+    case 'Calculator':
+      return <Calculator className={className} />;
+    case 'Terminal':
+      return <Terminal className={className} />;
+    case 'Lightbulb':
+      return <Lightbulb className={className} />;
+    default:
+      return <BookOpen className={className} />;
+  }
+}
+
+function getSubjectColorClasses(subjectId: string) {
+  switch (subjectId) {
+    case 'english':
+      return 'bg-amber-500/10 border-amber-500/20 text-amber-400';
+    case 'biology':
+      return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
+    case 'history':
+      return 'bg-purple-500/10 border-purple-500/20 text-purple-400';
+    case 'math':
+      return 'bg-sky-500/10 border-sky-500/20 text-sky-400';
+    case 'c-programming':
+      return 'bg-blue-500/10 border-blue-500/20 text-blue-400';
+    case 'physics':
+      return 'bg-orange-500/10 border-orange-500/20 text-orange-400';
+    default:
+      return 'bg-zinc-500/10 border-zinc-500/20 text-zinc-400';
+  }
 }
 
 export default function App() {
@@ -67,7 +115,7 @@ export default function App() {
   const [currentSubjectId, setCurrentSubjectId] = useState<string>(() => {
     try {
       const saved = localStorage.getItem('quiz_current_subject_id_v1');
-      if (saved && (saved === 'english' || saved === 'biology' || saved === 'history' || saved === 'math')) {
+      if (saved && (saved === 'english' || saved === 'biology' || saved === 'history' || saved === 'math' || saved === 'c-programming' || saved === 'physics')) {
         return saved;
       }
       return 'english';
@@ -123,6 +171,12 @@ export default function App() {
     }
     if (currentSubjectId === 'math') {
       return mathQuestions;
+    }
+    if (currentSubjectId === 'c-programming') {
+      return cQuestions;
+    }
+    if (currentSubjectId === 'physics') {
+      return physicsQuestions;
     }
     return allQuestions; // default english
   }, [currentSubjectId]);
@@ -373,6 +427,8 @@ export default function App() {
     if (subjectId === 'biology') targetBank = biologyQuestions;
     else if (subjectId === 'history') targetBank = historyQuestions;
     else if (subjectId === 'math') targetBank = mathQuestions;
+    else if (subjectId === 'c-programming') targetBank = cQuestions;
+    else if (subjectId === 'physics') targetBank = physicsQuestions;
 
     drawNewBatch(targetSize, targetBank, targetDifficulty);
   };
@@ -750,82 +806,34 @@ export default function App() {
             </div>
 
             <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-              ยินดีต้อนรับสู่ระบบคลังข้อสอบและแบบฝึกหัดอัจฉริยะที่รวบรวมโจทย์สอบวัดระดับคุณภาพสูงไว้มากถึง <strong>380 ข้อ</strong> ครอบคลุมเนื้อหาสำคัญอย่างเจาะลึก พร้อมระบบสุ่มคลัง ตัดโจทย์ซ้ำ และเฉลยอธิบายละเอียดภาษาไทย
+              ยินดีต้อนรับสู่ระบบคลังข้อสอบและแบบฝึกหัดอัจฉริยะที่รวบรวมโจทย์สอบวัดระดับคุณภาพสูงไว้มากถึง <strong>1,200 ข้อ</strong> ครอบคลุมเนื้อหาสำคัญอย่างเจาะลึก พร้อมระบบสุ่มคลัง ตัดโจทย์ซ้ำ และเฉลยอธิบายละเอียดภาษาไทย
             </p>
 
             {/* Subjects Showcase Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 max-w-4xl mx-auto text-left">
-              {/* Biology */}
-              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
-                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
-              }`}>
-                <div className="p-2.5 h-fit rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
-                  <GraduationCap className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-bold text-sm sm:text-base">ชีววิทยา (Biology)</h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">100 ข้อ</span>
+              {subjectsList.filter(s => s.isReady).map((sub) => {
+                const colorClasses = getSubjectColorClasses(sub.id);
+                return (
+                  <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
+                    isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
+                  }`}>
+                    <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
+                      {getSubjectIcon(sub.icon, "w-5 h-5")}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
+                          {sub.totalQuestions} ข้อ
+                        </span>
+                      </div>
+                      <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                        {sub.description}
+                      </p>
+                    </div>
                   </div>
-                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                    โครงสร้างและการสืบพันธุ์ของพืชดอก, วัฏจักรชีวิตแบบสลับ และกลไกการสังเคราะห์ด้วยแสง (C3, C4, CAM)
-                  </p>
-                </div>
-              </div>
-
-              {/* History */}
-              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
-                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
-              }`}>
-                <div className="p-2.5 h-fit rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-bold text-sm sm:text-base">ประวัติศาสตร์ & อารยธรรม</h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">100 ข้อ</span>
-                  </div>
-                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                    เจาะลึกอารยธรรมโลกโบราณอันทรงคุณค่า: อารยธรรมกรีก, อารยธรรมโรมัน, อารยธรรมจีน และอารยธรรมอินเดีย
-                  </p>
-                </div>
-              </div>
-
-              {/* Mathematics */}
-              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
-                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
-              }`}>
-                <div className="p-2.5 h-fit rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shrink-0">
-                  <LayoutGrid className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-bold text-sm sm:text-base">คณิตศาสตร์ ม.5</h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">100 ข้อ</span>
-                  </div>
-                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                    หลักมูลฐานเกี่ยวกับการนับ, วิธีจัดหมู่, วิธีเรียงสับเปลี่ยน (P, C, Factorial) และความน่าจะเป็นพื้นฐาน
-                  </p>
-                </div>
-              </div>
-
-              {/* English */}
-              <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
-                isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
-              }`}>
-                <div className="p-2.5 h-fit rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-bold text-sm sm:text-base">ภาษาอังกฤษ (English)</h3>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400">80 ข้อ</span>
-                  </div>
-                  <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                    ไวยากรณ์เชิงลึกและคำศัพท์: Modal Verbs (Can, Could, May, Must), Future Forms, และโครงสร้างที่มักสับสน
-                  </p>
-                </div>
-              </div>
+                );
+              })}
             </div>
 
             {/* Giant Action Button */}
@@ -859,7 +867,7 @@ export default function App() {
           isDark ? 'border-zinc-900/60 text-zinc-500 bg-[#08090d]' : 'border-stone-200/80 text-stone-500 bg-stone-100/30'
         }`}>
           <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-medium">
-            <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ 4 วิชา (380 ข้อ) • WINTER exam</span>
+            <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ 6 วิชา (1,200 ข้อ) • WINTER exam</span>
             <span className="flex items-center gap-1 font-bold text-amber-500/95">
               <Sparkles className="w-3.5 h-3.5" />
               <span>สร้างสรรค์โดย WINTER ด้วยความปราณีต ❄️</span>
@@ -1286,7 +1294,9 @@ export default function App() {
                     ? 'สรุปเนื้อหาโครงสร้างพืชดอก การสืบพันธุ์แบบอาศัยเพศ วัฏจักรชีวิตแบบสลับ และการงอกของเมล็ด'
                     : currentSubjectId === 'history'
                     ? 'สรุปประเด็นสำคัญของอารยธรรมกรีก โรมัน ระบอบฟิวดัล และสงครามครูเสด'
-                    : 'สรุปสูตรและหลักคิดสำคัญ: ความน่าจะเป็น, กฎการบวก/การคูณ, แฟกทอเรียล, P(n,r), C(n,r) และเหตุการณ์อิสระ'}
+                    : currentSubjectId === 'math'
+                    ? 'สรุปสูตรและหลักคิดสำคัญ: ความน่าจะเป็น, กฎการบวก/การคูณ, แฟกทอเรียล, P(n,r), C(n,r) และเหตุการณ์อิสระ'
+                    : 'สรุปเนื้อหาโครงสร้างภาษาซี อัลกอริทึม การประกาศตัวแปร ฟังก์ชัน printf/scanf ตัวดำเนินการ นิพจน์ คำสั่งเงื่อนไข และคำสั่งวนซ้ำ'}
                 </p>
                 <button
                   onClick={() => setIsGuideOpen(true)}

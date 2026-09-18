@@ -5,6 +5,8 @@ import {
   Atom, 
   Globe, 
   Calculator, 
+  Terminal,
+  Lightbulb,
   Sparkles, 
   CheckCircle2, 
   PlusCircle,
@@ -53,17 +55,23 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
         return <Globe className={className} />;
       case 'Calculator':
         return <Calculator className={className} />;
+      case 'Terminal':
+        return <Terminal className={className} />;
+      case 'Lightbulb':
+        return <Lightbulb className={className} />;
       default:
         return <BookOpen className={className} />;
     }
   };
 
   const isDark = theme === 'dark';
+  const totalReadySubjects = availableSubjects.filter(s => s.isReady).length;
+  const totalReadyQuestions = availableSubjects.reduce((sum, s) => sum + (s.isReady ? s.totalQuestions : 0), 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className={`w-full max-w-4xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden transition-colors ${
+        className={`w-full max-w-6xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden transition-colors ${
           isDark ? 'bg-[#12141c] border-zinc-800 text-zinc-100' : 'bg-white border-stone-200 text-stone-900'
         }`}
         id="subject-selector-modal"
@@ -229,10 +237,10 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
           {/* Subject Cards */}
           <div className="space-y-3">
             <span className={`text-xs font-bold uppercase tracking-wider block ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-              รายชื่อวิชาทั้งหมด (พร้อมใช้งาน 4 วิชา รวม 380 ข้อ)
+              รายชื่อวิชาทั้งหมด (พร้อมใช้งาน {totalReadySubjects} วิชา รวม {totalReadyQuestions} ข้อ)
             </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {availableSubjects.map((subject) => {
                 const isSelected = subject.id === currentSubjectId;
                 const isReady = subject.isReady;
@@ -266,6 +274,10 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
                               ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
                               : subject.id === 'math'
                               ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                              : subject.id === 'c-programming'
+                              ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                              : subject.id === 'physics'
+                              ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
                               : 'bg-zinc-800 border-zinc-700 text-zinc-400'
                           }`}
                         >
@@ -343,7 +355,7 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
           }`}
         >
           <div className="flex items-center gap-1.5 font-semibold">
-            <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ 4 วิชา (380 ข้อ)</span>
+            <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ {totalReadySubjects} วิชา ({totalReadyQuestions} ข้อ)</span>
             <span>•</span>
             <span className="inline-flex items-center gap-1 font-bold text-amber-400">
               <Sparkles className="w-3.5 h-3.5" />
