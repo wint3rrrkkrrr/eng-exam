@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Bookmark, CheckCircle2, XCircle, Sparkles, RotateCcw, Lightbulb, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
 import { getQuestionDifficulty } from '../utils/difficulty';
@@ -332,7 +333,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           }
 
           return (
-            <label
+            <motion.label
+              whileHover={{ scale: selectedOption !== undefined ? 1 : 1.012, x: selectedOption !== undefined ? 0 : 3 }}
+              whileTap={{ scale: selectedOption !== undefined ? 1 : 0.985 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 450 }}
               key={`${question.id}-option-${optIdx}`}
               id={`option-label-${question.id}-${optIdx}`}
               onClick={(e) => {
@@ -407,7 +411,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   )}
                 </div>
               )}
-            </label>
+            </motion.label>
           );
         })}
       </div>

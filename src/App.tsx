@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { AmbientParticles } from './components/AmbientParticles';
 import { Header } from './components/Header';
 import { QuestionCard } from './components/QuestionCard';
 import { QuestionPalette } from './components/QuestionPalette';
@@ -7,6 +9,9 @@ import { SingleQuestionView } from './components/SingleQuestionView';
 import { GrammarGuideModal } from './components/GrammarGuideModal';
 import { SubjectSelector } from './components/SubjectSelector';
 import { CompletedHistoryModal } from './components/CompletedHistoryModal';
+import { NameInputOverlay } from './components/NameInputOverlay';
+import { LeaderboardView } from './components/LeaderboardView';
+import { supabaseSim } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
 import { historyQuestions } from './data/historyQuestionsData';
@@ -23,6 +28,7 @@ import {
   Sparkles, 
   BookOpen, 
   Flame, 
+  Trophy, 
   LayoutGrid, 
   CheckCircle2, 
   Shuffle, 
@@ -140,6 +146,16 @@ export default function App() {
   });
   const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+
+  // User details & Leaderboard landing tabs
+  const [username, setUsername] = useState<string>(() => {
+    try {
+      return localStorage.getItem('grammar_quiz_username_v1') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [landingTab, setLandingTab] = useState<'subjects' | 'leaderboard'>('subjects');
 
   // Batch size state (Default: 20 questions)
   const [batchSize, setBatchSize] = useState<number>(() => {
@@ -492,6 +508,14 @@ export default function App() {
     }
   }, [maxStreak]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_username_v1', username);
+    } catch {
+      // ignore
+    }
+  }, [username]);
+
 
 
 
@@ -761,8 +785,26 @@ export default function App() {
     }));
 
     // If all questions in the active batch are answered, trigger celebratory confetti
-    if (answeredCount + (answers[questionId] ? 0 : 1) === questions.length) {
+    const nextAnswers = { ...answers, [questionId]: option };
+    const nextAnsweredCount = questions.filter((q) => nextAnswers[q.id] !== undefined).length;
+    if (nextAnsweredCount === questions.length) {
       triggerConfetti();
+
+      // Submit score to Supabase Sim
+      if (username) {
+        let currentCorrectCount = 0;
+        questions.forEach((q) => {
+          if (nextAnswers[q.id] === q.answer) currentCorrectCount++;
+        });
+
+        supabaseSim.submitScore(
+          username,
+          currentSubjectId,
+          currentCorrectCount,
+          questions.length,
+          Math.max(maxStreak, isCorrect ? streakCount + 1 : 0)
+        ).catch(e => console.error("Error submitting score", e));
+      }
     }
   };
 
@@ -863,6 +905,22 @@ export default function App() {
 
   const isDark = theme === 'dark';
 
+  if (!username) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center relative overflow-hidden ${isDark ? 'bg-[#0b0c12]' : 'bg-stone-50'}`}>
+        <AmbientParticles isDark={isDark} />
+        <NameInputOverlay
+          onSave={setUsername}
+          theme={theme}
+          soundEnabled={soundEnabled}
+          onPlayTap={() => {
+            try { soundFX.playTap(); } catch (e) {}
+          }}
+        />
+      </div>
+    );
+  }
+
   if (showLandingPage) {
     return (
       <div
@@ -874,6 +932,9 @@ export default function App() {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
+        {/* Floating Particles background (100 glowing particles) */}
+        <AmbientParticles isDark={isDark} />
+
         {/* Landing Page Header / Quick settings */}
         <header className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-2.5">
@@ -882,6 +943,27 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            {username && (
+              <button
+                onClick={() => {
+                  if (window.confirm('คุณต้องการเปลี่ยนชื่อผู้ใช้ใช่หรือไม่? คะแนนสะสมเดิมของคุณจะยังถูกบันทึกไว้ในระบบ')) {
+                    setUsername('');
+                    localStorage.removeItem('grammar_quiz_username_v1');
+                    try { soundFX.playTap(); } catch (e) {}
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isDark
+                    ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                    : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50 shadow-2xs'
+                }`}
+                title="คลิกเพื่อเปลี่ยนชื่อผู้ใช้"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span>คุณ: <strong className="text-amber-400 font-extrabold">{username}</strong> ✏️</span>
+              </button>
+            )}
+
             {/* Sound Toggle */}
             <button
               onClick={handleToggleSound}
@@ -984,83 +1066,138 @@ export default function App() {
               </p>
             </div>
 
-            {/* Subjects Showcase - Recommended */}
-            <div className="space-y-4 pt-6 max-w-4xl mx-auto">
-              <div className="flex items-center gap-2 justify-center sm:justify-start">
-                <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-                <h2 className="text-xs font-black uppercase tracking-wider text-amber-400">
-                  วิชาเพิ่มใหม่แนะนำ 🔥
-                </h2>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-                {subjectsList.filter(s => s.isReady && ['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
-                  const colorClasses = getSubjectColorClasses(sub.id);
-                  return (
-                    <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 relative overflow-hidden ${
-                      isDark 
-                        ? 'bg-zinc-900/60 border-amber-500/20 shadow-[0_4px_12px_rgba(245,158,11,0.05)]' 
-                        : 'bg-white border-amber-200 shadow-2xs'
-                    }`}>
-                      {/* NEW Badge */}
-                      <span className="absolute top-0 right-0 px-2.5 py-0.5 text-[8px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-bl-lg shadow-xs">
-                        NEW
-                      </span>
-                      
-                      <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
-                        {getSubjectIcon(sub.icon, "w-5 h-5")}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2 pr-6">
-                          <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
-                            {sub.totalQuestions} ข้อ
-                          </span>
-                        </div>
-                        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                          {sub.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Elegant Tab Switcher Menu */}
+            <div className="flex justify-center pt-6 pb-2">
+              <div className={`p-1 rounded-2xl flex gap-1 ${isDark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-stone-100/70 border border-stone-200'}`}>
+                <button
+                  onClick={() => {
+                    setLandingTab('subjects');
+                    if (soundEnabled) {
+                      try { soundFX.playTap(); } catch (e) {}
+                    }
+                  }}
+                  className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 ${
+                    landingTab === 'subjects'
+                      ? isDark 
+                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black' 
+                        : 'bg-stone-900 text-white shadow-md'
+                      : isDark
+                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>รายวิชาทั้งหมด</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setLandingTab('leaderboard');
+                    if (soundEnabled) {
+                      try { soundFX.playTap(); } catch (e) {}
+                    }
+                  }}
+                  className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 ${
+                    landingTab === 'leaderboard'
+                      ? isDark 
+                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black' 
+                        : 'bg-stone-900 text-white shadow-md'
+                      : isDark
+                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
+                  }`}
+                >
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span>ทำเนียบคะแนนสะสม (Supabase)</span>
+                </button>
               </div>
             </div>
 
-            {/* Subjects Showcase - Others */}
-            <div className="space-y-4 pt-8 max-w-4xl mx-auto">
-              <div className="flex items-center gap-2 justify-center sm:justify-start">
-                <h2 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                  วิชามาตรฐานอื่นๆ 📚
-                </h2>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-                {subjectsList.filter(s => s.isReady && !['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
-                  const colorClasses = getSubjectColorClasses(sub.id);
-                  return (
-                    <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
-                      isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
-                    }`}>
-                      <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
-                        {getSubjectIcon(sub.icon, "w-5 h-5")}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
-                            {sub.totalQuestions} ข้อ
+            {landingTab === 'subjects' ? (
+              <div className="space-y-6 w-full">
+                {/* Subjects Showcase - Recommended */}
+                <div className="space-y-4 pt-4 max-w-4xl mx-auto">
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                    <h2 className="text-xs font-black uppercase tracking-wider text-amber-400">
+                      วิชาเพิ่มใหม่แนะนำ 🔥
+                    </h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                    {subjectsList.filter(s => s.isReady && ['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
+                      const colorClasses = getSubjectColorClasses(sub.id);
+                      return (
+                        <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 relative overflow-hidden ${
+                          isDark 
+                            ? 'bg-zinc-900/60 border-amber-500/20 shadow-[0_4px_12px_rgba(245,158,11,0.05)]' 
+                            : 'bg-white border-amber-200 shadow-2xs'
+                        }`}>
+                          {/* NEW Badge */}
+                          <span className="absolute top-0 right-0 px-2.5 py-0.5 text-[8px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-bl-lg shadow-xs">
+                            NEW
                           </span>
+                          
+                          <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
+                            {getSubjectIcon(sub.icon, "w-5 h-5")}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2 pr-6">
+                              <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
+                                {sub.totalQuestions} ข้อ
+                              </span>
+                            </div>
+                            <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                              {sub.description}
+                            </p>
+                          </div>
                         </div>
-                        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                          {sub.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Subjects Showcase - Others */}
+                <div className="space-y-4 pt-2 max-w-4xl mx-auto">
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <h2 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                      วิชามาตรฐานอื่นๆ 📚
+                    </h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                    {subjectsList.filter(s => s.isReady && !['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
+                      const colorClasses = getSubjectColorClasses(sub.id);
+                      return (
+                        <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
+                          isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
+                        }`}>
+                          <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
+                            {getSubjectIcon(sub.icon, "w-5 h-5")}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
+                                {sub.totalQuestions} ข้อ
+                              </span>
+                            </div>
+                            <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                              {sub.description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="w-full max-w-4xl mx-auto">
+                <LeaderboardView currentUsername={username} theme={theme} />
+              </div>
+            )}
 
             {/* Bottom spacer instead of button */}
             <div className="pt-4" />
@@ -1085,10 +1222,11 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 relative overflow-hidden ${
         isDark ? 'bg-[#0b0c10] text-zinc-100 selection:bg-amber-400 selection:text-zinc-950' : 'bg-stone-100/70 text-stone-900 selection:bg-stone-200'
       }`}
     >
+      <AmbientParticles isDark={isDark} />
       {/* Subject Selector Modal */}
       {showSubjectSelector && (
         <SubjectSelector
@@ -1134,6 +1272,15 @@ export default function App() {
         onResetBatch={handleResetCurrentBatch}
         onShowSummary={() => {
           setShowSummaryView(true);
+          if (username) {
+            supabaseSim.submitScore(
+              username,
+              currentSubjectId,
+              correctCount,
+              questions.length,
+              maxStreak
+            ).catch(e => console.error("Error submitting manual score", e));
+          }
           setTimeout(() => {
             if (resultRef.current) {
               resultRef.current.scrollIntoView({ behavior: 'smooth' });

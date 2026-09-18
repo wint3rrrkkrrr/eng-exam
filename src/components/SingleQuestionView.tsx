@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, Flame, Sparkles, XCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
 import { getQuestionDifficulty } from '../utils/difficulty';
@@ -334,7 +335,10 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
           }
 
           return (
-            <button
+            <motion.button
+              whileHover={{ scale: selectedOption !== undefined ? 1 : 1.012, x: selectedOption !== undefined ? 0 : 3 }}
+              whileTap={{ scale: selectedOption !== undefined ? 1 : 0.985 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 450 }}
               key={`${question.id}-option-${optIdx}`}
               type="button"
               onClick={() => handleOptionClick(option)}
@@ -394,7 +398,7 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
                   )}
                 </div>
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>
