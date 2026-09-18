@@ -13,7 +13,8 @@ import {
   Flame,
   Shuffle,
   History,
-  X
+  X,
+  Music
 } from 'lucide-react';
 import { SubjectInfo, ThemeMode } from '../types';
 import { availableSubjects } from '../data/subjectsData';
@@ -59,6 +60,8 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
         return <Terminal className={className} />;
       case 'Lightbulb':
         return <Lightbulb className={className} />;
+      case 'Music':
+        return <Music className={className} />;
       default:
         return <BookOpen className={className} />;
     }
@@ -67,6 +70,10 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
   const isDark = theme === 'dark';
   const totalReadySubjects = availableSubjects.filter(s => s.isReady).length;
   const totalReadyQuestions = availableSubjects.reduce((sum, s) => sum + (s.isReady ? s.totalQuestions : 0), 0);
+
+  const recommendedIds = ['physics', 'music', 'english-speaking', 'c-programming'];
+  const recommendedSubjects = availableSubjects.filter(s => recommendedIds.includes(s.id));
+  const otherSubjects = availableSubjects.filter(s => !recommendedIds.includes(s.id));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
@@ -235,115 +242,241 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
           </div>
 
           {/* Subject Cards */}
-          <div className="space-y-3">
-            <span className={`text-xs font-bold uppercase tracking-wider block ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-              รายชื่อวิชาทั้งหมด (พร้อมใช้งาน {totalReadySubjects} วิชา รวม {totalReadyQuestions} ข้อ)
-            </span>
+          <div className="space-y-8">
+            {/* 1. Recommended & New Subjects */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+                <span className={`text-sm font-black uppercase tracking-wider block ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                  วิชาเพิ่มใหม่แนะนำ 🔥 (โดดเด่นแนะนำเป็นพิเศษ)
+                </span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {availableSubjects.map((subject) => {
-                const isSelected = subject.id === currentSubjectId;
-                const isReady = subject.isReady;
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {recommendedSubjects.map((subject) => {
+                  const isSelected = subject.id === currentSubjectId;
+                  const isReady = subject.isReady;
 
-                return (
-                  <div
-                    key={subject.id}
-                    className={`rounded-2xl border transition-all duration-200 p-5 flex flex-col justify-between ${
-                      isDark
-                        ? isSelected
-                          ? 'bg-zinc-900/90 border-amber-500/60 ring-2 ring-amber-500/20 shadow-lg'
+                  return (
+                    <div
+                      key={subject.id}
+                      className={`rounded-2xl border transition-all duration-200 p-5 flex flex-col justify-between relative overflow-hidden group ${
+                        isDark
+                          ? isSelected
+                            ? 'bg-zinc-900/90 border-amber-400 ring-2 ring-amber-400/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                            : isReady
+                            ? 'bg-zinc-900/60 border-amber-500/30 hover:border-amber-400/60 shadow-[0_4px_12px_rgba(0,0,0,0.15)] hover:scale-[1.01]'
+                            : 'bg-zinc-900/20 border-zinc-800/60 opacity-75'
+                          : isSelected
+                          ? 'bg-amber-50/10 border-amber-500 ring-2 ring-amber-500/20 shadow-md'
                           : isReady
-                          ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
-                          : 'bg-zinc-900/20 border-zinc-800/60 opacity-75'
-                        : isSelected
-                        ? 'bg-white border-amber-500/80 ring-2 ring-amber-500/20 shadow-md'
-                        : isReady
-                        ? 'bg-white border-stone-200 hover:border-stone-300'
-                        : 'bg-stone-50 border-stone-200/80 opacity-75'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div
-                          className={`w-11 h-11 rounded-xl flex items-center justify-center border ${
-                            subject.id === 'english'
-                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                              : subject.id === 'biology'
-                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                              : subject.id === 'history'
-                              ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
-                              : subject.id === 'math'
-                              ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
-                              : subject.id === 'c-programming'
-                              ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-                              : subject.id === 'physics'
-                              ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
-                              : 'bg-zinc-800 border-zinc-700 text-zinc-400'
-                          }`}
-                        >
-                          {getSubjectIcon(subject.icon, 'w-5 h-5', subject.color)}
+                          ? 'bg-white border-amber-200 hover:border-amber-400 hover:shadow-md hover:scale-[1.01]'
+                          : 'bg-stone-50 border-stone-200/80 opacity-75'
+                      }`}
+                    >
+                      {/* NEW Ribbon tag */}
+                      <div className="absolute top-0 right-0 z-10">
+                        <span className="inline-flex items-center gap-0.5 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-bl-xl shadow-xs">
+                          NEW
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div
+                            className={`w-11 h-11 rounded-xl flex items-center justify-center border ${
+                              subject.id === 'english' || subject.id === 'english-speaking'
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                : subject.id === 'biology'
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                : subject.id === 'history' || subject.id === 'music'
+                                ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
+                                : subject.id === 'math'
+                                ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                                : subject.id === 'c-programming'
+                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                                : subject.id === 'physics'
+                                ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+                                : 'bg-zinc-800 border-zinc-700 text-zinc-400'
+                            }`}
+                          >
+                            {getSubjectIcon(subject.icon, 'w-5 h-5', subject.color)}
+                          </div>
+
+                          {isReady ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>คลัง {subject.totalQuestions} ข้อ</span>
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                              isDark ? 'bg-zinc-800/80 text-zinc-400 border-zinc-700' : 'bg-stone-100 text-stone-500 border-stone-200'
+                            }`}>
+                              พร้อมรับเนื้อหาเพิ่ม
+                            </span>
+                          )}
                         </div>
 
+                        <h3 className="text-base font-bold mb-1 pr-6">
+                          {subject.name}
+                        </h3>
+                        <div className={`text-xs font-medium mb-2 ${isDark ? 'text-amber-400/90' : 'text-amber-700'}`}>
+                          {subject.nameEn}
+                        </div>
+                        <p className={`text-xs leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                          {subject.description}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-zinc-800/60">
                         {isReady ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>คลัง {subject.totalQuestions} ข้อ</span>
-                          </span>
+                          <button
+                            onClick={() => {
+                              onSelectSubject(subject.id, selectedBatchSize, difficultyFilter);
+                              if (onClose) onClose();
+                            }}
+                            className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition active:scale-98 flex items-center justify-center gap-2 ${
+                              isSelected
+                                ? isDark
+                                  ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold shadow-sm'
+                                  : 'bg-stone-900 hover:bg-stone-800 text-white'
+                                : isDark
+                                ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700'
+                                : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300'
+                            }`}
+                          >
+                            <Shuffle className="w-3.5 h-3.5" />
+                            <span>{isSelected ? `สุ่มข้อสอบ (${selectedBatchSize} ข้อ)` : `เลือกวิชานี้ (${selectedBatchSize} ข้อ)`}</span>
+                          </button>
                         ) : (
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
-                            isDark ? 'bg-zinc-800/80 text-zinc-400 border-zinc-700' : 'bg-stone-100 text-stone-500 border-stone-200'
-                          }`}>
-                            พร้อมรับเนื้อหาเพิ่ม
-                          </span>
+                          <div className="flex items-center justify-between py-1 text-xs">
+                            <span className={isDark ? 'text-zinc-500' : 'text-stone-400'}>
+                              ส่งข้อสอบเพิ่มเติมได้ทันที
+                            </span>
+                            <span className="font-semibold text-amber-500 flex items-center gap-1">
+                              <PlusCircle className="w-3.5 h-3.5" />
+                              <span>รอโจทย์ใหม่</span>
+                            </span>
+                          </div>
                         )}
                       </div>
-
-                      <h3 className="text-base font-bold mb-1">
-                        {subject.name}
-                      </h3>
-                      <div className={`text-xs font-medium mb-2 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                        {subject.nameEn}
-                      </div>
-                      <p className={`text-xs leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-                        {subject.description}
-                      </p>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                    <div className="mt-4 pt-3 border-t border-zinc-800/60">
-                      {isReady ? (
-                        <button
-                          onClick={() => {
-                            onSelectSubject(subject.id, selectedBatchSize, difficultyFilter);
-                            if (onClose) onClose();
-                          }}
-                          className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition active:scale-98 flex items-center justify-center gap-2 ${
-                            isSelected
-                              ? isDark
-                                ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold shadow-sm'
-                                : 'bg-stone-900 hover:bg-stone-800 text-white'
-                              : isDark
-                              ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700'
-                              : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300'
-                          }`}
-                        >
-                          <Shuffle className="w-3.5 h-3.5" />
-                          <span>{isSelected ? `สุ่มข้อสอบ (${selectedBatchSize} ข้อ)` : `เลือกวิชานี้ (${selectedBatchSize} ข้อ)`}</span>
-                        </button>
-                      ) : (
-                        <div className="flex items-center justify-between py-1 text-xs">
-                          <span className={isDark ? 'text-zinc-500' : 'text-stone-400'}>
-                            ส่งข้อสอบเพิ่มเติมได้ทันที
-                          </span>
-                          <span className="font-semibold text-amber-500 flex items-center gap-1">
-                            <PlusCircle className="w-3.5 h-3.5" />
-                            <span>รอโจทย์ใหม่</span>
-                          </span>
+            {/* 2. Standard / Other Subjects */}
+            <div className="space-y-3">
+              <span className={`text-xs font-bold uppercase tracking-wider block ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                วิชามาตรฐานอื่นๆ 📚 (คลังเนื้อหาหลักดั้งเดิม)
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {otherSubjects.map((subject) => {
+                  const isSelected = subject.id === currentSubjectId;
+                  const isReady = subject.isReady;
+
+                  return (
+                    <div
+                      key={subject.id}
+                      className={`rounded-2xl border transition-all duration-200 p-5 flex flex-col justify-between ${
+                        isDark
+                          ? isSelected
+                            ? 'bg-zinc-900/90 border-amber-500/60 ring-2 ring-amber-500/20 shadow-lg'
+                            : isReady
+                            ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                            : 'bg-zinc-900/20 border-zinc-800/60 opacity-75'
+                          : isSelected
+                          ? 'bg-white border-amber-500/80 ring-2 ring-amber-500/20 shadow-md'
+                          : isReady
+                          ? 'bg-white border-stone-200 hover:border-stone-300'
+                          : 'bg-stone-50 border-stone-200/80 opacity-75'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div
+                            className={`w-11 h-11 rounded-xl flex items-center justify-center border ${
+                              subject.id === 'english' || subject.id === 'english-speaking'
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                : subject.id === 'biology'
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                : subject.id === 'history' || subject.id === 'music'
+                                ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
+                                : subject.id === 'math'
+                                ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                                : subject.id === 'c-programming'
+                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                                : subject.id === 'physics'
+                                ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+                                : 'bg-zinc-800 border-zinc-700 text-zinc-400'
+                            }`}
+                          >
+                            {getSubjectIcon(subject.icon, 'w-5 h-5', subject.color)}
+                          </div>
+
+                          {isReady ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>คลัง {subject.totalQuestions} ข้อ</span>
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                              isDark ? 'bg-zinc-800/80 text-zinc-400 border-zinc-700' : 'bg-stone-100 text-stone-500 border-stone-200'
+                            }`}>
+                              พร้อมรับเนื้อหาเพิ่ม
+                            </span>
+                          )}
                         </div>
-                      )}
+
+                        <h3 className="text-base font-bold mb-1">
+                          {subject.name}
+                        </h3>
+                        <div className={`text-xs font-medium mb-2 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                          {subject.nameEn}
+                        </div>
+                        <p className={`text-xs leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+                          {subject.description}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-zinc-800/60">
+                        {isReady ? (
+                          <button
+                            onClick={() => {
+                              onSelectSubject(subject.id, selectedBatchSize, difficultyFilter);
+                              if (onClose) onClose();
+                            }}
+                            className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition active:scale-98 flex items-center justify-center gap-2 ${
+                              isSelected
+                                ? isDark
+                                  ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold shadow-sm'
+                                  : 'bg-stone-900 hover:bg-stone-800 text-white'
+                                : isDark
+                                ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700'
+                                : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300'
+                            }`}
+                          >
+                            <Shuffle className="w-3.5 h-3.5" />
+                            <span>{isSelected ? `สุ่มข้อสอบ (${selectedBatchSize} ข้อ)` : `เลือกวิชานี้ (${selectedBatchSize} ข้อ)`}</span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center justify-between py-1 text-xs">
+                            <span className={isDark ? 'text-zinc-500' : 'text-stone-400'}>
+                              ส่งข้อสอบเพิ่มเติมได้ทันที
+                            </span>
+                            <span className="font-semibold text-amber-500 flex items-center gap-1">
+                              <PlusCircle className="w-3.5 h-3.5" />
+                              <span>รอโจทย์ใหม่</span>
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

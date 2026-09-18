@@ -15,7 +15,8 @@ import {
   biologyRules, 
   historyRules, 
   mathRules,
-  cRules
+  cRules,
+  physicsRules
 } from '../data/subjectGuides';
 
 export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
@@ -35,6 +36,7 @@ export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
     if (subjectId === 'history') return historyRules;
     if (subjectId === 'math') return mathRules;
     if (subjectId === 'c-programming') return cRules;
+    if (subjectId === 'physics') return physicsRules;
     return englishRules;
   }, [subjectId]);
 
@@ -43,8 +45,19 @@ export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
     if (subjectId === 'history') return 'คู่มือสรุปประวัติศาสตร์ & อารยธรรมโลก (กรีก โรมัน จีน อินเดีย)';
     if (subjectId === 'math') return 'คู่มือสรุปคณิตศาสตร์ ม.5 (ความน่าจะเป็น & กฎการนับ)';
     if (subjectId === 'c-programming') return 'คู่มือสรุปการเขียนโปรแกรมภาษาซี (C Programming)';
+    if (subjectId === 'physics') return 'คู่มือสรุปฟิสิกส์ ม.5 (แสง & ทัศนอุปกรณ์)';
     return 'คู่มือสรุปหลักไวยากรณ์ภาษาอังกฤษ (Grammar Guide)';
   }, [subjectId]);
+
+  const searchPlaceholder = useMemo(() => {
+    if (subjectId === 'biology') return "ค้นหาเนื้อหา (พิมพ์คำค้นหา เช่น 'สปอโรไฟต์', 'วัฏจักรชีวิต', 'C4')...";
+    if (subjectId === 'history') return "ค้นหาเนื้อหา (พิมพ์คำค้นหา เช่น 'กรีก', 'โรมัน', 'อเล็กซานเดอร์')...";
+    if (subjectId === 'math') return "ค้นหาเนื้อหา (พิมพ์คำค้นหา เช่น 'ความน่าจะเป็น', 'หยิบของ', 'ลูกเต๋า')...";
+    if (subjectId === 'c-programming') return "ค้นหาเนื้อหา (พิมพ์คำค้นหา เช่น 'printf', 'switch-case', 'ตัวแปร')...";
+    if (subjectId === 'physics') return "ค้นหาเนื้อหา (พิมพ์คำค้นหา เช่น 'สเนลล์', 'เลนส์นูน', 'รุ้งกินน้ำ', 'สลิต')...";
+    return "ค้นหาเนื้อหา (พิมพ์คำค้นหา เช่น 'mustn't', 'Modal Verbs', 'Future')...";
+  }, [subjectId]);
+
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -126,7 +139,7 @@ export const GrammarGuideModal: React.FC<StudyGuideModalProps> = ({
             />
             <input
               type="text"
-              placeholder="ค้นหาเนื้อหา (พิมพ์คำค้นหา เช่น 'สปอโรไฟต์', 'กรีก', 'mustn\'t', 'C4')..."
+              placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={`w-full pl-9 pr-4 py-2 text-xs sm:text-sm rounded-xl border focus:outline-hidden ${

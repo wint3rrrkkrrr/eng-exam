@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Bookmark, CheckCircle2, XCircle, Sparkles, RotateCcw, Lightbulb, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
 import { getQuestionDifficulty } from '../utils/difficulty';
+import { DynamicScienceDiagram } from './DynamicScienceDiagram';
 
 const formatOptionText = (option: string, isMath: boolean): string => {
   if (!isMath) return option;
@@ -292,6 +293,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         {renderQuestionText(question.question)}
       </h3>
 
+      {/* Dynamic Contextual Science/Physics Diagram */}
+      <div className="mb-5">
+        <DynamicScienceDiagram question={question} isDark={isDark} />
+      </div>
+
       {/* Options List */}
       <div className="space-y-2.5" role="radiogroup" aria-label={`Options for question ${question.id}`}>
         {question.options.map((option, optIdx) => {
@@ -327,7 +333,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
           return (
             <label
-              key={option}
+              key={`${question.id}-option-${optIdx}`}
               id={`option-label-${question.id}-${optIdx}`}
               onClick={(e) => {
                 e.preventDefault();

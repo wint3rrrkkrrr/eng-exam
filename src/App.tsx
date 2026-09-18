@@ -13,6 +13,8 @@ import { historyQuestions } from './data/historyQuestionsData';
 import { mathQuestions } from './data/mathQuestionsData';
 import { cQuestions } from './data/cQuestionsData';
 import { physicsQuestions } from './data/physicsQuestionsData';
+import { englishSpeakingQuestions } from './data/englishSpeakingQuestions';
+import { musicQuestions } from './data/musicQuestions';
 import { subjectsList } from './data/subjectsData';
 import { Question, QuizViewMode, CategoryStat, ThemeMode, CompletedQuestionRecord } from './types';
 import { 
@@ -34,7 +36,8 @@ import {
   Calculator,
   Terminal,
   Lightbulb,
-  Globe
+  Globe,
+  Music
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
@@ -67,6 +70,8 @@ function getSubjectIcon(iconName: string, className: string) {
       return <Terminal className={className} />;
     case 'Lightbulb':
       return <Lightbulb className={className} />;
+    case 'Music':
+      return <Music className={className} />;
     default:
       return <BookOpen className={className} />;
   }
@@ -75,10 +80,12 @@ function getSubjectIcon(iconName: string, className: string) {
 function getSubjectColorClasses(subjectId: string) {
   switch (subjectId) {
     case 'english':
+    case 'english-speaking':
       return 'bg-amber-500/10 border-amber-500/20 text-amber-400';
     case 'biology':
       return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
     case 'history':
+    case 'music':
       return 'bg-purple-500/10 border-purple-500/20 text-purple-400';
     case 'math':
       return 'bg-sky-500/10 border-sky-500/20 text-sky-400';
@@ -177,6 +184,12 @@ export default function App() {
     }
     if (currentSubjectId === 'physics') {
       return physicsQuestions;
+    }
+    if (currentSubjectId === 'english-speaking') {
+      return englishSpeakingQuestions;
+    }
+    if (currentSubjectId === 'music') {
+      return musicQuestions;
     }
     return allQuestions; // default english
   }, [currentSubjectId]);
@@ -429,6 +442,8 @@ export default function App() {
     else if (subjectId === 'math') targetBank = mathQuestions;
     else if (subjectId === 'c-programming') targetBank = cQuestions;
     else if (subjectId === 'physics') targetBank = physicsQuestions;
+    else if (subjectId === 'english-speaking') targetBank = englishSpeakingQuestions;
+    else if (subjectId === 'music') targetBank = musicQuestions;
 
     drawNewBatch(targetSize, targetBank, targetDifficulty);
   };
@@ -809,31 +824,82 @@ export default function App() {
               ยินดีต้อนรับสู่ระบบคลังข้อสอบและแบบฝึกหัดอัจฉริยะที่รวบรวมโจทย์สอบวัดระดับคุณภาพสูงไว้มากถึง <strong>1,200 ข้อ</strong> ครอบคลุมเนื้อหาสำคัญอย่างเจาะลึก พร้อมระบบสุ่มคลัง ตัดโจทย์ซ้ำ และเฉลยอธิบายละเอียดภาษาไทย
             </p>
 
-            {/* Subjects Showcase Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 max-w-4xl mx-auto text-left">
-              {subjectsList.filter(s => s.isReady).map((sub) => {
-                const colorClasses = getSubjectColorClasses(sub.id);
-                return (
-                  <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
-                    isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
-                  }`}>
-                    <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
-                      {getSubjectIcon(sub.icon, "w-5 h-5")}
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
-                          {sub.totalQuestions} ข้อ
-                        </span>
+            {/* Subjects Showcase - Recommended */}
+            <div className="space-y-4 pt-6 max-w-4xl mx-auto">
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                <h2 className="text-xs font-black uppercase tracking-wider text-amber-400">
+                  วิชาเพิ่มใหม่แนะนำ 🔥
+                </h2>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                {subjectsList.filter(s => s.isReady && ['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
+                  const colorClasses = getSubjectColorClasses(sub.id);
+                  return (
+                    <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 relative overflow-hidden ${
+                      isDark 
+                        ? 'bg-zinc-900/60 border-amber-500/20 shadow-[0_4px_12px_rgba(245,158,11,0.05)]' 
+                        : 'bg-white border-amber-200 shadow-2xs'
+                    }`}>
+                      {/* NEW Badge */}
+                      <span className="absolute top-0 right-0 px-2.5 py-0.5 text-[8px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-bl-lg shadow-xs">
+                        NEW
+                      </span>
+                      
+                      <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
+                        {getSubjectIcon(sub.icon, "w-5 h-5")}
                       </div>
-                      <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                        {sub.description}
-                      </p>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2 pr-6">
+                          <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
+                            {sub.totalQuestions} ข้อ
+                          </span>
+                        </div>
+                        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                          {sub.description}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Subjects Showcase - Others */}
+            <div className="space-y-4 pt-8 max-w-4xl mx-auto">
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <h2 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                  วิชามาตรฐานอื่นๆ 📚
+                </h2>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                {subjectsList.filter(s => s.isReady && !['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
+                  const colorClasses = getSubjectColorClasses(sub.id);
+                  return (
+                    <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
+                      isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
+                    }`}>
+                      <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
+                        {getSubjectIcon(sub.icon, "w-5 h-5")}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
+                            {sub.totalQuestions} ข้อ
+                          </span>
+                        </div>
+                        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                          {sub.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Giant Action Button */}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, Flame, Sparkles, XCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Question, ThemeMode } from '../types';
 import { getQuestionDifficulty } from '../utils/difficulty';
+import { DynamicScienceDiagram } from './DynamicScienceDiagram';
 
 const formatOptionText = (option: string, isMath: boolean): string => {
   if (!isMath) return option;
@@ -293,6 +294,10 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
         <h2 className="text-xl sm:text-2xl font-bold leading-snug">
           {renderQuestionText(question.question)}
         </h2>
+        {/* Dynamic Science/Physics Diagram Renderer */}
+        <div className="mt-4">
+          <DynamicScienceDiagram question={question} isDark={isDark} />
+        </div>
       </div>
 
       {/* Options List */}
@@ -330,7 +335,7 @@ export const SingleQuestionView: React.FC<SingleQuestionViewProps> = ({
 
           return (
             <button
-              key={option}
+              key={`${question.id}-option-${optIdx}`}
               type="button"
               onClick={() => handleOptionClick(option)}
               className={`w-full text-left flex items-center justify-between p-4 rounded-xl border text-base transition-all ${
