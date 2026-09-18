@@ -14,7 +14,7 @@ import { LeaderboardView } from './components/LeaderboardView';
 import { AdminModal } from './components/AdminModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { FloatingChatWidget } from './components/FloatingChatWidget';
-import { supabaseSim } from './utils/supabaseSim';
+import { supabaseSim, syncWithServer } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
 import { historyQuestions } from './data/historyQuestionsData';
@@ -119,6 +119,15 @@ export default function App() {
       return 'dark';
     }
   });
+
+  // Sync with cloud server every 4 seconds
+  useEffect(() => {
+    syncWithServer();
+    const interval = setInterval(() => {
+      syncWithServer();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     try {

@@ -168,6 +168,35 @@ export function detectDevice(): string {
   }
 }
 
+export async function syncWithServer() {
+  try {
+    const res = await fetch('/api/all-data');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.users && Array.isArray(data.users)) {
+        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(data.users));
+      }
+      if (data.scores && Array.isArray(data.scores)) {
+        localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(data.scores));
+      }
+      if (data.profiles && typeof data.profiles === 'object') {
+        localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(data.profiles));
+      }
+      if (data.friends && typeof data.friends === 'object') {
+        localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(data.friends));
+      }
+      if (data.friendRequests && Array.isArray(data.friendRequests)) {
+        localStorage.setItem(STORAGE_KEY_FRIEND_REQ, JSON.stringify(data.friendRequests));
+      }
+      if (data.chatMessages && Array.isArray(data.chatMessages)) {
+        localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(data.chatMessages));
+      }
+    }
+  } catch (e) {
+    // Offline or static fallback
+  }
+}
+
 export const supabaseSim = {
   // Register or update user active status
   registerUser: (username: string) => {
@@ -193,6 +222,13 @@ export const supabaseSim = {
         });
       }
       localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+
+      // Post to cloud server
+      fetch('/api/register-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanName, deviceInfo: device }),
+      }).catch(() => {});
     } catch (e) {
       console.error("Error registering user", e);
     }
@@ -213,6 +249,7 @@ export const supabaseSim = {
 
   // Get aggregated leaderboard scores across all subjects for REAL users only
   getAggregatedLeaderboard: async (): Promise<UserAggregatedLeaderboard[]> => {
+    await syncWithServer();
     try {
       const scoresRaw = localStorage.getItem(STORAGE_KEY_SCORES);
       const scores: UserScoreRecord[] = scoresRaw ? JSON.parse(scoresRaw) : [];
@@ -312,6 +349,7 @@ export const supabaseSim = {
 
       const subject = subjectsList.find(s => s.id === subjectId);
       const subjectName = subject ? subject.name : subjectId;
+      const device = detectDevice();
 
       const newRecord: UserScoreRecord = {
         id: Math.random().toString(36).substring(2, 9),
@@ -322,11 +360,17 @@ export const supabaseSim = {
         max_questions: maxQuestions,
         streak,
         created_at: new Date().toISOString(),
-        device_info: detectDevice(),
+        device_info: device,
       };
 
       scores.push(newRecord);
       localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(scores));
+
+      fetch('/api/submit-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanName, subjectId, subjectName, score, maxQuestions, streak, deviceInfo: device }),
+      }).catch(() => {});
     } catch (e) {
       console.error("Error submitting score", e);
     }
@@ -348,6 +392,12 @@ export const supabaseSim = {
         const filtered = scores.filter(s => s.username.trim().toLowerCase() !== cleanName);
         localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(filtered));
       }
+
+      fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernameToDelete: username }),
+      }).catch(() => {});
     } catch (e) {
       console.error("Error deleting user", e);
     }
@@ -358,6 +408,7 @@ export const supabaseSim = {
     try {
       localStorage.removeItem(STORAGE_KEY_SCORES);
       localStorage.removeItem(STORAGE_KEY_USERS);
+      fetch('/api/admin/clear-all', { method: 'POST' }).catch(() => {});
     } catch (e) {
       console.error("Error clearing scores", e);
     }
@@ -397,6 +448,7 @@ export const supabaseSim = {
   updateProfile: (username: string, updates: { avatar?: string; bio?: string }) => {
     if (!username) return;
     const cleanName = username.trim().toLowerCase();
+    const device = detectDevice();
     try {
       const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
       const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
@@ -406,9 +458,22 @@ export const supabaseSim = {
         ...updates,
         username: username.trim(),
         last_active: new Date().toISOString(),
+        device_info: device,
       };
       localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
       window.dispatchEvent(new Event('storage'));
+
+      // Send to server
+      fetch('/api/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          avatar: updates.avatar,
+          bio: updates.bio,
+          deviceInfo: device,
+        }),
+      }).catch(() => {});
     } catch (e) {
       console.error(e);
     }
@@ -460,6 +525,13 @@ export const supabaseSim = {
       });
       localStorage.setItem(STORAGE_KEY_FRIEND_REQ, JSON.stringify(reqs));
       window.dispatchEvent(new Event('storage'));
+
+      fetch('/api/friend-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', fromUsername: cleanFrom, toUsername: cleanTo }),
+      }).catch(() => {});
+
       return { success: true, message: `ส่งคำขอเป็นเพื่อนถึง ${cleanTo} แล้ว!` };
     } catch (e) {
       console.error(e);
@@ -508,6 +580,14 @@ export const supabaseSim = {
         localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(friendsMap));
       }
       window.dispatchEvent(new Event('storage'));
+
+      if (accept) {
+        fetch('/api/friend-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'accept', requestId }),
+        }).catch(() => {});
+      }
     } catch (e) {
       console.error(e);
     }
@@ -575,6 +655,12 @@ export const supabaseSim = {
       messages.push(newMsg);
       localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
       window.dispatchEvent(new Event('storage'));
+
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMsg),
+      }).catch(() => {});
     } catch (e) {
       console.error(e);
     }

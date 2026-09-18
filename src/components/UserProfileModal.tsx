@@ -156,14 +156,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               />
             </div>
 
-            {/* Device & Account Stats Info */}
+            {/* Account Stats Info */}
             <div className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
               isDark ? 'bg-zinc-800/30 border-zinc-800 text-zinc-400' : 'bg-stone-50 border-stone-200 text-stone-600'
             }`}>
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span className="truncate">อุปกรณ์ที่ใช้: {profile.device_info || 'ไม่ระบุ'}</span>
-              </div>
+              {(() => {
+                const isAdmin = localStorage.getItem('winter_admin_auth_v1') === 'true' || username.trim().toLowerCase() === 'win' || username.trim().toLowerCase() === 'wintararer';
+                return isAdmin ? (
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="truncate">อุปกรณ์ที่ใช้: {profile.device_info || 'ไม่ระบุ'}</span>
+                  </div>
+                ) : null;
+              })()}
               <div className="flex items-center gap-2">
                 <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <span>ลงทะเบียนเมื่อ: {new Date(profile.joined_at || Date.now()).toLocaleDateString('th-TH')}</span>

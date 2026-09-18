@@ -398,10 +398,15 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                     <div className={`p-3 rounded-2xl border text-[11px] space-y-1.5 ${
                       isDark ? 'bg-zinc-900/30 border-zinc-800 text-zinc-400' : 'bg-stone-50 border-stone-200 text-stone-600'
                     }`}>
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="truncate">อุปกรณ์ที่ใช้: {selectedBioUser.deviceInfo || uProfile.device_info || 'ไม่ระบุ'}</span>
-                      </div>
+                      {(() => {
+                        const isAdmin = localStorage.getItem('winter_admin_auth_v1') === 'true' || currentUsername.trim().toLowerCase() === 'win' || currentUsername.trim().toLowerCase() === 'wintararer';
+                        return isAdmin ? (
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="truncate">อุปกรณ์ที่ใช้: {selectedBioUser.deviceInfo || uProfile.device_info || 'ไม่ระบุ'}</span>
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                         <span>เล่นล่าสุด: {formatDate(selectedBioUser.lastActive, isWin)}</span>
