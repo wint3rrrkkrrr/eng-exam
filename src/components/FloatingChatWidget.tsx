@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import {
   supabaseSim,
+  syncWithServer,
   ChatMessage,
   FriendRequest,
   UserProfile,
@@ -100,11 +101,16 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
     // Listen for real-time updates via storage event
     const handleStorage = () => refreshChatData();
     window.addEventListener('storage', handleStorage);
-    const interval = setInterval(refreshChatData, 2000); // Poll every 2s as backup
+
+    // Sync with server every 5s so data is shared across devices
+    const serverSyncInterval = setInterval(async () => {
+      await syncWithServer();
+      refreshChatData();
+    }, 5000);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
-      clearInterval(interval);
+      clearInterval(serverSyncInterval);
     };
   }, [activeUsername, selectedFriend]);
 

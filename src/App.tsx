@@ -962,7 +962,7 @@ export default function App() {
           }}
         />
         <FloatingChatWidget
-          currentUsername="ผู้ใช้ใหม่"
+          currentUsername={localStorage.getItem('grammar_quiz_username_v1') || 'ผู้เยือน'}
           isDark={isDark}
         />
       </div>

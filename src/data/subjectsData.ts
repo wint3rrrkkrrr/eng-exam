@@ -4,11 +4,11 @@ export const availableSubjects: SubjectInfo[] = [
   {
     id: 'english',
     name: 'ภาษาอังกฤษ ม.5 (English Grammar)',
-    nameEn: 'Tenses, Conditionals, Passive & Modals (300 ข้อ)',
+    nameEn: 'Tenses, Conditionals, Passive & Modals (220 ข้อ)',
     icon: 'Languages',
     color: 'amber',
-    description: 'คลังข้อสอบ 300 ข้อ ครบเนื้อหา ม.5: 12 Tenses, Stative Verbs, Conditionals (If-Clause), Wish Clauses, Inversion, Subjunctive, Causatives, Relative Clauses, และ Subject-Verb Agreement',
-    totalQuestions: 300,
+    description: 'คลังข้อสอบ 220 ข้อ ครบเนื้อหา ม.5: 12 Tenses, Stative Verbs, Conditionals (If-Clause), Wish Clauses, Inversion, Subjunctive, Causatives, Relative Clauses, และ Subject-Verb Agreement',
+    totalQuestions: 220,
     isReady: true,
   },
   {
@@ -74,11 +74,11 @@ export const availableSubjects: SubjectInfo[] = [
   {
     id: 'music',
     name: 'ศิลปะดนตรี ม.5 (Music Art)',
-    nameEn: 'Music Criticism, Theory & Evolution (200 ข้อ)',
+    nameEn: 'Music Criticism, Theory & Evolution (98 ข้อ)',
     icon: 'Music',
     color: 'purple',
-    description: 'คลังข้อสอบ 200 ข้อ อ้างอิงเนื้อหาจากสไลด์ประกอบการเรียนดนตรี ม.5 ครอบคลุม: การวิจารณ์และประเมินงานดนตรี (จิตวิจารณ์, อรรถวิจารณ์, วิพากษ์วิจารณ์), สัญลักษณ์ดนตรีสากล (เครื่องหมายกำหนดความเร็ว, บังคับเสียง, บอกความเข้มเสียง, เน้นเสียง), ดนตรีประยุกต์ และวิวัฒนาการดนตรีสากลตั้งแต่ยุคกรีกโบราณจนถึงยุคคีย์เวิร์ดคีตกวีเอก (Bach, Vivaldi, Handel, Haydn, Mozart, Beethoven, Chopin, Tchaikovsky, Debussy)',
-    totalQuestions: 200,
+    description: 'คลังข้อสอบ 98 ข้อ อ้างอิงเนื้อหาจากสไลด์ประกอบการเรียนดนตรี ม.5 ครอบคลุม: การวิจารณ์และประเมินงานดนตรี (จิตวิจารณ์, อรรถวิจารณ์, วิพากษ์วิจารณ์), สัญลักษณ์ดนตรีสากล (เครื่องหมายกำหนดความเร็ว, บังคับเสียง, บอกความเข้มเสียง, เน้นเสียง), ดนตรีประยุกต์ และวิวัฒนาการดนตรีสากลตั้งแต่ยุคกรีกโบราณจนถึงยุคคีย์เวิร์ดคีตกวีเอก (Bach, Vivaldi, Handel, Haydn, Mozart, Beethoven, Chopin, Tchaikovsky, Debussy)',
+    totalQuestions: 98,
     isReady: true,
   },
 ];
