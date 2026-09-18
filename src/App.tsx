@@ -122,7 +122,7 @@ export default function App() {
   const [currentSubjectId, setCurrentSubjectId] = useState<string>(() => {
     try {
       const saved = localStorage.getItem('quiz_current_subject_id_v1');
-      if (saved && (saved === 'english' || saved === 'biology' || saved === 'history' || saved === 'math' || saved === 'c-programming' || saved === 'physics')) {
+      if (saved && subjectsList.some((s) => s.id === saved)) {
         return saved;
       }
       return 'english';
@@ -130,7 +130,14 @@ export default function App() {
       return 'english';
     }
   });
-  const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_show_landing_page_v1');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
   const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
 
@@ -258,15 +265,71 @@ export default function App() {
     }
   });
 
-  const [viewMode, setViewMode] = useState<QuizViewMode>('all');
-  const [currentSingleIdx, setCurrentSingleIdx] = useState<number>(0);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'unanswered' | 'flagged' | 'correct' | 'wrong'>('all');
-  const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<QuizViewMode>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_view_mode_v1');
+      return (saved as QuizViewMode) || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [currentSingleIdx, setCurrentSingleIdx] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_current_single_idx_v1');
+      return saved !== null ? JSON.parse(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unanswered' | 'flagged' | 'correct' | 'wrong'>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_active_filter_v1');
+      return (saved as 'all' | 'unanswered' | 'flagged' | 'correct' | 'wrong') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [selectedTopic, setSelectedTopic] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_selected_topic_v1');
+      return saved || 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
-  const [showSummaryView, setShowSummaryView] = useState<boolean>(false);
-  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
-  const [streakCount, setStreakCount] = useState<number>(0);
-  const [maxStreak, setMaxStreak] = useState<number>(0);
+  const [showSummaryView, setShowSummaryView] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_show_summary_view_v1');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_seconds_elapsed_v1');
+      return saved !== null ? JSON.parse(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [streakCount, setStreakCount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_streak_count_v1');
+      return saved !== null ? JSON.parse(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [maxStreak, setMaxStreak] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('grammar_quiz_max_streak_v1');
+      return saved !== null ? JSON.parse(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -355,6 +418,79 @@ export default function App() {
       // ignore
     }
   }, [flagged]);
+
+  // Sync state variables for refresh/reload memory persistence
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_show_landing_page_v1', JSON.stringify(showLandingPage));
+    } catch {
+      // ignore
+    }
+  }, [showLandingPage]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_show_summary_view_v1', JSON.stringify(showSummaryView));
+    } catch {
+      // ignore
+    }
+  }, [showSummaryView]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_current_single_idx_v1', JSON.stringify(currentSingleIdx));
+    } catch {
+      // ignore
+    }
+  }, [currentSingleIdx]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_view_mode_v1', viewMode);
+    } catch {
+      // ignore
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_active_filter_v1', activeFilter);
+    } catch {
+      // ignore
+    }
+  }, [activeFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_selected_topic_v1', selectedTopic);
+    } catch {
+      // ignore
+    }
+  }, [selectedTopic]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_seconds_elapsed_v1', JSON.stringify(secondsElapsed));
+    } catch {
+      // ignore
+    }
+  }, [secondsElapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_streak_count_v1', JSON.stringify(streakCount));
+    } catch {
+      // ignore
+    }
+  }, [streakCount]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('grammar_quiz_max_streak_v1', JSON.stringify(maxStreak));
+    } catch {
+      // ignore
+    }
+  }, [maxStreak]);
 
 
 
@@ -824,6 +960,30 @@ export default function App() {
               ยินดีต้อนรับสู่ระบบคลังข้อสอบและแบบฝึกหัดอัจฉริยะที่รวบรวมโจทย์สอบวัดระดับคุณภาพสูงไว้มากถึง <strong>1,200 ข้อ</strong> ครอบคลุมเนื้อหาสำคัญอย่างเจาะลึก พร้อมระบบสุ่มคลัง ตัดโจทย์ซ้ำ และเฉลยอธิบายละเอียดภาษาไทย
             </p>
 
+            {/* Giant Action Button - Moved to top */}
+            <div className="pt-4 pb-4">
+              <button
+                onClick={() => {
+                  setShowLandingPage(false);
+                  setShowSubjectSelector(true);
+                  if (soundEnabled) {
+                    try { soundFX.playTap(); } catch (e) {}
+                  }
+                }}
+                className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] ${
+                  isDark
+                    ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black'
+                    : 'bg-stone-900 hover:bg-stone-800 text-white'
+                }`}
+              >
+                <span>เริ่มทำข้อสอบเลย</span>
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <p className={`text-[11px] mt-2.5 font-semibold ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                คลิกเพื่อไปที่หน้าต่างเลือกวิชาและเลือกจำนวนข้อสอบที่ต้องการสุ่มได้ตามต้องการ
+              </p>
+            </div>
+
             {/* Subjects Showcase - Recommended */}
             <div className="space-y-4 pt-6 max-w-4xl mx-auto">
               <div className="flex items-center gap-2 justify-center sm:justify-start">
@@ -902,29 +1062,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Giant Action Button */}
-            <div className="pt-8">
-              <button
-                onClick={() => {
-                  setShowLandingPage(false);
-                  setShowSubjectSelector(true);
-                  if (soundEnabled) {
-                    try { soundFX.playTap(); } catch (e) {}
-                  }
-                }}
-                className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] ${
-                  isDark
-                    ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black'
-                    : 'bg-stone-900 hover:bg-stone-800 text-white'
-                }`}
-              >
-                <span>เริ่มทำข้อสอบเลย</span>
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-              <p className={`text-[11px] mt-2.5 font-semibold ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                คลิกเพื่อไปที่หน้าต่างเลือกวิชาและเลือกจำนวนข้อสอบที่ต้องการสุ่มได้ตามต้องการ
-              </p>
-            </div>
+            {/* Bottom spacer instead of button */}
+            <div className="pt-4" />
           </div>
         </main>
 
@@ -1010,6 +1149,12 @@ export default function App() {
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
         streakCount={streakCount}
+        onBackToHome={() => {
+          setShowLandingPage(true);
+          if (soundEnabled) {
+            try { soundFX.playTap(); } catch (e) {}
+          }
+        }}
       />
 
       {/* Main Content Area */}

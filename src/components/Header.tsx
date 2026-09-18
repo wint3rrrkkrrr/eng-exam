@@ -15,7 +15,8 @@ import {
   LayoutGrid,
   ChevronDown,
   History,
-  Shuffle
+  Shuffle,
+  Home
 } from 'lucide-react';
 import { QuizViewMode, ThemeMode } from '../types';
 
@@ -42,6 +43,7 @@ interface HeaderProps {
   soundEnabled: boolean;
   onToggleSound: () => void;
   streakCount: number;
+  onBackToHome: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -67,6 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
   soundEnabled,
   onToggleSound,
   streakCount,
+  onBackToHome,
 }) => {
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);
@@ -92,6 +95,21 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Back to Home Button */}
+              <button
+                onClick={onBackToHome}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black border transition active:scale-95 ${
+                  isDark
+                    ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-700 hover:border-zinc-600'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-800 border-stone-200 hover:border-stone-300'
+                }`}
+                title="กลับสู่หน้าแรก (WINTER Prep Hub)"
+                id="back-to-home-btn"
+              >
+                <Home className="w-3.5 h-3.5 text-amber-500" />
+                <span>กลับหน้าแรก</span>
+              </button>
+
               {/* Subject Switch Button */}
               <button
                 onClick={onOpenSubjectSelector}
