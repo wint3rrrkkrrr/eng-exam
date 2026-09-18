@@ -48,7 +48,9 @@ import {
   Globe,
   Music,
   User,
-  LogOut
+  LogOut,
+  Edit3,
+  MessageCircle
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
@@ -948,6 +950,10 @@ export default function App() {
             try { soundFX.playTap(); } catch (e) {}
           }}
         />
+        <FloatingChatWidget
+          username="ผู้ใช้ใหม่"
+          theme={theme}
+        />
       </div>
     );
   }
@@ -978,19 +984,23 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowProfileModal(true)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 active:scale-95 ${
+                  className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 active:scale-95 cursor-pointer ${
                     isDark
-                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
-                      : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 ring-1 ring-amber-400/20'
+                      : 'bg-amber-100 border-amber-300 text-amber-950 hover:bg-amber-200'
                   }`}
-                  title="ปรับแต่งโปรไฟล์ส่วนตัว"
+                  title="แก้ไขโปรไฟล์ส่วนตัว (อวตาร / เขียน Bio)"
                 >
                   <img
                     src={supabaseSim.getProfile(username).avatar}
                     alt={username}
-                    className="w-4 h-4 rounded-full object-cover ring-1 ring-amber-400"
+                    className="w-5 h-5 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
                   />
-                  <span>โปรไฟล์: <strong className="text-amber-400 font-extrabold">{username}</strong></span>
+                  <span className="flex items-center gap-1 font-extrabold">
+                    <span>แก้ไขโปรไฟล์:</span>
+                    <span className="text-amber-400 underline decoration-amber-400/50">{username}</span>
+                    <Edit3 className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-0.5" />
+                  </span>
                 </button>
 
                 <button
@@ -1088,7 +1098,7 @@ export default function App() {
             </p>
 
             {/* Giant Action Button - Moved to top */}
-            <div className="pt-4 pb-4">
+            <div className="pt-4 pb-2 flex flex-col items-center gap-3">
               <button
                 onClick={() => {
                   setShowLandingPage(false);
@@ -1097,7 +1107,7 @@ export default function App() {
                     try { soundFX.playTap(); } catch (e) {}
                   }
                 }}
-                className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] ${
+                className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] cursor-pointer ${
                   isDark
                     ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black'
                     : 'bg-stone-900 hover:bg-stone-800 text-white'
@@ -1106,7 +1116,23 @@ export default function App() {
                 <span>เริ่มทำข้อสอบเลย</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
-              <p className={`text-[11px] mt-2.5 font-semibold ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
+
+              {/* Quick Profile & Chat Shortcuts on Landing Page */}
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ${
+                    isDark
+                      ? 'bg-zinc-900/80 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                      : 'bg-white border-stone-200 text-stone-800 hover:bg-stone-100 shadow-2xs'
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>✏️ แก้ไขโปรไฟล์ส่วนตัว</span>
+                </button>
+              </div>
+
+              <p className={`text-[11px] mt-1 font-semibold ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
                 คลิกเพื่อไปที่หน้าต่างเลือกวิชาและเลือกจำนวนข้อสอบที่ต้องการสุ่มได้ตามต้องการ
               </p>
             </div>
@@ -1267,6 +1293,18 @@ export default function App() {
             </span>
           </div>
         </footer>
+
+        <UserProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          username={username}
+          theme={theme}
+        />
+
+        <FloatingChatWidget
+          username={username}
+          theme={theme}
+        />
 
         <AdminModal
           theme={theme}
