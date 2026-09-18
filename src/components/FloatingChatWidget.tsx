@@ -18,12 +18,12 @@ import {
 } from 'lucide-react';
 import {
   supabaseSim,
-  syncWithServer,
   ChatMessage,
   FriendRequest,
   UserProfile,
   DEFAULT_AVATARS
 } from '../utils/supabaseSim';
+import { supabase } from '../utils/supabaseClient';
 
 interface FloatingChatWidgetProps {
   currentUsername?: string;
@@ -62,30 +62,25 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   // Quick Emoji Presets
   const QUICK_EMOJIS = ['✌️', '🔥', '📚', '💪', '❤️', '🤔', '🎉', '💯'];
 
-  // Load chat data and friends
-  const refreshChatData = () => {
-    // Load global messages (always load global messages!)
-    const gMsgs = supabaseSim.getChatMessages(activeUsername);
+  // Load chat data and friends (async — Supabase)
+  const refreshChatData = async () => {
+    const gMsgs = await supabaseSim.getChatMessages(activeUsername);
     setGlobalMessages(gMsgs);
 
     if (!activeUsername) return;
 
-    // Load friends
-    const friends = supabaseSim.getFriends(activeUsername);
+    const friends = await supabaseSim.getFriends(activeUsername);
     setFriendsList(friends);
 
-    // Load friend requests
-    const reqs = supabaseSim.getFriendRequests(activeUsername);
+    const reqs = await supabaseSim.getFriendRequests(activeUsername);
     setFriendRequests(reqs);
 
-    // Load direct messages if friend selected
     if (selectedFriend) {
-      const dMsgs = supabaseSim.getChatMessages(activeUsername, selectedFriend);
+      const dMsgs = await supabaseSim.getChatMessages(activeUsername, selectedFriend);
       setDirectMessages(dMsgs);
     }
 
-    // Load registered users for search
-    const users = supabaseSim.getRealUsers();
+    const users = await supabaseSim.getRealUsers();
     const formatted = users
       .filter(u => u.username.toLowerCase() !== activeUsername.toLowerCase())
       .map(u => ({
@@ -98,19 +93,19 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   useEffect(() => {
     refreshChatData();
 
-    // Listen for real-time updates via storage event
-    const handleStorage = () => refreshChatData();
-    window.addEventListener('storage', handleStorage);
-
-    // Sync with server every 5s so data is shared across devices
-    const serverSyncInterval = setInterval(async () => {
-      await syncWithServer();
-      refreshChatData();
-    }, 5000);
+    // Supabase Realtime — ข้อความใหม่จาก device อื่นมาถึงทันที
+    const channel = supabase
+      .channel('winter_chat_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'winter_chat' }, () => {
+        refreshChatData();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'winter_users' }, () => {
+        refreshChatData();
+      })
+      .subscribe();
 
     return () => {
-      window.removeEventListener('storage', handleStorage);
-      clearInterval(serverSyncInterval);
+      supabase.removeChannel(channel);
     };
   }, [activeUsername, selectedFriend]);
 
@@ -121,48 +116,35 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
     }
   }, [globalMessages, directMessages, isOpen, activeTab, selectedFriend]);
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanSender = activeUsername || 'ผู้ใช้ใหม่';
+    const cleanSender = activeUsername || 'ผู้เยือน';
     if (!inputMessage.trim()) return;
 
     const myProfile = supabaseSim.getProfile(cleanSender);
-
     if (activeTab === 'global') {
-      supabaseSim.sendChatMessage({
-        sender: cleanSender,
-        text: inputMessage,
-        isGlobal: true,
-        avatar: myProfile.avatar,
-      });
+      await supabaseSim.sendChatMessage({ sender: cleanSender, text: inputMessage, isGlobal: true, avatar: myProfile.avatar });
     } else if (activeTab === 'friends' && selectedFriend) {
-      supabaseSim.sendChatMessage({
-        sender: cleanSender,
-        recipient: selectedFriend,
-        text: inputMessage,
-        isGlobal: false,
-        avatar: myProfile.avatar,
-      });
+      await supabaseSim.sendChatMessage({ sender: cleanSender, recipient: selectedFriend, text: inputMessage, isGlobal: false, avatar: myProfile.avatar });
     }
-
     setInputMessage('');
     refreshChatData();
   };
 
-  const handleSendFriendRequest = (targetUser: string) => {
-    const res = supabaseSim.sendFriendRequest(activeUsername, targetUser);
+  const handleSendFriendRequest = async (targetUser: string) => {
+    const res = await supabaseSim.sendFriendRequest(activeUsername, targetUser);
     setRequestStatusMsg(res.message);
     setTimeout(() => setRequestStatusMsg(null), 3000);
     refreshChatData();
   };
 
-  const handleAcceptRequest = (reqId: string) => {
-    supabaseSim.respondFriendRequest(reqId, true);
+  const handleAcceptRequest = async (reqId: string) => {
+    await supabaseSim.respondFriendRequest(reqId, true);
     refreshChatData();
   };
 
-  const handleRejectRequest = (reqId: string) => {
-    supabaseSim.respondFriendRequest(reqId, false);
+  const handleRejectRequest = async (reqId: string) => {
+    await supabaseSim.respondFriendRequest(reqId, false);
     refreshChatData();
   };
 
@@ -420,7 +402,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
                         </div>
                       ) : (
                         directMessages.map((msg) => {
-                          const isMe = msg.sender.toLowerCase() === currentUsername.toLowerCase();
+                          const isMe = msg.sender.toLowerCase() === activeUsername.toLowerCase();
                           return (
                             <div
                               key={msg.id}

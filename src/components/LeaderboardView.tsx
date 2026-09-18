@@ -17,13 +17,18 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   const [data, setData] = useState<UserAggregatedLeaderboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBioUser, setSelectedBioUser] = useState<UserAggregatedLeaderboard | null>(null);
+  const [myFriends, setMyFriends] = useState<string[]>([]);
   const isDark = theme === 'dark';
 
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      const records = await supabaseSim.getAggregatedLeaderboard();
+      const [records, friends] = await Promise.all([
+        supabaseSim.getAggregatedLeaderboard(),
+        supabaseSim.getFriends(currentUsername),
+      ]);
       setData(records);
+      setMyFriends(friends);
     } catch (e) {
       console.error(e);
     } finally {
@@ -33,7 +38,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
 
   useEffect(() => {
     fetchLeaderboard();
-  }, []);
+  }, [currentUsername]);
 
   const handleRefresh = () => {
     onPlayTap?.();
@@ -155,7 +160,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                   const accuracy = entry.totalAttempted > 0 ? Math.round((entry.totalScore / entry.totalAttempted) * 100) : 100;
                   const isCurrentUser = entry.username.trim().toLowerCase() === currentUsername.trim().toLowerCase();
                   const userProfile = supabaseSim.getProfile(entry.username);
-                  const isAlreadyFriend = supabaseSim.getFriends(currentUsername).some(f => f.toLowerCase() === entry.username.toLowerCase());
+                  const isAlreadyFriend = myFriends.some(f => f.toLowerCase() === entry.username.toLowerCase());
                   
                   return (
                     <motion.tr
@@ -253,9 +258,10 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                               </span>
                             ) : (
                               <button
-                                onClick={() => {
-                                  const res = supabaseSim.sendFriendRequest(currentUsername, entry.username);
+                                onClick={async () => {
+                                  const res = await supabaseSim.sendFriendRequest(currentUsername, entry.username);
                                   alert(res.message);
+                                  fetchLeaderboard();
                                 }}
                                 className="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition-all flex items-center gap-1 active:scale-95"
                               >
@@ -307,7 +313,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
               {(() => {
                 const uProfile = supabaseSim.getProfile(selectedBioUser.username);
                 const isWin = selectedBioUser.isRankZero || selectedBioUser.username.trim().toLowerCase() === 'win';
-                const isFriend = supabaseSim.getFriends(currentUsername).some(f => f.toLowerCase() === selectedBioUser.username.toLowerCase());
+                const isFriend = myFriends.some(f => f.toLowerCase() === selectedBioUser.username.toLowerCase());
                 const accuracy = selectedBioUser.totalAttempted > 0 ? Math.round((selectedBioUser.totalScore / selectedBioUser.totalAttempted) * 100) : 100;
 
                 return (
@@ -423,9 +429,10 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                           </div>
                         ) : (
                           <button
-                            onClick={() => {
-                              const res = supabaseSim.sendFriendRequest(currentUsername, selectedBioUser.username);
+                            onClick={async () => {
+                              const res = await supabaseSim.sendFriendRequest(currentUsername, selectedBioUser.username);
                               alert(res.message);
+                              fetchLeaderboard();
                             }}
                             className="w-full py-2.5 rounded-xl font-black text-xs bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                           >

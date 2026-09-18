@@ -1,4 +1,5 @@
 import { subjectsList } from '../data/subjectsData';
+import { supabase } from './supabaseClient';
 import claytonKimImg from '../assets/images/clayton_kim_1789743353081.jpg';
 
 export interface UserScoreRecord {
@@ -58,13 +59,6 @@ export interface ChatMessage {
   avatar?: string;
 }
 
-const STORAGE_KEY_SCORES = 'winter_exam_supabase_scores_v2';
-const STORAGE_KEY_USERS = 'winter_exam_supabase_real_users_v2';
-const STORAGE_KEY_PROFILES = 'winter_exam_user_profiles_v1';
-const STORAGE_KEY_FRIENDS = 'winter_exam_user_friends_v1';
-const STORAGE_KEY_FRIEND_REQ = 'winter_exam_friend_requests_v1';
-const STORAGE_KEY_CHAT = 'winter_exam_chat_messages_v1';
-
 export const DEFAULT_AVATARS = [
   claytonKimImg,
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -80,205 +74,97 @@ export const DEFAULT_AVATARS = [
 export function detectDevice(): string {
   if (typeof window === 'undefined' || !navigator) return 'ไม่ทราบอุปกรณ์';
   const ua = navigator.userAgent || '';
-
-  // Extract specific model strings from Android UA if available
-  let specificModel = '';
-  const androidModelMatch = ua.match(/\(([^)]+)\)/);
-  if (androidModelMatch && androidModelMatch[1]) {
-    const parts = androidModelMatch[1].split(';').map(p => p.trim());
-    for (const part of parts) {
-      if (/Android/i.test(part) || /Linux/i.test(part) || /wv/i.test(part)) continue;
-      if (/Build\//i.test(part)) {
-        const modelName = part.split('Build/')[0].trim();
-        if (modelName) {
-          specificModel = modelName;
-          break;
-        }
-      } else if (/SM-|Pixel|CPH|RMX|M2|220|V2|M20|Mi|Redmi|POCO|OnePlus|ROG|Xperia|Galaxy/i.test(part)) {
-        specificModel = part.replace(/Build\/.*/i, '').trim();
-        break;
-      }
-    }
-  }
-
-  // Known Brand / Model detection
   let brandModel = '';
-  if (/iPhone/i.test(ua)) {
-    brandModel = 'iPhone';
-  } else if (/iPad/i.test(ua) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /Macintosh/i.test(ua))) {
-    brandModel = 'iPad';
-  } else if (/Pixel/i.test(ua)) {
-    const m = ua.match(/Pixel\s?[\w\d\s]+/i);
-    brandModel = m ? m[0].trim() : 'Google Pixel';
-  } else if (/SM-[A-Z0-9]+/i.test(ua) || /Samsung/i.test(ua)) {
+  if (/iPhone/i.test(ua)) brandModel = 'iPhone';
+  else if (/iPad/i.test(ua)) brandModel = 'iPad';
+  else if (/SM-[A-Z0-9]+/i.test(ua) || /Samsung/i.test(ua)) {
     const m = ua.match(/SM-[A-Z0-9]+/i);
     brandModel = m ? `Samsung Galaxy (${m[0]})` : 'Samsung Galaxy';
-  } else if (/CPH[0-9]+/i.test(ua) || /OPPO/i.test(ua)) {
-    const m = ua.match(/CPH[0-9]+/i);
-    brandModel = m ? `OPPO (${m[0]})` : 'OPPO';
-  } else if (/V2[0-9]+/i.test(ua) || /vivo/i.test(ua)) {
-    const m = ua.match(/V2[0-9]+/i);
-    brandModel = m ? `Vivo (${m[0]})` : 'Vivo';
-  } else if (/Redmi|Xiaomi|Mi\s|M2[0-9]+/i.test(ua)) {
-    const m = ua.match(/(Redmi[\w\s\d]+|Mi[\w\s\d]+)/i);
-    brandModel = m ? m[0].trim() : 'Xiaomi / Redmi';
-  } else if (/Realme|RMX[0-9]+/i.test(ua)) {
-    const m = ua.match(/RMX[0-9]+/i);
-    brandModel = m ? `Realme (${m[0]})` : 'Realme';
-  } else if (/OnePlus/i.test(ua)) {
-    brandModel = 'OnePlus';
-  } else if (specificModel) {
-    brandModel = specificModel;
   }
-
-  // OS detection with version
   let osName = '';
-  if (/windows nt 10/i.test(ua) || /windows nt 11/i.test(ua)) osName = 'Windows PC (10/11)';
-  else if (/windows nt 6.3/i.test(ua)) osName = 'Windows PC (8.1)';
-  else if (/windows nt 6.1/i.test(ua)) osName = 'Windows PC (7)';
-  else if (/windows/i.test(ua)) osName = 'Windows PC';
-  else if (/macintosh|mac os x/i.test(ua)) {
-    osName = (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) ? 'iPadOS' : 'MacBook / Mac (macOS)';
-  } else if (/iphone|ipod/i.test(ua)) osName = 'iOS';
+  if (/windows nt 10|windows nt 11/i.test(ua)) osName = 'Windows PC (10/11)';
+  else if (/macintosh|mac os x/i.test(ua)) osName = 'MacBook / Mac (macOS)';
+  else if (/iphone|ipod/i.test(ua)) osName = 'iOS';
   else if (/ipad/i.test(ua)) osName = 'iPadOS';
   else if (/android/i.test(ua)) {
     const ver = ua.match(/Android\s([0-9.]+)/i);
     osName = ver ? `Android ${ver[1]}` : 'Android';
   } else if (/linux/i.test(ua)) osName = 'Linux PC';
-
-  // Browser detection
   let browserName = '';
   if (/edg/i.test(ua)) browserName = 'Edge';
   else if (/chrome|crios/i.test(ua)) browserName = 'Chrome';
   else if (/firefox|fxios/i.test(ua)) browserName = 'Firefox';
   else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browserName = 'Safari';
-
-  // Device type icon
-  let icon = '💻';
-  if (/mobile/i.test(ua) || /iphone|android/i.test(ua)) {
-    icon = '📱';
-  } else if (/ipad/i.test(ua)) {
-    icon = '📱';
-  }
-
-  if (brandModel) {
-    return `${icon} ${brandModel} (${osName}${browserName ? ' • ' + browserName : ''})`;
-  } else {
-    return `${icon} ${osName || 'ไม่ทราบอุปกรณ์'}${browserName ? ' (' + browserName + ')' : ''}`;
-  }
+  const icon = /mobile/i.test(ua) || /iphone|android/i.test(ua) ? '📱' : '💻';
+  if (brandModel) return `${icon} ${brandModel} (${osName}${browserName ? ' • ' + browserName : ''})`;
+  return `${icon} ${osName || 'ไม่ทราบอุปกรณ์'}${browserName ? ' (' + browserName + ')' : ''}`;
 }
 
+// syncWithServer kept for compatibility (no-op now — Supabase is source of truth)
 export async function syncWithServer() {
-  try {
-    const res = await fetch('/api/all-data');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.users && Array.isArray(data.users)) {
-        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(data.users));
-      }
-      if (data.scores && Array.isArray(data.scores)) {
-        localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(data.scores));
-      }
-      if (data.profiles && typeof data.profiles === 'object') {
-        const rawLocal = localStorage.getItem(STORAGE_KEY_PROFILES);
-        const localProfiles = rawLocal ? JSON.parse(rawLocal) : {};
-        const merged: Record<string, UserProfile> = { ...data.profiles };
-
-        for (const [key, p] of Object.entries(localProfiles)) {
-          if (!merged[key]) {
-            merged[key] = p as UserProfile;
-          } else {
-            const serverP = merged[key] as UserProfile;
-            const localP = p as UserProfile;
-            const serverTime = new Date(serverP.last_active || 0).getTime();
-            const localTime = new Date(localP.last_active || 0).getTime();
-            if (localTime >= serverTime) {
-              merged[key] = localP;
-            }
-          }
-        }
-        localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(merged));
-      }
-      if (data.friends && typeof data.friends === 'object') {
-        localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(data.friends));
-      }
-      if (data.friendRequests && Array.isArray(data.friendRequests)) {
-        localStorage.setItem(STORAGE_KEY_FRIEND_REQ, JSON.stringify(data.friendRequests));
-      }
-      if (data.chatMessages && Array.isArray(data.chatMessages)) {
-        localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(data.chatMessages));
-      }
-      window.dispatchEvent(new Event('storage'));
-    }
-  } catch (e) {
-    // Offline or static fallback
-  }
+  // No longer needed: data goes directly to/from Supabase
+  window.dispatchEvent(new Event('storage'));
 }
+
+// ---- Profile cache (in-memory for this session) ----
+const profileCache: Record<string, UserProfile> = {};
 
 export const supabaseSim = {
-  // Register or update user active status
-  registerUser: (username: string) => {
-    if (!username || !username.trim()) return;
-    const cleanName = username.trim();
+  registerUser: async (username: string) => {
+    if (!username?.trim()) return;
+    const clean = username.trim();
     const device = detectDevice();
+    const now = new Date().toISOString();
     try {
-      const usersRaw = localStorage.getItem(STORAGE_KEY_USERS);
-      let users: RegisteredUser[] = usersRaw ? JSON.parse(usersRaw) : [];
-
-      const existingIdx = users.findIndex(u => u.username.toLowerCase() === cleanName.toLowerCase());
-      const now = new Date().toISOString();
-
-      if (existingIdx !== -1) {
-        users[existingIdx].last_active = now;
-        users[existingIdx].device_info = device;
-      } else {
-        users.push({
-          username: cleanName,
-          joined_at: now,
-          last_active: now,
-          device_info: device,
-        });
-      }
-      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
-
-      // Post to cloud server
-      fetch('/api/register-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanName, deviceInfo: device }),
-      }).catch(() => {});
+      await supabase.from('winter_users').upsert(
+        { username: clean, last_active: now, device_info: device },
+        { onConflict: 'username' }
+      );
     } catch (e) {
-      console.error("Error registering user", e);
+      console.error('registerUser error', e);
     }
   },
 
-  // Get list of all real users registered in the app
-  getRealUsers: (): RegisteredUser[] => {
+  getRealUsers: async (): Promise<RegisteredUser[]> => {
     try {
-      const usersRaw = localStorage.getItem(STORAGE_KEY_USERS);
-      if (usersRaw) {
-        return JSON.parse(usersRaw);
-      }
+      const { data, error } = await supabase
+        .from('winter_users')
+        .select('*')
+        .order('last_active', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(u => ({
+        username: u.username,
+        joined_at: u.joined_at,
+        last_active: u.last_active,
+        device_info: u.device_info || '',
+      }));
     } catch (e) {
-      console.error("Error fetching real users", e);
+      console.error('getRealUsers error', e);
+      return [];
     }
-    return [];
   },
 
-  // Get aggregated leaderboard scores across all subjects for REAL users only
   getAggregatedLeaderboard: async (): Promise<UserAggregatedLeaderboard[]> => {
-    await syncWithServer();
     try {
-      const scoresRaw = localStorage.getItem(STORAGE_KEY_SCORES);
-      const scores: UserScoreRecord[] = scoresRaw ? JSON.parse(scoresRaw) : [];
-      const realUsers = supabaseSim.getRealUsers();
+      const [usersRes, scoresRes] = await Promise.all([
+        supabase.from('winter_users').select('*'),
+        supabase.from('winter_scores').select('*'),
+      ]);
+      const users: RegisteredUser[] = (usersRes.data || []);
+      const scores: UserScoreRecord[] = (scoresRes.data || []).map(s => ({
+        id: s.id,
+        username: s.username,
+        subject_id: s.subject_id,
+        subject_name: s.subject_name,
+        score: s.score,
+        max_questions: s.max_questions,
+        streak: s.streak,
+        created_at: s.created_at,
+        device_info: s.device_info,
+      }));
       const currentDevice = detectDevice();
-
-      // Aggregate scores by username
-      const userMap: { [username: string]: UserAggregatedLeaderboard } = {};
-
-      // Initialize entries for all registered real users
-      realUsers.forEach(u => {
+      const userMap: Record<string, UserAggregatedLeaderboard> = {};
+      users.forEach(u => {
         userMap[u.username.toLowerCase()] = {
           username: u.username,
           totalScore: 0,
@@ -289,8 +175,6 @@ export const supabaseSim = {
           deviceInfo: u.device_info || currentDevice,
         };
       });
-
-      // Sum up score records
       scores.forEach(rec => {
         const key = rec.username.toLowerCase();
         if (!userMap[key]) {
@@ -304,34 +188,19 @@ export const supabaseSim = {
             deviceInfo: rec.device_info || currentDevice,
           };
         }
-
         userMap[key].totalScore += rec.score;
         userMap[key].totalAttempted += rec.max_questions;
         userMap[key].quizzesCompleted += 1;
-        if (rec.streak > userMap[key].maxStreak) {
-          userMap[key].maxStreak = rec.streak;
-        }
-        if (new Date(rec.created_at).getTime() > new Date(userMap[key].lastActive).getTime()) {
-          userMap[key].lastActive = rec.created_at;
-        }
-        if (rec.device_info) {
-          userMap[key].deviceInfo = rec.device_info;
-        }
+        if (rec.streak > userMap[key].maxStreak) userMap[key].maxStreak = rec.streak;
+        if (new Date(rec.created_at) > new Date(userMap[key].lastActive)) userMap[key].lastActive = rec.created_at;
+        if (rec.device_info) userMap[key].deviceInfo = rec.device_info;
       });
-
-      const list = Object.values(userMap);
-
-      // Filter out users with 0 score unless registered
-      const filtered = list.filter(u => u.totalAttempted > 0 || realUsers.some(r => r.username.toLowerCase() === u.username.toLowerCase()));
-
-      // Sort by Total Score DESC, then Max Streak DESC, then Quizzes Completed DESC
+      const filtered = Object.values(userMap).filter(u => u.totalAttempted > 0 || users.some(r => r.username.toLowerCase() === u.username.toLowerCase()));
       filtered.sort((a, b) => {
         if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
         if (b.maxStreak !== a.maxStreak) return b.maxStreak - a.maxStreak;
         return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
       });
-
-      // Special Rank 0 Dummy Entry for WIN requested by user
       const rankZeroWin: UserAggregatedLeaderboard = {
         username: 'WIN',
         totalScore: 999,
@@ -342,342 +211,163 @@ export const supabaseSim = {
         deviceInfo: currentDevice,
         isRankZero: true,
       };
-
-      // Filter out any existing 'win' entry from real array to prevent duplicate
       const filteredReal = filtered.filter(u => u.username.trim().toLowerCase() !== 'win');
-
       return [rankZeroWin, ...filteredReal];
     } catch (e) {
-      console.error("Failed to parse aggregated leaderboard", e);
+      console.error('getAggregatedLeaderboard error', e);
       return [];
     }
   },
 
-  // Submit quiz score
   submitScore: async (username: string, subjectId: string, score: number, maxQuestions: number, streak: number): Promise<void> => {
-    if (!username || !username.trim()) return;
-    const cleanName = username.trim();
-    
-    // Register user first
-    supabaseSim.registerUser(cleanName);
-
+    if (!username?.trim()) return;
+    const clean = username.trim();
+    await supabaseSim.registerUser(clean);
     try {
-      const scoresRaw = localStorage.getItem(STORAGE_KEY_SCORES);
-      let scores: UserScoreRecord[] = scoresRaw ? JSON.parse(scoresRaw) : [];
-
       const subject = subjectsList.find(s => s.id === subjectId);
       const subjectName = subject ? subject.name : subjectId;
       const device = detectDevice();
-
-      const newRecord: UserScoreRecord = {
-        id: Math.random().toString(36).substring(2, 9),
-        username: cleanName,
+      await supabase.from('winter_scores').insert({
+        username: clean,
         subject_id: subjectId,
         subject_name: subjectName,
         score,
         max_questions: maxQuestions,
         streak,
-        created_at: new Date().toISOString(),
         device_info: device,
-      };
-
-      scores.push(newRecord);
-      localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(scores));
-
-      fetch('/api/submit-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanName, subjectId, subjectName, score, maxQuestions, streak, deviceInfo: device }),
-      }).catch(() => {});
+      });
     } catch (e) {
-      console.error("Error submitting score", e);
+      console.error('submitScore error', e);
     }
   },
 
-  // Admin method: Delete specific user and their scores
-  deleteUserByAdmin: (username: string) => {
-    try {
-      const cleanName = username.trim().toLowerCase();
-      
-      // Delete from users
-      const users = supabaseSim.getRealUsers().filter(u => u.username.trim().toLowerCase() !== cleanName);
-      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
-
-      // Delete from scores
-      const scoresRaw = localStorage.getItem(STORAGE_KEY_SCORES);
-      if (scoresRaw) {
-        const scores: UserScoreRecord[] = JSON.parse(scoresRaw);
-        const filtered = scores.filter(s => s.username.trim().toLowerCase() !== cleanName);
-        localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(filtered));
-      }
-
-      fetch('/api/admin/delete-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernameToDelete: username }),
-      }).catch(() => {});
-    } catch (e) {
-      console.error("Error deleting user", e);
-    }
+  deleteUserByAdmin: async (username: string) => {
+    const clean = username.trim();
+    await supabase.from('winter_users').delete().eq('username', clean);
+    await supabase.from('winter_scores').delete().eq('username', clean);
+    await supabase.from('winter_profiles').delete().eq('username', clean);
+    await supabase.from('winter_friends').delete().eq('username', clean);
+    await supabase.from('winter_friends').delete().eq('friend_username', clean);
+    await supabase.from('winter_friend_requests').delete().or(`from_username.eq.${clean},to_username.eq.${clean}`);
   },
 
-  // Admin method: Reset all scores
-  clearAllScoresByAdmin: () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY_SCORES);
-      localStorage.removeItem(STORAGE_KEY_USERS);
-      fetch('/api/admin/clear-all', { method: 'POST' }).catch(() => {});
-    } catch (e) {
-      console.error("Error clearing scores", e);
-    }
+  clearAllScoresByAdmin: async () => {
+    await supabase.from('winter_scores').delete().neq('id', '');
+    await supabase.from('winter_users').delete().neq('username', '');
   },
 
-  // --- Profile Methods ---
   getProfile: (username: string): UserProfile => {
     if (!username) return { username: '', avatar: DEFAULT_AVATARS[0], bio: 'สู้ๆ ไปด้วยกันนะ!', joined_at: '', last_active: '', device_info: '' };
-    const cleanName = username.trim().toLowerCase();
-    
-    // Check saved profiles in localStorage FIRST
+    const key = username.trim().toLowerCase();
+    if (profileCache[key]) return profileCache[key];
+    if (key === 'win' || key === 'wintararer') {
+      return { username: 'WIN', avatar: claytonKimImg, bio: '👑 RANK 0 TOP SUPREME VIP', joined_at: new Date().toISOString(), last_active: new Date().toISOString(), device_info: detectDevice() };
+    }
+    return { username: username.trim(), avatar: DEFAULT_AVATARS[Math.abs(username.length) % DEFAULT_AVATARS.length], bio: 'เด็กเตรียมสอบ WINTER 2026 ✌️', joined_at: new Date().toISOString(), last_active: new Date().toISOString(), device_info: detectDevice() };
+  },
+
+  fetchProfile: async (username: string): Promise<UserProfile> => {
+    const key = username.trim().toLowerCase();
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
-      const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
-      if (profiles[cleanName] && profiles[cleanName].avatar) {
-        return profiles[cleanName];
+      const { data } = await supabase.from('winter_profiles').select('*').eq('username', username.trim()).single();
+      if (data) {
+        const p: UserProfile = { username: data.username, avatar: data.avatar || DEFAULT_AVATARS[0], bio: data.bio || '', joined_at: data.joined_at, last_active: data.last_active, device_info: data.device_info || '' };
+        profileCache[key] = p;
+        return p;
       }
-    } catch (e) {
-      console.error(e);
-    }
-
-    // Default fallback for WIN if no custom profile created yet
-    if (cleanName === 'win' || cleanName === 'wintararer') {
-      return {
-        username: 'WIN',
-        avatar: claytonKimImg,
-        bio: '👑 RANK 0 TOP SUPREME VIP',
-        joined_at: new Date().toISOString(),
-        last_active: new Date().toISOString(),
-        device_info: detectDevice(),
-      };
-    }
-
-    return {
-      username: username.trim(),
-      avatar: DEFAULT_AVATARS[Math.abs(username.length) % DEFAULT_AVATARS.length],
-      bio: 'เด็กเตรียมสอบ WINTER 2026 ✌️',
-      joined_at: new Date().toISOString(),
-      last_active: new Date().toISOString(),
-      device_info: detectDevice(),
-    };
+    } catch (e) { /* no profile yet */ }
+    return supabaseSim.getProfile(username);
   },
 
-  updateProfile: (username: string, updates: { avatar?: string; bio?: string }) => {
+  updateProfile: async (username: string, updates: { avatar?: string; bio?: string }) => {
     if (!username) return;
-    const cleanName = username.trim().toLowerCase();
+    const clean = username.trim();
     const device = detectDevice();
+    const now = new Date().toISOString();
+    const current = supabaseSim.getProfile(clean);
+    const updated: UserProfile = { ...current, ...updates, username: clean, last_active: now, device_info: device };
+    profileCache[clean.toLowerCase()] = updated;
+    window.dispatchEvent(new Event('storage'));
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
-      const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
-      const current = profiles[cleanName] || supabaseSim.getProfile(username);
-      const updatedProfile: UserProfile = {
-        ...current,
-        ...updates,
-        username: username.trim(),
-        last_active: new Date().toISOString(),
-        device_info: device,
-      };
-      profiles[cleanName] = updatedProfile;
-      localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
-      window.dispatchEvent(new Event('storage'));
-
-      // Send to server
-      fetch('/api/update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username.trim(),
-          avatar: updates.avatar || updatedProfile.avatar,
-          bio: updates.bio || updatedProfile.bio,
-          deviceInfo: device,
-        }),
-      }).then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          if (data.profile) {
-            const raw2 = localStorage.getItem(STORAGE_KEY_PROFILES);
-            const p2 = raw2 ? JSON.parse(raw2) : {};
-            p2[cleanName] = data.profile;
-            localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(p2));
-            window.dispatchEvent(new Event('storage'));
-          }
-        }
-      }).catch((e) => {
-        console.error('Failed to sync profile to server', e);
-      });
+      await supabase.from('winter_profiles').upsert({ username: clean, avatar: updated.avatar, bio: updated.bio, last_active: now, device_info: device }, { onConflict: 'username' });
     } catch (e) {
-      console.error(e);
+      console.error('updateProfile error', e);
     }
   },
 
-  // --- Friend & Friend Request Methods ---
-  getFriends: (username: string): string[] => {
+  getFriends: async (username: string): Promise<string[]> => {
     if (!username) return [];
-    const cleanName = username.trim().toLowerCase();
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_FRIENDS);
-      const friendsMap: Record<string, string[]> = raw ? JSON.parse(raw) : {};
-      return friendsMap[cleanName] || [];
-    } catch {
-      return [];
-    }
+      const { data } = await supabase.from('winter_friends').select('friend_username').eq('username', username.trim());
+      return (data || []).map(r => r.friend_username);
+    } catch { return []; }
   },
 
-  sendFriendRequest: (fromUsername: string, toUsername: string): { success: boolean; message: string } => {
+  sendFriendRequest: async (fromUsername: string, toUsername: string): Promise<{ success: boolean; message: string }> => {
     if (!fromUsername || !toUsername) return { success: false, message: 'ข้อมูลไม่ถูกต้อง' };
-    if (fromUsername.trim().toLowerCase() === toUsername.trim().toLowerCase()) {
-      return { success: false, message: 'ไม่สามารถแอดตัวเองเป็นเพื่อนได้' };
-    }
+    if (fromUsername.trim().toLowerCase() === toUsername.trim().toLowerCase()) return { success: false, message: 'ไม่สามารถแอดตัวเองได้' };
     const cleanFrom = fromUsername.trim();
     const cleanTo = toUsername.trim();
-
-    const friends = supabaseSim.getFriends(cleanFrom);
-    if (friends.some(f => f.toLowerCase() === cleanTo.toLowerCase())) {
-      return { success: false, message: `เป็นเพื่อนกับ ${cleanTo} อยู่แล้ว` };
-    }
-
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_FRIEND_REQ);
-      let reqs: FriendRequest[] = raw ? JSON.parse(raw) : [];
-
-      const existing = reqs.find(
-        r => r.fromUsername.toLowerCase() === cleanFrom.toLowerCase() &&
-             r.toUsername.toLowerCase() === cleanTo.toLowerCase() &&
-             r.status === 'pending'
-      );
-      if (existing) return { success: false, message: 'ส่งคำขอเป็นเพื่อนไปแล้ว รอการตอบรับ' };
-
-      reqs.push({
-        id: Math.random().toString(36).substring(2, 9),
-        fromUsername: cleanFrom,
-        toUsername: cleanTo,
-        timestamp: new Date().toISOString(),
-        status: 'pending',
-      });
-      localStorage.setItem(STORAGE_KEY_FRIEND_REQ, JSON.stringify(reqs));
+      const { data: existing } = await supabase.from('winter_friend_requests').select('id').eq('from_username', cleanFrom).eq('to_username', cleanTo).eq('status', 'pending');
+      if (existing && existing.length > 0) return { success: false, message: 'ส่งคำขอไปแล้ว รอการตอบรับ' };
+      const { data: friends } = await supabase.from('winter_friends').select('friend_username').eq('username', cleanFrom).eq('friend_username', cleanTo);
+      if (friends && friends.length > 0) return { success: false, message: `เป็นเพื่อนกับ ${cleanTo} อยู่แล้ว` };
+      await supabase.from('winter_friend_requests').insert({ from_username: cleanFrom, to_username: cleanTo, status: 'pending' });
       window.dispatchEvent(new Event('storage'));
-
-      fetch('/api/friend-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', fromUsername: cleanFrom, toUsername: cleanTo }),
-      }).catch(() => {});
-
       return { success: true, message: `ส่งคำขอเป็นเพื่อนถึง ${cleanTo} แล้ว!` };
     } catch (e) {
       console.error(e);
-      return { success: false, message: 'เกิดข้อผิดพลาดในการส่งคำขอ' };
+      return { success: false, message: 'เกิดข้อผิดพลาด' };
     }
   },
 
-  getFriendRequests: (username: string): FriendRequest[] => {
+  getFriendRequests: async (username: string): Promise<FriendRequest[]> => {
     if (!username) return [];
-    const cleanName = username.trim().toLowerCase();
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_FRIEND_REQ);
-      const reqs: FriendRequest[] = raw ? JSON.parse(raw) : [];
-      return reqs.filter(r => r.toUsername.toLowerCase() === cleanName && r.status === 'pending');
-    } catch {
-      return [];
-    }
+      const { data } = await supabase.from('winter_friend_requests').select('*').eq('to_username', username.trim()).eq('status', 'pending');
+      return (data || []).map(r => ({ id: r.id, fromUsername: r.from_username, toUsername: r.to_username, timestamp: r.timestamp, status: r.status }));
+    } catch { return []; }
   },
 
-  respondFriendRequest: (requestId: string, accept: boolean) => {
+  respondFriendRequest: async (requestId: string, accept: boolean) => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_FRIEND_REQ);
-      let reqs: FriendRequest[] = raw ? JSON.parse(raw) : [];
-      const idx = reqs.findIndex(r => r.id === requestId);
-      if (idx === -1) return;
-
-      const req = reqs[idx];
-      req.status = accept ? 'accepted' : 'rejected';
-      localStorage.setItem(STORAGE_KEY_FRIEND_REQ, JSON.stringify(reqs));
-
+      const { data: req } = await supabase.from('winter_friend_requests').select('*').eq('id', requestId).single();
+      if (!req) return;
+      await supabase.from('winter_friend_requests').update({ status: accept ? 'accepted' : 'rejected' }).eq('id', requestId);
       if (accept) {
-        const rawFriends = localStorage.getItem(STORAGE_KEY_FRIENDS);
-        const friendsMap: Record<string, string[]> = rawFriends ? JSON.parse(rawFriends) : {};
-
-        const keyA = req.fromUsername.trim().toLowerCase();
-        const keyB = req.toUsername.trim().toLowerCase();
-
-        const friendsA = friendsMap[keyA] || [];
-        if (!friendsA.some(f => f.toLowerCase() === keyB)) friendsA.push(req.toUsername);
-        friendsMap[keyA] = friendsA;
-
-        const friendsB = friendsMap[keyB] || [];
-        if (!friendsB.some(f => f.toLowerCase() === keyA)) friendsB.push(req.fromUsername);
-        friendsMap[keyB] = friendsB;
-
-        localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(friendsMap));
+        await supabase.from('winter_friends').upsert([
+          { username: req.from_username, friend_username: req.to_username },
+          { username: req.to_username, friend_username: req.from_username },
+        ]);
       }
       window.dispatchEvent(new Event('storage'));
-
-      if (accept) {
-        fetch('/api/friend-request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'accept', requestId }),
-        }).catch(() => {});
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   },
 
-  // --- Chat Methods ---
-  getChatMessages: (username: string, recipient?: string): ChatMessage[] => {
+  getChatMessages: async (username: string, recipient?: string): Promise<ChatMessage[]> => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_CHAT);
-      let messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
-
-      if (!raw || messages.length === 0) {
-        const initialMessages: ChatMessage[] = [
-          {
-            id: 'm1',
-            sender: 'wintararer',
-            text: 'ยินดีต้อนรับทุกคนสู่ WINTER Prep Hub ครับ! ตั้งใจสอบไปด้วยกันนะ 🔥',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            isGlobal: true,
-            avatar: DEFAULT_AVATARS[0],
-          },
-          {
-            id: 'm2',
-            sender: 'กบซ่าพาลุย',
-            text: 'วิชาชีวะเรื่องเซลล์ทำสนุกมาก ใครสงสัยข้อไหนถามได้นะ ✌️',
-            timestamp: new Date(Date.now() - 1800000).toISOString(),
-            isGlobal: true,
-            avatar: DEFAULT_AVATARS[1],
-          },
-        ];
-        localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(initialMessages));
-        messages = initialMessages;
-      }
-
+      let query = supabase.from('winter_chat').select('*').order('timestamp', { ascending: true }).limit(100);
       if (!recipient) {
-        return messages.filter(m => m.isGlobal);
+        query = query.eq('is_global', true);
       } else {
-        const cleanUser = username.trim().toLowerCase();
-        const cleanRecip = recipient.trim().toLowerCase();
-        return messages.filter(
-          m => !m.isGlobal &&
-          ((m.sender.toLowerCase() === cleanUser && m.recipient?.toLowerCase() === cleanRecip) ||
-           (m.sender.toLowerCase() === cleanRecip && m.recipient?.toLowerCase() === cleanUser))
+        const cleanUser = username.trim();
+        const cleanRecip = recipient.trim();
+        query = query.eq('is_global', false).or(
+          `and(sender.eq.${cleanUser},recipient.eq.${cleanRecip}),and(sender.eq.${cleanRecip},recipient.eq.${cleanUser})`
         );
       }
-    } catch {
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map(m => ({ id: m.id, sender: m.sender, recipient: m.recipient, text: m.text, timestamp: m.timestamp, isGlobal: m.is_global, avatar: m.avatar }));
+    } catch (e) {
+      console.error('getChatMessages error', e);
       return [];
     }
   },
 
-  sendChatMessage: (msg: { sender: string; recipient?: string; text: string; isGlobal: boolean; avatar?: string }): ChatMessage => {
+  sendChatMessage: async (msg: { sender: string; recipient?: string; text: string; isGlobal: boolean; avatar?: string }): Promise<ChatMessage> => {
+    const avatar = msg.avatar || supabaseSim.getProfile(msg.sender).avatar;
     const newMsg: ChatMessage = {
       id: Math.random().toString(36).substring(2, 9),
       sender: msg.sender,
@@ -685,24 +375,21 @@ export const supabaseSim = {
       text: msg.text.trim(),
       timestamp: new Date().toISOString(),
       isGlobal: msg.isGlobal,
-      avatar: msg.avatar || supabaseSim.getProfile(msg.sender).avatar,
+      avatar,
     };
-
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_CHAT);
-      const messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
-      messages.push(newMsg);
-      localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
+      const { data } = await supabase.from('winter_chat').insert({
+        sender: msg.sender,
+        recipient: msg.recipient || null,
+        text: msg.text.trim(),
+        is_global: msg.isGlobal,
+        avatar,
+      }).select().single();
+      if (data) newMsg.id = data.id;
       window.dispatchEvent(new Event('storage'));
-
-      fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMsg),
-      }).catch(() => {});
     } catch (e) {
-      console.error(e);
+      console.error('sendChatMessage error', e);
     }
     return newMsg;
-  }
+  },
 };

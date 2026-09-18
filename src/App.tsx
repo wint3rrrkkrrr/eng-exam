@@ -540,7 +540,7 @@ export default function App() {
     try {
       localStorage.setItem('grammar_quiz_username_v1', username);
       if (username) {
-        supabaseSim.registerUser(username);
+        supabaseSim.registerUser(username); // async — fire and forget
       }
     } catch {
       // ignore
