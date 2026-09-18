@@ -12,6 +12,8 @@ import { CompletedHistoryModal } from './components/CompletedHistoryModal';
 import { NameInputOverlay } from './components/NameInputOverlay';
 import { LeaderboardView } from './components/LeaderboardView';
 import { AdminModal } from './components/AdminModal';
+import { UserProfileModal } from './components/UserProfileModal';
+import { FloatingChatWidget } from './components/FloatingChatWidget';
 import { supabaseSim } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
@@ -149,6 +151,7 @@ export default function App() {
   });
   const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
 
   // User details & Leaderboard landing tabs
   const [username, setUsername] = useState<string>(() => {
@@ -964,16 +967,22 @@ export default function App() {
           <div className="flex items-center gap-3">
             {username && (
               <div className="flex items-center gap-2">
-                <div
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 active:scale-95 ${
                     isDark
-                      ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300'
-                      : 'bg-white border-stone-200 text-stone-700 shadow-2xs'
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
+                      : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
                   }`}
+                  title="ปรับแต่งโปรไฟล์ส่วนตัว"
                 >
-                  <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>ผู้เรียน: <strong className="text-amber-400 font-extrabold">{username}</strong></span>
-                </div>
+                  <img
+                    src={supabaseSim.getProfile(username).avatar}
+                    alt={username}
+                    className="w-4 h-4 rounded-full object-cover ring-1 ring-amber-400"
+                  />
+                  <span>โปรไฟล์: <strong className="text-amber-400 font-extrabold">{username}</strong></span>
+                </button>
 
                 <button
                   onClick={handleLogoutUser}
@@ -1336,6 +1345,7 @@ export default function App() {
         }}
         username={username}
         onLogout={handleLogoutUser}
+        onOpenProfile={() => setShowProfileModal(true)}
       />
 
       {/* Main Content Area */}
@@ -1746,6 +1756,19 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        username={username}
+        isDark={isDark}
+      />
+
+      <FloatingChatWidget
+        currentUsername={username}
+        isDark={isDark}
+        onOpenProfile={() => setShowProfileModal(true)}
+      />
 
       <AdminModal
         theme={theme}

@@ -27,10 +27,53 @@ export interface UserAggregatedLeaderboard {
   quizzesCompleted: number;
   lastActive: string;
   deviceInfo: string;
+  isRankZero?: boolean;
+}
+
+export interface UserProfile {
+  username: string;
+  avatar: string;
+  bio: string;
+  joined_at: string;
+  last_active: string;
+  device_info: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  fromUsername: string;
+  toUsername: string;
+  timestamp: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: string;
+  recipient?: string;
+  text: string;
+  timestamp: string;
+  isGlobal: boolean;
+  avatar?: string;
 }
 
 const STORAGE_KEY_SCORES = 'winter_exam_supabase_scores_v2';
 const STORAGE_KEY_USERS = 'winter_exam_supabase_real_users_v2';
+const STORAGE_KEY_PROFILES = 'winter_exam_user_profiles_v1';
+const STORAGE_KEY_FRIENDS = 'winter_exam_user_friends_v1';
+const STORAGE_KEY_FRIEND_REQ = 'winter_exam_friend_requests_v1';
+const STORAGE_KEY_CHAT = 'winter_exam_chat_messages_v1';
+
+export const DEFAULT_AVATARS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+];
 
 export function detectDevice(): string {
   if (typeof window === 'undefined' || !navigator) return 'ไม่ทราบอุปกรณ์';
@@ -231,7 +274,22 @@ export const supabaseSim = {
         return new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime();
       });
 
-      return filtered;
+      // Special Rank 0 Dummy Entry for WIN requested by user
+      const rankZeroWin: UserAggregatedLeaderboard = {
+        username: 'WIN',
+        totalScore: 999,
+        totalAttempted: 999,
+        maxStreak: 999,
+        quizzesCompleted: 999,
+        lastActive: new Date().toISOString(),
+        deviceInfo: currentDevice,
+        isRankZero: true,
+      };
+
+      // Filter out any existing 'win' entry from real array to prevent duplicate
+      const filteredReal = filtered.filter(u => u.username.trim().toLowerCase() !== 'win');
+
+      return [rankZeroWin, ...filteredReal];
     } catch (e) {
       console.error("Failed to parse aggregated leaderboard", e);
       return [];
@@ -301,5 +359,223 @@ export const supabaseSim = {
     } catch (e) {
       console.error("Error clearing scores", e);
     }
+  },
+
+  // --- Profile Methods ---
+  getProfile: (username: string): UserProfile => {
+    if (!username) return { username: '', avatar: DEFAULT_AVATARS[0], bio: 'สู้ๆ ไปด้วยกันนะ!', joined_at: '', last_active: '', device_info: '' };
+    const cleanName = username.trim().toLowerCase();
+    if (cleanName === 'win') {
+      return {
+        username: 'WIN',
+        avatar: DEFAULT_AVATARS[0],
+        bio: '👑 RANK 0 TOP SUPREME VIP',
+        joined_at: new Date().toISOString(),
+        last_active: new Date().toISOString(),
+        device_info: detectDevice(),
+      };
+    }
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
+      const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
+      if (profiles[cleanName]) return profiles[cleanName];
+    } catch (e) {
+      console.error(e);
+    }
+    return {
+      username: username.trim(),
+      avatar: DEFAULT_AVATARS[Math.abs(username.length) % DEFAULT_AVATARS.length],
+      bio: 'เด็กเตรียมสอบ WINTER 2026 ✌️',
+      joined_at: new Date().toISOString(),
+      last_active: new Date().toISOString(),
+      device_info: detectDevice(),
+    };
+  },
+
+  updateProfile: (username: string, updates: { avatar?: string; bio?: string }) => {
+    if (!username) return;
+    const cleanName = username.trim().toLowerCase();
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
+      const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
+      const current = profiles[cleanName] || supabaseSim.getProfile(username);
+      profiles[cleanName] = {
+        ...current,
+        ...updates,
+        username: username.trim(),
+        last_active: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  // --- Friend & Friend Request Methods ---
+  getFriends: (username: string): string[] => {
+    if (!username) return [];
+    const cleanName = username.trim().toLowerCase();
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_FRIENDS);
+      const friendsMap: Record<string, string[]> = raw ? JSON.parse(raw) : {};
+      return friendsMap[cleanName] || [];
+    } catch {
+      return [];
+    }
+  },
+
+  sendFriendRequest: (fromUsername: string, toUsername: string): { success: boolean; message: string } => {
+    if (!fromUsername || !toUsername) return { success: false, message: 'ข้อมูลไม่ถูกต้อง' };
+    if (fromUsername.trim().toLowerCase() === toUsername.trim().toLowerCase()) {
+      return { success: false, message: 'ไม่สามารถแอดตัวเองเป็นเพื่อนได้' };
+    }
+    const cleanFrom = fromUsername.trim();
+    const cleanTo = toUsername.trim();
+
+    const friends = supabaseSim.getFriends(cleanFrom);
+    if (friends.some(f => f.toLowerCase() === cleanTo.toLowerCase())) {
+      return { success: false, message: `เป็นเพื่อนกับ ${cleanTo} อยู่แล้ว` };
+    }
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_FRIEND_REQ);
+      let reqs: FriendRequest[] = raw ? JSON.parse(raw) : [];
+
+      const existing = reqs.find(
+        r => r.fromUsername.toLowerCase() === cleanFrom.toLowerCase() &&
+             r.toUsername.toLowerCase() === cleanTo.toLowerCase() &&
+             r.status === 'pending'
+      );
+      if (existing) return { success: false, message: 'ส่งคำขอเป็นเพื่อนไปแล้ว รอการตอบรับ' };
+
+      reqs.push({
+        id: Math.random().toString(36).substring(2, 9),
+        fromUsername: cleanFrom,
+        toUsername: cleanTo,
+        timestamp: new Date().toISOString(),
+        status: 'pending',
+      });
+      localStorage.setItem(STORAGE_KEY_FRIEND_REQ, JSON.stringify(reqs));
+      window.dispatchEvent(new Event('storage'));
+      return { success: true, message: `ส่งคำขอเป็นเพื่อนถึง ${cleanTo} แล้ว!` };
+    } catch (e) {
+      console.error(e);
+      return { success: false, message: 'เกิดข้อผิดพลาดในการส่งคำขอ' };
+    }
+  },
+
+  getFriendRequests: (username: string): FriendRequest[] => {
+    if (!username) return [];
+    const cleanName = username.trim().toLowerCase();
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_FRIEND_REQ);
+      const reqs: FriendRequest[] = raw ? JSON.parse(raw) : [];
+      return reqs.filter(r => r.toUsername.toLowerCase() === cleanName && r.status === 'pending');
+    } catch {
+      return [];
+    }
+  },
+
+  respondFriendRequest: (requestId: string, accept: boolean) => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_FRIEND_REQ);
+      let reqs: FriendRequest[] = raw ? JSON.parse(raw) : [];
+      const idx = reqs.findIndex(r => r.id === requestId);
+      if (idx === -1) return;
+
+      const req = reqs[idx];
+      req.status = accept ? 'accepted' : 'rejected';
+      localStorage.setItem(STORAGE_KEY_FRIEND_REQ, JSON.stringify(reqs));
+
+      if (accept) {
+        const rawFriends = localStorage.getItem(STORAGE_KEY_FRIENDS);
+        const friendsMap: Record<string, string[]> = rawFriends ? JSON.parse(rawFriends) : {};
+
+        const keyA = req.fromUsername.trim().toLowerCase();
+        const keyB = req.toUsername.trim().toLowerCase();
+
+        const friendsA = friendsMap[keyA] || [];
+        if (!friendsA.some(f => f.toLowerCase() === keyB)) friendsA.push(req.toUsername);
+        friendsMap[keyA] = friendsA;
+
+        const friendsB = friendsMap[keyB] || [];
+        if (!friendsB.some(f => f.toLowerCase() === keyA)) friendsB.push(req.fromUsername);
+        friendsMap[keyB] = friendsB;
+
+        localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(friendsMap));
+      }
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  // --- Chat Methods ---
+  getChatMessages: (username: string, recipient?: string): ChatMessage[] => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_CHAT);
+      let messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
+
+      if (!raw || messages.length === 0) {
+        const initialMessages: ChatMessage[] = [
+          {
+            id: 'm1',
+            sender: 'wintararer',
+            text: 'ยินดีต้อนรับทุกคนสู่ WINTER Prep Hub ครับ! ตั้งใจสอบไปด้วยกันนะ 🔥',
+            timestamp: new Date(Date.now() - 3600000).toISOString(),
+            isGlobal: true,
+            avatar: DEFAULT_AVATARS[0],
+          },
+          {
+            id: 'm2',
+            sender: 'กบซ่าพาลุย',
+            text: 'วิชาชีวะเรื่องเซลล์ทำสนุกมาก ใครสงสัยข้อไหนถามได้นะ ✌️',
+            timestamp: new Date(Date.now() - 1800000).toISOString(),
+            isGlobal: true,
+            avatar: DEFAULT_AVATARS[1],
+          },
+        ];
+        localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(initialMessages));
+        messages = initialMessages;
+      }
+
+      if (!recipient) {
+        return messages.filter(m => m.isGlobal);
+      } else {
+        const cleanUser = username.trim().toLowerCase();
+        const cleanRecip = recipient.trim().toLowerCase();
+        return messages.filter(
+          m => !m.isGlobal &&
+          ((m.sender.toLowerCase() === cleanUser && m.recipient?.toLowerCase() === cleanRecip) ||
+           (m.sender.toLowerCase() === cleanRecip && m.recipient?.toLowerCase() === cleanUser))
+        );
+      }
+    } catch {
+      return [];
+    }
+  },
+
+  sendChatMessage: (msg: { sender: string; recipient?: string; text: string; isGlobal: boolean; avatar?: string }): ChatMessage => {
+    const newMsg: ChatMessage = {
+      id: Math.random().toString(36).substring(2, 9),
+      sender: msg.sender,
+      recipient: msg.recipient,
+      text: msg.text.trim(),
+      timestamp: new Date().toISOString(),
+      isGlobal: msg.isGlobal,
+      avatar: msg.avatar || supabaseSim.getProfile(msg.sender).avatar,
+    };
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_CHAT);
+      const messages: ChatMessage[] = raw ? JSON.parse(raw) : [];
+      messages.push(newMsg);
+      localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error(e);
+    }
+    return newMsg;
   }
 };

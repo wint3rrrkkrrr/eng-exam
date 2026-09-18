@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Award, RefreshCw, Flame, UserCheck, Zap, Star } from 'lucide-react';
+import { Trophy, Award, RefreshCw, Flame, UserCheck, Zap, Star, UserPlus } from 'lucide-react';
 import { supabaseSim, UserAggregatedLeaderboard } from '../utils/supabaseSim';
 
 interface LeaderboardViewProps {
@@ -39,36 +39,51 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
     fetchLeaderboard();
   };
 
-  const getRankBadge = (index: number) => {
-    if (index === 0) {
+  const getRankBadge = (index: number, entry?: UserAggregatedLeaderboard) => {
+    if (entry?.isRankZero || entry?.username.trim().toLowerCase() === 'win') {
+      return (
+        <span className="flex items-center justify-center px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 text-zinc-950 font-black text-xs shadow-[0_0_18px_rgba(251,191,36,0.8)] animate-pulse border border-amber-200">
+          👑 #0
+        </span>
+      );
+    }
+
+    const hasRankZero = data.some(d => d.isRankZero || d.username.trim().toLowerCase() === 'win');
+    const realRank = hasRankZero ? index : index + 1;
+
+    if (realRank === 1) {
       return (
         <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-400 text-zinc-950 font-black text-sm shadow-[0_0_15px_rgba(251,191,36,0.6)] animate-pulse">
-          🥇
+          🥇 #1
         </span>
       );
     }
-    if (index === 1) {
+    if (realRank === 2) {
       return (
         <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-300 text-zinc-950 font-black text-sm shadow-[0_0_12px_rgba(203,213,225,0.5)]">
-          🥈
+          🥈 #2
         </span>
       );
     }
-    if (index === 2) {
+    if (realRank === 3) {
       return (
         <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-700 text-white font-black text-sm shadow-[0_0_10px_rgba(180,83,9,0.4)]">
-          🥉
+          🥉 #3
         </span>
       );
     }
     return (
       <span className="flex items-center justify-center w-7 h-7 rounded-full bg-zinc-800/80 text-zinc-400 font-bold text-xs">
-        {index + 1}
+        {realRank}
       </span>
     );
   };
 
-  const formatDate = (isoStr: string) => {
+  const formatDate = (isoStr: string, isWinRankZero?: boolean) => {
+    if (isWinRankZero) {
+      const d = new Date();
+      return `⚡ เรียลไทม์ (${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})`;
+    }
     if (!isoStr) return '-';
     try {
       const d = new Date(isoStr);
@@ -130,12 +145,16 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                   <th className="p-3.5 text-center">ความแม่นยำ</th>
                   <th className="p-3.5 text-center">สตรีคสูงสุด</th>
                   <th className="p-3.5 text-center">เล่นล่าสุด</th>
+                  <th className="p-3.5 text-center">เพิ่มเพื่อน</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/10">
                 {data.map((entry, idx) => {
-                  const accuracy = entry.totalAttempted > 0 ? Math.round((entry.totalScore / entry.totalAttempted) * 100) : 0;
+                  const isWinRankZero = entry.isRankZero || entry.username.trim().toLowerCase() === 'win';
+                  const accuracy = entry.totalAttempted > 0 ? Math.round((entry.totalScore / entry.totalAttempted) * 100) : 100;
                   const isCurrentUser = entry.username.trim().toLowerCase() === currentUsername.trim().toLowerCase();
+                  const userProfile = supabaseSim.getProfile(entry.username);
+                  const isAlreadyFriend = supabaseSim.getFriends(currentUsername).some(f => f.toLowerCase() === entry.username.toLowerCase());
                   
                   return (
                     <motion.tr
@@ -144,24 +163,36 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(idx * 0.04, 0.5) }}
                       className={`transition-colors font-medium ${
-                        isCurrentUser
-                          ? isDark 
-                            ? 'bg-amber-400/15 border-l-4 border-l-amber-400 text-amber-200 font-black'
-                            : 'bg-amber-500/15 border-l-4 border-l-amber-500 text-stone-900 font-black'
-                          : isDark
-                            ? 'hover:bg-zinc-900/60 text-zinc-200'
-                            : 'hover:bg-stone-50 text-stone-800'
+                        isWinRankZero
+                          ? 'bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 border-l-4 border-l-amber-400 text-amber-200 font-black shadow-md'
+                          : isCurrentUser
+                            ? isDark 
+                              ? 'bg-amber-400/15 border-l-4 border-l-amber-400 text-amber-200 font-black'
+                              : 'bg-amber-500/15 border-l-4 border-l-amber-500 text-stone-900 font-black'
+                            : isDark
+                              ? 'hover:bg-zinc-900/60 text-zinc-200'
+                              : 'hover:bg-stone-50 text-stone-800'
                       }`}
                     >
                       <td className="p-3.5 text-center font-bold">
-                        <div className="flex justify-center">{getRankBadge(idx)}</div>
+                        <div className="flex justify-center">{getRankBadge(idx, entry)}</div>
                       </td>
                       <td className="p-3.5 font-bold">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate max-w-[130px] sm:max-w-[200px] font-extrabold text-sm">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={userProfile.avatar}
+                            alt={entry.username}
+                            className="w-7 h-7 rounded-full object-cover ring-2 ring-amber-400/50 shrink-0"
+                          />
+                          <span className="truncate max-w-[120px] sm:max-w-[180px] font-extrabold text-sm">
                             {entry.username}
                           </span>
-                          {isCurrentUser && (
+                          {isWinRankZero && (
+                            <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-400 to-orange-400 text-zinc-950 shadow-xs border border-amber-200">
+                              👑 TOP VIP
+                            </span>
+                          )}
+                          {isCurrentUser && !isWinRankZero && (
                             <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-amber-400 text-zinc-950 shadow-xs">
                               YOU
                             </span>
@@ -187,7 +218,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                         </span>
                       </td>
                       <td className="p-3.5 text-center font-black">
-                        {entry.maxStreak >= 2 ? (
+                        {entry.maxStreak >= 1 ? (
                           <div className="inline-flex items-center gap-1 text-orange-400 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs">
                             <Flame className="w-3.5 h-3.5 fill-orange-500" />
                             <span>{entry.maxStreak} 🔥</span>
@@ -196,8 +227,30 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                           <span className="text-zinc-500 text-xs">-</span>
                         )}
                       </td>
-                      <td className="p-3.5 text-center text-xs text-zinc-400 font-medium">
-                        {formatDate(entry.lastActive)}
+                      <td className="p-3.5 text-center text-xs font-bold text-amber-300">
+                        {formatDate(entry.lastActive, isWinRankZero)}
+                      </td>
+                      <td className="p-3.5 text-center">
+                        {!isCurrentUser ? (
+                          isAlreadyFriend ? (
+                            <span className="text-[11px] font-extrabold text-emerald-400 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                              เพื่อนแล้ว
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const res = supabaseSim.sendFriendRequest(currentUsername, entry.username);
+                                alert(res.message);
+                              }}
+                              className="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition-all flex items-center gap-1 mx-auto active:scale-95"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              <span>แอดเพื่อน</span>
+                            </button>
+                          )
+                        ) : (
+                          <span className="text-xs text-zinc-500 font-medium">-</span>
+                        )}
                       </td>
                     </motion.tr>
                   );

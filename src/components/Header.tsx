@@ -18,9 +18,11 @@ import {
   Shuffle,
   Home,
   User,
-  LogOut
+  LogOut,
+  Edit3
 } from 'lucide-react';
 import { QuizViewMode, ThemeMode } from '../types';
+import { supabaseSim } from '../utils/supabaseSim';
 
 interface HeaderProps {
   currentSubjectName: string;
@@ -48,6 +50,7 @@ interface HeaderProps {
   onBackToHome: () => void;
   username?: string;
   onLogout?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -76,6 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
   onBackToHome,
   username,
   onLogout,
+  onOpenProfile,
 }) => {
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);
@@ -295,23 +299,44 @@ export const Header: React.FC<HeaderProps> = ({
             {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
 
-          {/* User Logout Button */}
-          {username && onLogout && (
-            <button
-              onClick={onLogout}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition active:scale-95 ${
-                isDark
-                  ? 'bg-rose-500/10 border-rose-500/25 text-rose-300 hover:bg-rose-500/20'
-                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-2xs'
-              }`}
-              title="ออกจากระบบ"
-              id="user-logout-btn"
-            >
-              <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline max-w-[80px] truncate text-amber-400 font-extrabold">{username}</span>
-              <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-              <span className="text-[11px]">ออกจากระบบ</span>
-            </button>
+          {/* User Profile & Logout Controls */}
+          {username && (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={onOpenProfile}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition active:scale-95 ${
+                  isDark
+                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
+                    : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100 shadow-2xs'
+                }`}
+                title="แก้ไขโปรไฟล์ส่วนตัว"
+                id="user-profile-btn"
+              >
+                <img
+                  src={supabaseSim.getProfile(username).avatar}
+                  alt={username}
+                  className="w-4 h-4 rounded-full object-cover ring-1 ring-amber-400"
+                />
+                <span className="max-w-[80px] sm:max-w-[100px] truncate font-black">{username}</span>
+                <Edit3 className="w-3 h-3 text-amber-400 opacity-80" />
+              </button>
+
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className={`flex items-center gap-1 p-1.5 rounded-lg border text-xs font-bold transition active:scale-95 ${
+                    isDark
+                      ? 'bg-rose-500/10 border-rose-500/25 text-rose-400 hover:bg-rose-500/20'
+                      : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-2xs'
+                  }`}
+                  title="ออกจากระบบ"
+                  id="user-logout-btn"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span className="hidden md:inline text-[11px]">ออก</span>
+                </button>
+              )}
+            </div>
           )}
 
           {/* View mode toggle */}
