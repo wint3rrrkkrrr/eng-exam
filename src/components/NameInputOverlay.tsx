@@ -7,7 +7,7 @@ interface NameInputOverlayProps {
   onSave: (name: string) => void;
   theme: 'light' | 'dark';
   soundEnabled: boolean;
-  onPlayTap: () => void;
+  onPlayTap?: () => void;
 }
 
 export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
@@ -24,19 +24,19 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
     e.preventDefault();
     const trimmed = inputName.trim();
     if (!trimmed) {
-      setError('กรุณากรอกชื่อเล่นหรือนามแฝงของคุณเพื่อดำเนินต่อ');
+      setError('พิมพ์ชื่อเล่นของคุณก่อนนะ');
       return;
     }
     if (trimmed.length < 2) {
-      setError('ชื่อต้องมีความยาวอย่างน้อย 2 ตัวอักษร');
+      setError('ชื่อสั้นไปหน่อย ตั้งอย่างน้อย 2 ตัวอักษรนะ');
       return;
     }
     if (trimmed.length > 20) {
-      setError('ชื่อต้องมีความยาวไม่เกิน 20 ตัวอักษร');
+      setError('ชื่อยาวเกินไปหน่อย ไม่เกิน 20 ตัวอักษรพอนะ');
       return;
     }
 
-    onPlayTap();
+    onPlayTap?.();
     onSave(trimmed);
   };
 
@@ -73,10 +73,10 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
               <span>WINTER PREP HUB ❄️</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-amber-300">
-              เข้าสู่ระบบคลังข้อสอบอัจฉริยะ
+              พิมพ์ชื่อแล้วไปลุยโจทย์กัน! 🚀
             </h2>
             <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-              กรอกชื่อเล่นหรือนามแฝงของคุณเพื่อเริ่มสะสมคะแนนบน **Leaderboard** แบบเรียลไทม์!
+              ใส่ชื่อเล่นหรือฉายาสุดเท่ แล้วสะสมคะแนนไต่อันดับตารางคนเก่งได้เลย!
             </p>
           </div>
 
@@ -92,7 +92,7 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
                   setInputName(e.target.value);
                   setError('');
                 }}
-                placeholder="กรอกชื่อของคุณที่นี่..."
+                placeholder="พิมพ์ชื่อเล่นของคุณที่นี่..."
                 className={`w-full pl-11 pr-4 py-3.5 rounded-2xl border text-sm font-bold tracking-wide outline-none transition-all ${
                   isDark
                     ? 'bg-zinc-900/60 border-zinc-800 text-zinc-100 placeholder-zinc-500 focus:border-amber-400/60 focus:bg-zinc-900'
@@ -121,14 +121,14 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
                   : 'bg-stone-900 hover:bg-stone-800 text-white'
               }`}
             >
-              <span>ยินดีต้อนรับ เข้าสู่ระบบ</span>
+              <span>ลุยกันเลย!</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
 
           <div className="flex items-center justify-center gap-6 pt-2 text-[10px] font-bold text-zinc-500">
-            <span className="flex items-center gap-1"><BookOpen className="w-3 h-3 text-blue-400" /> 1,200 ข้อสอบ</span>
-            <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-amber-400" /> สรุปเนื้อหาเจาะลึก</span>
+            <span className="flex items-center gap-1"><BookOpen className="w-3 h-3 text-blue-400" /> คลังข้อสอบ 1,200+ ข้อ</span>
+            <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-amber-400" /> อ่านสรุปเนื้อหาเข้าใจง่าย</span>
           </div>
         </div>
       </motion.div>

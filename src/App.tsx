@@ -11,6 +11,7 @@ import { SubjectSelector } from './components/SubjectSelector';
 import { CompletedHistoryModal } from './components/CompletedHistoryModal';
 import { NameInputOverlay } from './components/NameInputOverlay';
 import { LeaderboardView } from './components/LeaderboardView';
+import { AdminModal } from './components/AdminModal';
 import { supabaseSim } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
@@ -907,10 +908,17 @@ export default function App() {
 
   if (!username) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center relative overflow-hidden ${isDark ? 'bg-[#0b0c12]' : 'bg-stone-50'}`}>
+      <div className={`min-h-screen flex flex-col items-center justify-center relative overflow-x-clip ${isDark ? 'bg-[#0b0c12]' : 'bg-stone-50'}`}>
         <AmbientParticles isDark={isDark} />
         <NameInputOverlay
           onSave={setUsername}
+          theme={theme}
+          soundEnabled={soundEnabled}
+          onPlayTap={() => {
+            try { soundFX.playTap(); } catch (e) {}
+          }}
+        />
+        <AdminModal
           theme={theme}
           soundEnabled={soundEnabled}
           onPlayTap={() => {
@@ -1195,7 +1203,13 @@ export default function App() {
               </div>
             ) : (
               <div className="w-full max-w-4xl mx-auto">
-                <LeaderboardView currentUsername={username} theme={theme} />
+                <LeaderboardView
+                  currentUsername={username}
+                  theme={theme}
+                  onPlayTap={() => {
+                    try { soundFX.playTap(); } catch (e) {}
+                  }}
+                />
               </div>
             )}
 
@@ -1209,20 +1223,28 @@ export default function App() {
           isDark ? 'border-zinc-900/60 text-zinc-500 bg-[#08090d]' : 'border-stone-200/80 text-stone-500 bg-stone-100/30'
         }`}>
           <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-medium">
-            <span>คลังข้อสอบและแบบฝึกหัดอัจฉริยะ 6 วิชา (1,200 ข้อ) • WINTER exam</span>
+            <span>คลังข้อสอบและแบบฝึกหัด 6 วิชา (1,200 ข้อ) • WINTER exam</span>
             <span className="flex items-center gap-1 font-bold text-amber-500/95">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>สร้างสรรค์โดย WINTER ด้วยความปราณีต ❄️</span>
+              <span>สร้างสรรค์โดย WINTER ❄️</span>
             </span>
           </div>
         </footer>
+
+        <AdminModal
+          theme={theme}
+          soundEnabled={soundEnabled}
+          onPlayTap={() => {
+            try { soundFX.playTap(); } catch (e) {}
+          }}
+        />
       </div>
     );
   }
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 relative overflow-hidden ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 relative overflow-x-clip ${
         isDark ? 'bg-[#0b0c10] text-zinc-100 selection:bg-amber-400 selection:text-zinc-950' : 'bg-stone-100/70 text-stone-900 selection:bg-stone-200'
       }`}
     >
@@ -1712,6 +1734,14 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      <AdminModal
+        theme={theme}
+        soundEnabled={soundEnabled}
+        onPlayTap={() => {
+          try { soundFX.playTap(); } catch (e) {}
+        }}
+      />
     </div>
   );
 }
