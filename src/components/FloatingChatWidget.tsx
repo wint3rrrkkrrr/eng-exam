@@ -25,16 +25,23 @@ import {
 } from '../utils/supabaseSim';
 
 interface FloatingChatWidgetProps {
-  currentUsername: string;
-  isDark: boolean;
+  currentUsername?: string;
+  username?: string;
+  isDark?: boolean;
+  theme?: string;
   onOpenProfile?: () => void;
 }
 
 export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
-  currentUsername,
-  isDark,
+  currentUsername: propCurrentUsername,
+  username: propUsername,
+  isDark: propIsDark,
+  theme: propTheme,
   onOpenProfile,
 }) => {
+  const activeUsername = (propCurrentUsername || propUsername || localStorage.getItem('grammar_quiz_username_v1') || 'ผู้ใช้').trim();
+  const isDark = propIsDark !== undefined ? propIsDark : propTheme === 'dark';
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'global' | 'friends' | 'add'>('global');
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
@@ -56,30 +63,30 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
 
   // Load chat data and friends
   const refreshChatData = () => {
-    if (!currentUsername) return;
-
-    // Load global messages
-    const gMsgs = supabaseSim.getChatMessages(currentUsername);
+    // Load global messages (always load global messages!)
+    const gMsgs = supabaseSim.getChatMessages(activeUsername);
     setGlobalMessages(gMsgs);
 
+    if (!activeUsername) return;
+
     // Load friends
-    const friends = supabaseSim.getFriends(currentUsername);
+    const friends = supabaseSim.getFriends(activeUsername);
     setFriendsList(friends);
 
     // Load friend requests
-    const reqs = supabaseSim.getFriendRequests(currentUsername);
+    const reqs = supabaseSim.getFriendRequests(activeUsername);
     setFriendRequests(reqs);
 
     // Load direct messages if friend selected
     if (selectedFriend) {
-      const dMsgs = supabaseSim.getChatMessages(currentUsername, selectedFriend);
+      const dMsgs = supabaseSim.getChatMessages(activeUsername, selectedFriend);
       setDirectMessages(dMsgs);
     }
 
     // Load registered users for search
     const users = supabaseSim.getRealUsers();
     const formatted = users
-      .filter(u => u.username.toLowerCase() !== currentUsername.toLowerCase())
+      .filter(u => u.username.toLowerCase() !== activeUsername.toLowerCase())
       .map(u => ({
         username: u.username,
         isFriend: friends.some(f => f.toLowerCase() === u.username.toLowerCase()),
@@ -93,13 +100,13 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
     // Listen for real-time updates via storage event
     const handleStorage = () => refreshChatData();
     window.addEventListener('storage', handleStorage);
-    const interval = setInterval(refreshChatData, 3000); // Poll every 3s as backup
+    const interval = setInterval(refreshChatData, 2000); // Poll every 2s as backup
 
     return () => {
       window.removeEventListener('storage', handleStorage);
       clearInterval(interval);
     };
-  }, [currentUsername, selectedFriend]);
+  }, [activeUsername, selectedFriend]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -110,20 +117,21 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
 
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputMessage.trim() || !currentUsername) return;
+    const cleanSender = activeUsername || 'ผู้ใช้ใหม่';
+    if (!inputMessage.trim()) return;
 
-    const myProfile = supabaseSim.getProfile(currentUsername);
+    const myProfile = supabaseSim.getProfile(cleanSender);
 
     if (activeTab === 'global') {
       supabaseSim.sendChatMessage({
-        sender: currentUsername,
+        sender: cleanSender,
         text: inputMessage,
         isGlobal: true,
         avatar: myProfile.avatar,
       });
     } else if (activeTab === 'friends' && selectedFriend) {
       supabaseSim.sendChatMessage({
-        sender: currentUsername,
+        sender: cleanSender,
         recipient: selectedFriend,
         text: inputMessage,
         isGlobal: false,
@@ -136,7 +144,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   };
 
   const handleSendFriendRequest = (targetUser: string) => {
-    const res = supabaseSim.sendFriendRequest(currentUsername, targetUser);
+    const res = supabaseSim.sendFriendRequest(activeUsername, targetUser);
     setRequestStatusMsg(res.message);
     setTimeout(() => setRequestStatusMsg(null), 3000);
     refreshChatData();
@@ -152,7 +160,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
     refreshChatData();
   };
 
-  const currentProfile = currentUsername ? supabaseSim.getProfile(currentUsername) : null;
+  const currentProfile = activeUsername ? supabaseSim.getProfile(activeUsername) : null;
   const totalUnreadBadge = friendRequests.length;
 
   return (
@@ -224,7 +232,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
                     )}
                   </h4>
                   <p className="text-[10px] text-zinc-400 font-medium">
-                    {selectedFriend ? 'ข้อความส่วนตัว' : `คุณคือ: ${currentUsername || 'ผู้เยือน'}`}
+                    {selectedFriend ? 'ข้อความส่วนตัว' : `คุณคือ: ${activeUsername || 'ผู้เยือน'}`}
                   </p>
                 </div>
               </div>
@@ -314,7 +322,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
               <div className="flex-1 flex flex-col justify-between overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-3 space-y-3">
                   {globalMessages.map((msg) => {
-                    const isMe = msg.sender.toLowerCase() === currentUsername.toLowerCase();
+                    const isMe = msg.sender.toLowerCase() === activeUsername.toLowerCase();
                     const senderProfile = supabaseSim.getProfile(msg.sender);
 
                     return (

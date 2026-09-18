@@ -122,13 +122,24 @@ export default function App() {
     }
   });
 
-  // Sync with cloud server every 4 seconds
+  const [, setProfileRefresh] = useState(0);
+
+  // Sync with cloud server every 4 seconds & listen for profile changes
   useEffect(() => {
     syncWithServer();
     const interval = setInterval(() => {
       syncWithServer();
     }, 4000);
-    return () => clearInterval(interval);
+
+    const handleStorage = () => {
+      setProfileRefresh((prev) => prev + 1);
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
@@ -951,8 +962,8 @@ export default function App() {
           }}
         />
         <FloatingChatWidget
-          username="ผู้ใช้ใหม่"
-          theme={theme}
+          currentUsername="ผู้ใช้ใหม่"
+          isDark={isDark}
         />
       </div>
     );
@@ -1298,12 +1309,14 @@ export default function App() {
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
           username={username}
-          theme={theme}
+          isDark={isDark}
+          onProfileUpdated={() => setProfileRefresh((prev) => prev + 1)}
         />
 
         <FloatingChatWidget
-          username={username}
-          theme={theme}
+          currentUsername={username}
+          isDark={isDark}
+          onOpenProfile={() => setShowProfileModal(true)}
         />
 
         <AdminModal

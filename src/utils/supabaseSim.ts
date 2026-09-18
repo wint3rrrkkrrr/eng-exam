@@ -180,7 +180,24 @@ export async function syncWithServer() {
         localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(data.scores));
       }
       if (data.profiles && typeof data.profiles === 'object') {
-        localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(data.profiles));
+        const rawLocal = localStorage.getItem(STORAGE_KEY_PROFILES);
+        const localProfiles = rawLocal ? JSON.parse(rawLocal) : {};
+        const merged: Record<string, UserProfile> = { ...data.profiles };
+
+        for (const [key, p] of Object.entries(localProfiles)) {
+          if (!merged[key]) {
+            merged[key] = p as UserProfile;
+          } else {
+            const serverP = merged[key] as UserProfile;
+            const localP = p as UserProfile;
+            const serverTime = new Date(serverP.last_active || 0).getTime();
+            const localTime = new Date(localP.last_active || 0).getTime();
+            if (localTime >= serverTime) {
+              merged[key] = localP;
+            }
+          }
+        }
+        localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(merged));
       }
       if (data.friends && typeof data.friends === 'object') {
         localStorage.setItem(STORAGE_KEY_FRIENDS, JSON.stringify(data.friends));
@@ -191,6 +208,7 @@ export async function syncWithServer() {
       if (data.chatMessages && Array.isArray(data.chatMessages)) {
         localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(data.chatMessages));
       }
+      window.dispatchEvent(new Event('storage'));
     }
   } catch (e) {
     // Offline or static fallback
@@ -418,7 +436,20 @@ export const supabaseSim = {
   getProfile: (username: string): UserProfile => {
     if (!username) return { username: '', avatar: DEFAULT_AVATARS[0], bio: 'สู้ๆ ไปด้วยกันนะ!', joined_at: '', last_active: '', device_info: '' };
     const cleanName = username.trim().toLowerCase();
-    if (cleanName === 'win') {
+    
+    // Check saved profiles in localStorage FIRST
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
+      const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
+      if (profiles[cleanName] && profiles[cleanName].avatar) {
+        return profiles[cleanName];
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    // Default fallback for WIN if no custom profile created yet
+    if (cleanName === 'win' || cleanName === 'wintararer') {
       return {
         username: 'WIN',
         avatar: claytonKimImg,
@@ -428,13 +459,7 @@ export const supabaseSim = {
         device_info: detectDevice(),
       };
     }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
-      const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
-      if (profiles[cleanName]) return profiles[cleanName];
-    } catch (e) {
-      console.error(e);
-    }
+
     return {
       username: username.trim(),
       avatar: DEFAULT_AVATARS[Math.abs(username.length) % DEFAULT_AVATARS.length],
@@ -453,13 +478,14 @@ export const supabaseSim = {
       const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
       const profiles: Record<string, UserProfile> = raw ? JSON.parse(raw) : {};
       const current = profiles[cleanName] || supabaseSim.getProfile(username);
-      profiles[cleanName] = {
+      const updatedProfile: UserProfile = {
         ...current,
         ...updates,
         username: username.trim(),
         last_active: new Date().toISOString(),
         device_info: device,
       };
+      profiles[cleanName] = updatedProfile;
       localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
       window.dispatchEvent(new Event('storage'));
 
@@ -469,11 +495,24 @@ export const supabaseSim = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: username.trim(),
-          avatar: updates.avatar,
-          bio: updates.bio,
+          avatar: updates.avatar || updatedProfile.avatar,
+          bio: updates.bio || updatedProfile.bio,
           deviceInfo: device,
         }),
-      }).catch(() => {});
+      }).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.profile) {
+            const raw2 = localStorage.getItem(STORAGE_KEY_PROFILES);
+            const p2 = raw2 ? JSON.parse(raw2) : {};
+            p2[cleanName] = data.profile;
+            localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(p2));
+            window.dispatchEvent(new Event('storage'));
+          }
+        }
+      }).catch((e) => {
+        console.error('Failed to sync profile to server', e);
+      });
     } catch (e) {
       console.error(e);
     }
