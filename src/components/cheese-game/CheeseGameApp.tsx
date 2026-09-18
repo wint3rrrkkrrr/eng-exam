@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home, DoorOpen, PlusCircle, Users, Loader2 } from 'lucide-react';
+import { Home, DoorOpen, PlusCircle, Users, Loader2, Pencil } from 'lucide-react';
 import { cheeseGame } from '../../utils/cheeseGameClient';
-import { supabaseSim } from '../../utils/supabaseSim';
 import { CheeseRoom } from './CheeseRoom';
+import { CheeseAvatarPicker } from './CheeseAvatarPicker';
+import {
+  MouseAvatarConfig,
+  loadMouseAvatarConfig,
+  saveMouseAvatarConfig,
+  generateMouseAvatarUri,
+} from './mouseavatar';
 
 interface CheeseGameAppProps {
   username: string;
@@ -20,8 +26,15 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [loading, setLoading] = useState<'create' | 'join' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [avatarConfig, setAvatarConfig] = useState<MouseAvatarConfig>(() => loadMouseAvatarConfig(username));
+  const [showPicker, setShowPicker] = useState(false);
 
-  const avatar = supabaseSim.getProfile(username).avatar;
+  const avatar = generateMouseAvatarUri(avatarConfig);
+
+  const handleSaveAvatar = (config: MouseAvatarConfig) => {
+    saveMouseAvatarConfig(username, config);
+    setAvatarConfig(config);
+  };
 
   const enterRoom = (code: string) => {
     setRoomCode(code);
@@ -112,9 +125,32 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 14 }}
-          className="space-y-2"
+          className="space-y-3"
         >
-          <div className="text-6xl leading-none">🐭🧀</div>
+          {/* Mouse avatar with edit button */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="relative inline-block">
+              <motion.img
+                key={avatar}
+                src={avatar}
+                alt="avatar"
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                className="w-20 h-20 rounded-full ring-4 ring-amber-400/50 shadow-xl cursor-pointer"
+                onClick={() => setShowPicker(true)}
+                whileTap={{ scale: 0.93 }}
+              />
+              <button
+                onClick={() => setShowPicker(true)}
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center shadow-lg active:scale-90 transition"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <p className={`text-xs font-bold ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+              {username} — <button onClick={() => setShowPicker(true)} className="text-amber-400 underline-offset-2 hover:underline">แต่งตัวหนู</button>
+            </p>
+          </div>
           <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-stone-900'}`}>
             หนูชีสอยู่ไหน?
           </h1>
@@ -185,6 +221,18 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
           <span>เล่นได้ 4-10 คน • เจ้าของห้องตั้งค่า/เตะผู้เล่นได้ก่อนเริ่ม</span>
         </div>
       </div>
+
+      {/* Avatar picker modal */}
+      <AnimatePresence>
+        {showPicker && (
+          <CheeseAvatarPicker
+            config={avatarConfig}
+            isDark={isDark}
+            onSave={handleSaveAvatar}
+            onClose={() => setShowPicker(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
