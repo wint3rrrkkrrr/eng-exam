@@ -146,13 +146,13 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                 <tr className={`border-b font-bold text-xs uppercase tracking-wider ${
                   isDark ? 'border-zinc-800 text-zinc-400 bg-zinc-900/50' : 'border-stone-200 text-stone-600 bg-stone-100/80'
                 }`}>
-                  <th className="p-3.5 text-center w-16">อันดับ</th>
-                  <th className="p-3.5">ผู้เรียน</th>
-                  <th className="p-3.5 text-center">คะแนนรวมสะสม</th>
-                  <th className="p-3.5 text-center">ความแม่นยำ</th>
-                  <th className="p-3.5 text-center">สตรีคสูงสุด</th>
-                  <th className="p-3.5 text-center">เล่นล่าสุด</th>
-                  <th className="p-3.5 text-center">เพิ่มเพื่อน</th>
+                  <th className="p-2 sm:p-3.5 text-center w-12 sm:w-16">อันดับ</th>
+                  <th className="p-2 sm:p-3.5">ผู้เรียน</th>
+                  <th className="p-2 sm:p-3.5 text-center">คะแนน</th>
+                  <th className="p-2 sm:p-3.5 text-center hidden sm:table-cell">ความแม่นยำ</th>
+                  <th className="p-2 sm:p-3.5 text-center hidden sm:table-cell">สตรีคสูงสุด</th>
+                  <th className="p-2 sm:p-3.5 text-center hidden sm:table-cell">เล่นล่าสุด</th>
+                  <th className="p-2 sm:p-3.5 text-center">โปรไฟล์</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/10">
@@ -181,54 +181,56 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                               : 'hover:bg-stone-50 text-stone-800'
                       }`}
                     >
-                      <td className="p-3.5 text-center font-bold">
+                      <td className="p-2 sm:p-3.5 text-center font-bold">
                         <div className="flex justify-center">{getRankBadge(idx, entry)}</div>
                       </td>
-                      <td className="p-3.5 font-bold">
+                      <td className="p-2 sm:p-3.5 font-bold">
                         <button
                           onClick={() => setSelectedBioUser(entry)}
-                          className="flex items-center gap-2.5 group text-left transition-transform active:scale-95 cursor-pointer"
+                          className="flex items-center gap-1.5 sm:gap-2.5 group text-left transition-transform active:scale-95 cursor-pointer"
                           title="กดเพื่อดูไบโอและโปรไฟล์"
                         >
                           <img
                             src={userProfile.avatar}
                             alt={entry.username}
-                            className="w-7 h-7 rounded-full object-cover ring-2 ring-amber-400/50 shrink-0 group-hover:scale-110 transition-transform"
+                            className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover ring-2 ring-amber-400/50 shrink-0 group-hover:scale-110 transition-transform"
                           />
-                          <span className="truncate max-w-[120px] sm:max-w-[180px] font-extrabold text-sm group-hover:text-amber-400 transition-colors">
+                          <span className="truncate max-w-[70px] sm:max-w-[180px] font-extrabold text-xs sm:text-sm group-hover:text-amber-400 transition-colors">
                             {entry.username}
                           </span>
                           {isWinRankZero && (
-                            <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-400 to-orange-400 text-zinc-950 shadow-xs border border-amber-200">
+                            <span className="hidden sm:inline text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-400 to-orange-400 text-zinc-950 shadow-xs border border-amber-200 shrink-0">
                               👑 TOP VIP
                             </span>
                           )}
                           {isCurrentUser && !isWinRankZero && (
-                            <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-amber-400 text-zinc-950 shadow-xs">
+                            <span className="hidden sm:inline text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-amber-400 text-zinc-950 shadow-xs shrink-0">
                               YOU
                             </span>
                           )}
                         </button>
                       </td>
-                      <td className="p-3.5 text-center font-black text-base text-amber-400">
-                        <div className="flex items-center justify-center gap-1">
-                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
-                          <span>{entry.totalScore}</span>
-                          <span className="text-xs text-zinc-500 font-normal">({entry.totalAttempted} ข้อ)</span>
+                      <td className="p-2 sm:p-3.5 text-center font-black text-sm sm:text-base text-amber-400">
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-0 sm:gap-1">
+                          <div className="flex items-center gap-1">
+                            <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                            <span>{entry.totalScore}</span>
+                          </div>
+                          <span className="text-[10px] sm:text-xs text-zinc-500 font-normal">({entry.totalAttempted} ข้อ)</span>
                         </div>
                       </td>
-                      <td className="p-3.5 text-center">
+                      <td className="p-3.5 text-center hidden sm:table-cell">
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
-                          accuracy >= 80 
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                            : accuracy >= 50 
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                          accuracy >= 80
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : accuracy >= 50
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                               : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                         }`}>
                           {accuracy}%
                         </span>
                       </td>
-                      <td className="p-3.5 text-center font-black">
+                      <td className="p-3.5 text-center font-black hidden sm:table-cell">
                         {entry.maxStreak >= 1 ? (
                           <div className="inline-flex items-center gap-1 text-orange-400 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs">
                             <Flame className="w-3.5 h-3.5 fill-orange-500" />
@@ -238,24 +240,25 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                           <span className="text-zinc-500 text-xs">-</span>
                         )}
                       </td>
-                      <td className="p-3.5 text-center text-xs font-bold text-amber-300">
+                      <td className="p-3.5 text-center text-xs font-bold text-amber-300 hidden sm:table-cell">
                         {formatDate(entry.lastActive, isWinRankZero)}
                       </td>
-                      <td className="p-3.5 text-center">
+                      <td className="p-1.5 sm:p-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => setSelectedBioUser(entry)}
-                            className="px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-300 hover:bg-blue-500 hover:text-white transition-all flex items-center gap-1 active:scale-95"
+                            className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-300 hover:bg-blue-500 hover:text-white transition-all flex items-center gap-1 active:scale-95"
                             title="ดูสถานะและไบโอ"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            <span>ดูไบโอ</span>
+                            <span className="hidden sm:inline">ดูไบโอ</span>
                           </button>
 
                           {!isCurrentUser && (
                             isAlreadyFriend ? (
-                              <span className="text-[11px] font-extrabold text-emerald-400 px-2 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                เพื่อนแล้ว
+                              <span className="text-[11px] font-extrabold text-emerald-400 p-1.5 sm:px-2 sm:py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20" title="เป็นเพื่อนแล้ว">
+                                <UserCheck className="w-3.5 h-3.5 sm:hidden" />
+                                <span className="hidden sm:inline">เพื่อนแล้ว</span>
                               </span>
                             ) : (
                               <button
@@ -264,10 +267,11 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                                   alert(res.message);
                                   fetchLeaderboard();
                                 }}
-                                className="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition-all flex items-center gap-1 active:scale-95"
+                                className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition-all flex items-center gap-1 active:scale-95"
+                                title="แอดเพื่อน"
                               >
                                 <UserPlus className="w-3.5 h-3.5" />
-                                <span>แอดเพื่อน</span>
+                                <span className="hidden sm:inline">แอดเพื่อน</span>
                               </button>
                             )
                           )}

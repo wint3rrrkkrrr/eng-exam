@@ -14,6 +14,8 @@ import { LeaderboardView } from './components/LeaderboardView';
 import { AdminModal } from './components/AdminModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { FloatingChatWidget } from './components/FloatingChatWidget';
+import { CheeseGameApp } from './components/cheese-game/CheeseGameApp';
+import { CheeseErrorBoundary } from './components/cheese-game/CheeseErrorBoundary';
 import { supabaseSim, syncWithServer } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
@@ -174,6 +176,7 @@ export default function App() {
   const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [showCheeseGame, setShowCheeseGame] = useState<boolean>(false);
 
   // User details & Leaderboard landing tabs
   const [username, setUsername] = useState<string>(() => {
@@ -969,6 +972,14 @@ export default function App() {
     );
   }
 
+  if (showCheeseGame) {
+    return (
+      <CheeseErrorBoundary onBackToHome={() => setShowCheeseGame(false)}>
+        <CheeseGameApp username={username} isDark={isDark} onBack={() => setShowCheeseGame(false)} />
+      </CheeseErrorBoundary>
+    );
+  }
+
   if (showLandingPage) {
     return (
       <div
@@ -984,18 +995,18 @@ export default function App() {
         <AmbientParticles isDark={isDark} />
 
         {/* Landing Page Header / Quick settings */}
-        <header className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 flex items-center justify-between relative z-10">
+        <header className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-y-2 relative z-10">
           <div className="flex items-center gap-2.5">
             <img src={logoImage} alt="WINTER Prep Hub Logo" className="w-8 h-8 rounded-xl object-cover border border-blue-500/20 shadow-xs" referrerPolicy="no-referrer" />
-            <span className="font-extrabold text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-amber-300">WINTER Prep Hub</span>
+            <span className="font-extrabold text-base sm:text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-amber-300">WINTER Prep Hub</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
             {username && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setShowProfileModal(true)}
-                  className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 active:scale-95 cursor-pointer ${
+                  className={`px-2 sm:px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 active:scale-95 cursor-pointer max-w-[130px] sm:max-w-none ${
                     isDark
                       ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 ring-1 ring-amber-400/20'
                       : 'bg-amber-100 border-amber-300 text-amber-950 hover:bg-amber-200'
@@ -1007,16 +1018,16 @@ export default function App() {
                     alt={username}
                     className="w-5 h-5 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
                   />
-                  <span className="flex items-center gap-1 font-extrabold">
-                    <span>แก้ไขโปรไฟล์:</span>
-                    <span className="text-amber-400 underline decoration-amber-400/50">{username}</span>
+                  <span className="flex items-center gap-1 font-extrabold min-w-0">
+                    <span className="hidden sm:inline shrink-0">แก้ไขโปรไฟล์:</span>
+                    <span className="text-amber-400 underline decoration-amber-400/50 truncate">{username}</span>
                     <Edit3 className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-0.5" />
                   </span>
                 </button>
 
                 <button
                   onClick={handleLogoutUser}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                  className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
                     isDark
                       ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25'
                       : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-2xs'
@@ -1025,7 +1036,7 @@ export default function App() {
                   id="landing-logout-btn"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>ออกจากระบบ</span>
+                  <span className="hidden sm:inline">ออกจากระบบ</span>
                 </button>
               </div>
             )}
@@ -1042,11 +1053,11 @@ export default function App() {
             >
               {soundEnabled ? (
                 <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  <span className="text-xs font-bold text-amber-400">เสียงเปิดอยู่</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                  <span className="hidden sm:inline text-xs font-bold text-amber-400 whitespace-nowrap">เสียงเปิดอยู่</span>
                 </div>
               ) : (
-                <span className="text-xs font-bold text-stone-400">เสียงปิดอยู่</span>
+                <span className="hidden sm:inline text-xs font-bold text-stone-400 whitespace-nowrap">เสียงปิดอยู่</span>
               )}
             </button>
 
@@ -1061,13 +1072,9 @@ export default function App() {
               title={isDark ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด (ถนอมสายตา)'}
             >
               {isDark ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-amber-400">โหมดมืด</span>
-                </div>
+                <span className="text-xs font-bold text-amber-400 whitespace-nowrap">🌙</span>
               ) : (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-stone-600">โหมดสว่าง</span>
-                </div>
+                <span className="text-xs font-bold text-stone-600 whitespace-nowrap">☀️</span>
               )}
             </button>
           </div>
@@ -1110,23 +1117,38 @@ export default function App() {
 
             {/* Giant Action Button - Moved to top */}
             <div className="pt-4 pb-2 flex flex-col items-center gap-3">
-              <button
-                onClick={() => {
-                  setShowLandingPage(false);
-                  setShowSubjectSelector(true);
-                  if (soundEnabled) {
-                    try { soundFX.playTap(); } catch (e) {}
-                  }
-                }}
-                className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] cursor-pointer ${
-                  isDark
-                    ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black'
-                    : 'bg-stone-900 hover:bg-stone-800 text-white'
-                }`}
-              >
-                <span>เริ่มทำข้อสอบเลย</span>
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => {
+                    setShowLandingPage(false);
+                    setShowSubjectSelector(true);
+                    if (soundEnabled) {
+                      try { soundFX.playTap(); } catch (e) {}
+                    }
+                  }}
+                  className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] cursor-pointer ${
+                    isDark
+                      ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black'
+                      : 'bg-stone-900 hover:bg-stone-800 text-white'
+                  }`}
+                >
+                  <span>เริ่มทำข้อสอบเลย</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowCheeseGame(true);
+                    if (soundEnabled) {
+                      try { soundFX.playTap(); } catch (e) {}
+                    }
+                  }}
+                  className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-rose-500/20 hover:scale-[1.03] cursor-pointer bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500 text-white"
+                >
+                  <span>🐭🧀 เล่นเกมหนูชีส</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
 
               {/* Quick Profile & Chat Shortcuts on Landing Page */}
               <div className="flex items-center justify-center gap-2 pt-1">
@@ -1149,8 +1171,8 @@ export default function App() {
             </div>
 
             {/* Elegant Tab Switcher Menu */}
-            <div className="flex justify-center pt-6 pb-2">
-              <div className={`p-1 rounded-2xl flex gap-1 ${isDark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-stone-100/70 border border-stone-200'}`}>
+            <div className="flex justify-center pt-6 pb-2 px-4">
+              <div className={`p-1 rounded-2xl flex flex-wrap justify-center gap-1 max-w-full ${isDark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-stone-100/70 border border-stone-200'}`}>
                 <button
                   onClick={() => {
                     setLandingTab('subjects');
@@ -1158,20 +1180,20 @@ export default function App() {
                       try { soundFX.playTap(); } catch (e) {}
                     }
                   }}
-                  className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                     landingTab === 'subjects'
-                      ? isDark 
-                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black' 
+                      ? isDark
+                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
                         : 'bg-stone-900 text-white shadow-md'
                       : isDark
                         ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                         : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
                   }`}
                 >
-                  <BookOpen className="w-4 h-4" />
+                  <BookOpen className="w-4 h-4 shrink-0" />
                   <span>รายวิชาทั้งหมด</span>
                 </button>
-                
+
                 <button
                   onClick={() => {
                     setLandingTab('leaderboard');
@@ -1179,18 +1201,18 @@ export default function App() {
                       try { soundFX.playTap(); } catch (e) {}
                     }
                   }}
-                  className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                     landingTab === 'leaderboard'
-                      ? isDark 
-                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black' 
+                      ? isDark
+                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
                         : 'bg-stone-900 text-white shadow-md'
                       : isDark
                         ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                         : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
                   }`}
                 >
-                  <Trophy className="w-4 h-4 text-amber-500" />
-                  <span>ทำเนียบคะแนนสะสม (Supabase)</span>
+                  <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>ทำเนียบคะแนนสะสม</span>
                 </button>
               </div>
             </div>

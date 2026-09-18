@@ -1,0 +1,95 @@
+import React, { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
+import { Sun, MessageSquare, Vote } from 'lucide-react';
+import { cheeseGame, formatNightHour } from '../../../utils/cheeseGameClient';
+import { CheeseChatPanel } from '../CheeseChatPanel';
+import { CheesePhaseProps } from './types';
+
+export const CheeseDayPhase: React.FC<CheesePhaseProps> = ({ room, players, username, avatar, isDark, isHost, roomCode, refresh }) => {
+  const [secondsLeft, setSecondsLeft] = useState<number>(() => {
+    if (!room.day_phase_ends_at) return room.discussion_seconds;
+    return Math.max(0, Math.round((new Date(room.day_phase_ends_at).getTime() - Date.now()) / 1000));
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!room.day_phase_ends_at) return;
+      const left = Math.max(0, Math.round((new Date(room.day_phase_ends_at).getTime() - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left <= 0 && isHost) {
+        cheeseGame.goToVoting(roomCode).then(refresh);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.day_phase_ends_at, isHost, roomCode]);
+
+  const mins = Math.floor(secondsLeft / 60);
+  const secs = secondsLeft % 60;
+
+  return (
+    <div className={`min-h-screen px-4 py-6 ${isDark ? 'bg-gradient-to-b from-amber-950/40 via-[#0b0c16] to-[#0b0c16] text-zinc-100' : 'bg-gradient-to-b from-amber-100 to-indigo-50 text-stone-900'}`}>
+      <div className="max-w-2xl mx-auto space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center space-y-2"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+            className="inline-block"
+          >
+            <Sun className="w-12 h-12 text-amber-400 mx-auto" />
+          </motion.div>
+          <h1 className="text-2xl font-black">🧀 เช้าแล้ว! ชีสหายไปแล้ว!</h1>
+          <p className={`text-xs font-medium ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
+            ถกเถียงหาตัวหนูจิ๊ดกันได้เลย — ใครตื่นกี่โมง ใครเห็นอะไรบ้าง?
+          </p>
+        </motion.div>
+
+        {/* Countdown timer */}
+        <div className={`mx-auto w-fit px-5 py-2 rounded-2xl font-black text-lg border ${
+          secondsLeft <= 20 ? 'bg-rose-500/15 border-rose-500/40 text-rose-400 animate-pulse' : isDark ? 'bg-zinc-900/70 border-zinc-800 text-amber-400' : 'bg-white border-stone-200 text-amber-600'
+        }`}>
+          ⏱️ {mins}:{secs.toString().padStart(2, '0')}
+        </div>
+
+        {/* Player roster — dice hour / role stay secret, only your own shows */}
+        <div className="flex flex-wrap justify-center gap-2">
+          {players.map(p => {
+            const isSelf = p.username.toLowerCase() === username.toLowerCase();
+            return (
+              <div key={p.username} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border ${isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-white border-stone-200'}`}>
+                <img src={p.avatar} alt={p.username} className="w-5 h-5 rounded-full object-cover" />
+                <span className="text-[11px] font-bold">{p.username}</span>
+                {isSelf && p.dice_hour && (
+                  <span className="text-[9px] text-amber-400 font-bold">(คุณตื่น{formatNightHour(p.dice_hour)})</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Discussion chat */}
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-1.5 text-xs font-black px-1">
+            <MessageSquare className="w-4 h-4 text-amber-400" />
+            วงถกเถียง (ทุกคนเห็น)
+          </p>
+          <CheeseChatPanel roomCode={roomCode} channel="main" username={username} avatar={avatar} isDark={isDark} heightClass="h-64" placeholder="พิมพ์ข้อความถกเถียง..." />
+        </div>
+
+        {isHost && (
+          <button
+            onClick={async () => { await cheeseGame.goToVoting(roomCode); refresh(); }}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-400 to-orange-400 text-zinc-950 active:scale-95 transition shadow-lg"
+          >
+            <Vote className="w-4 h-4" />
+            เริ่มโหวตเลย (ข้ามเวลาที่เหลือ)
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
