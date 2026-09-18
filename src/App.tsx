@@ -44,7 +44,9 @@ import {
   Terminal,
   Lightbulb,
   Globe,
-  Music
+  Music,
+  User,
+  LogOut
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
@@ -906,6 +908,15 @@ export default function App() {
 
   const isDark = theme === 'dark';
 
+  const handleLogoutUser = () => {
+    if (window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
+      setUsername('');
+      localStorage.removeItem('grammar_quiz_username_v1');
+      setShowLandingPage(true);
+      try { soundFX.playTap(); } catch (e) {}
+    }
+  };
+
   if (!username) {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center relative overflow-x-clip ${isDark ? 'bg-[#0b0c12]' : 'bg-stone-50'}`}>
@@ -952,24 +963,32 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             {username && (
-              <button
-                onClick={() => {
-                  if (window.confirm('คุณต้องการเปลี่ยนชื่อผู้ใช้ใช่หรือไม่? คะแนนสะสมเดิมของคุณจะยังถูกบันทึกไว้ในระบบ')) {
-                    setUsername('');
-                    localStorage.removeItem('grammar_quiz_username_v1');
-                    try { soundFX.playTap(); } catch (e) {}
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  isDark
-                    ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
-                    : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50 shadow-2xs'
-                }`}
-                title="คลิกเพื่อเปลี่ยนชื่อผู้ใช้"
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                <span>คุณ: <strong className="text-amber-400 font-extrabold">{username}</strong> ✏️</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${
+                    isDark
+                      ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300'
+                      : 'bg-white border-stone-200 text-stone-700 shadow-2xs'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>ผู้เรียน: <strong className="text-amber-400 font-extrabold">{username}</strong></span>
+                </div>
+
+                <button
+                  onClick={handleLogoutUser}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                    isDark
+                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25'
+                      : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-2xs'
+                  }`}
+                  title="ออกจากระบบ"
+                  id="landing-logout-btn"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>ออกจากระบบ</span>
+                </button>
+              </div>
             )}
 
             {/* Sound Toggle */}
@@ -1324,6 +1343,8 @@ export default function App() {
             try { soundFX.playTap(); } catch (e) {}
           }
         }}
+        username={username}
+        onLogout={handleLogoutUser}
       />
 
       {/* Main Content Area */}

@@ -9,6 +9,14 @@ export interface UserScoreRecord {
   max_questions: number;
   streak: number;
   created_at: string;
+  device_info?: string;
+}
+
+export interface RegisteredUser {
+  username: string;
+  joined_at: string;
+  last_active: string;
+  device_info: string;
 }
 
 export interface UserAggregatedLeaderboard {
@@ -18,30 +26,125 @@ export interface UserAggregatedLeaderboard {
   maxStreak: number;
   quizzesCompleted: number;
   lastActive: string;
+  deviceInfo: string;
 }
 
 const STORAGE_KEY_SCORES = 'winter_exam_supabase_scores_v2';
 const STORAGE_KEY_USERS = 'winter_exam_supabase_real_users_v2';
+
+export function detectDevice(): string {
+  if (typeof window === 'undefined' || !navigator) return 'ไม่ทราบอุปกรณ์';
+  const ua = navigator.userAgent || '';
+
+  // Extract specific model strings from Android UA if available
+  let specificModel = '';
+  const androidModelMatch = ua.match(/\(([^)]+)\)/);
+  if (androidModelMatch && androidModelMatch[1]) {
+    const parts = androidModelMatch[1].split(';').map(p => p.trim());
+    for (const part of parts) {
+      if (/Android/i.test(part) || /Linux/i.test(part) || /wv/i.test(part)) continue;
+      if (/Build\//i.test(part)) {
+        const modelName = part.split('Build/')[0].trim();
+        if (modelName) {
+          specificModel = modelName;
+          break;
+        }
+      } else if (/SM-|Pixel|CPH|RMX|M2|220|V2|M20|Mi|Redmi|POCO|OnePlus|ROG|Xperia|Galaxy/i.test(part)) {
+        specificModel = part.replace(/Build\/.*/i, '').trim();
+        break;
+      }
+    }
+  }
+
+  // Known Brand / Model detection
+  let brandModel = '';
+  if (/iPhone/i.test(ua)) {
+    brandModel = 'iPhone';
+  } else if (/iPad/i.test(ua) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /Macintosh/i.test(ua))) {
+    brandModel = 'iPad';
+  } else if (/Pixel/i.test(ua)) {
+    const m = ua.match(/Pixel\s?[\w\d\s]+/i);
+    brandModel = m ? m[0].trim() : 'Google Pixel';
+  } else if (/SM-[A-Z0-9]+/i.test(ua) || /Samsung/i.test(ua)) {
+    const m = ua.match(/SM-[A-Z0-9]+/i);
+    brandModel = m ? `Samsung Galaxy (${m[0]})` : 'Samsung Galaxy';
+  } else if (/CPH[0-9]+/i.test(ua) || /OPPO/i.test(ua)) {
+    const m = ua.match(/CPH[0-9]+/i);
+    brandModel = m ? `OPPO (${m[0]})` : 'OPPO';
+  } else if (/V2[0-9]+/i.test(ua) || /vivo/i.test(ua)) {
+    const m = ua.match(/V2[0-9]+/i);
+    brandModel = m ? `Vivo (${m[0]})` : 'Vivo';
+  } else if (/Redmi|Xiaomi|Mi\s|M2[0-9]+/i.test(ua)) {
+    const m = ua.match(/(Redmi[\w\s\d]+|Mi[\w\s\d]+)/i);
+    brandModel = m ? m[0].trim() : 'Xiaomi / Redmi';
+  } else if (/Realme|RMX[0-9]+/i.test(ua)) {
+    const m = ua.match(/RMX[0-9]+/i);
+    brandModel = m ? `Realme (${m[0]})` : 'Realme';
+  } else if (/OnePlus/i.test(ua)) {
+    brandModel = 'OnePlus';
+  } else if (specificModel) {
+    brandModel = specificModel;
+  }
+
+  // OS detection with version
+  let osName = '';
+  if (/windows nt 10/i.test(ua) || /windows nt 11/i.test(ua)) osName = 'Windows PC (10/11)';
+  else if (/windows nt 6.3/i.test(ua)) osName = 'Windows PC (8.1)';
+  else if (/windows nt 6.1/i.test(ua)) osName = 'Windows PC (7)';
+  else if (/windows/i.test(ua)) osName = 'Windows PC';
+  else if (/macintosh|mac os x/i.test(ua)) {
+    osName = (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) ? 'iPadOS' : 'MacBook / Mac (macOS)';
+  } else if (/iphone|ipod/i.test(ua)) osName = 'iOS';
+  else if (/ipad/i.test(ua)) osName = 'iPadOS';
+  else if (/android/i.test(ua)) {
+    const ver = ua.match(/Android\s([0-9.]+)/i);
+    osName = ver ? `Android ${ver[1]}` : 'Android';
+  } else if (/linux/i.test(ua)) osName = 'Linux PC';
+
+  // Browser detection
+  let browserName = '';
+  if (/edg/i.test(ua)) browserName = 'Edge';
+  else if (/chrome|crios/i.test(ua)) browserName = 'Chrome';
+  else if (/firefox|fxios/i.test(ua)) browserName = 'Firefox';
+  else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browserName = 'Safari';
+
+  // Device type icon
+  let icon = '💻';
+  if (/mobile/i.test(ua) || /iphone|android/i.test(ua)) {
+    icon = '📱';
+  } else if (/ipad/i.test(ua)) {
+    icon = '📱';
+  }
+
+  if (brandModel) {
+    return `${icon} ${brandModel} (${osName}${browserName ? ' • ' + browserName : ''})`;
+  } else {
+    return `${icon} ${osName || 'ไม่ทราบอุปกรณ์'}${browserName ? ' (' + browserName + ')' : ''}`;
+  }
+}
 
 export const supabaseSim = {
   // Register or update user active status
   registerUser: (username: string) => {
     if (!username || !username.trim()) return;
     const cleanName = username.trim();
+    const device = detectDevice();
     try {
       const usersRaw = localStorage.getItem(STORAGE_KEY_USERS);
-      let users: { username: string; joined_at: string; last_active: string }[] = usersRaw ? JSON.parse(usersRaw) : [];
-      
+      let users: RegisteredUser[] = usersRaw ? JSON.parse(usersRaw) : [];
+
       const existingIdx = users.findIndex(u => u.username.toLowerCase() === cleanName.toLowerCase());
       const now = new Date().toISOString();
-      
+
       if (existingIdx !== -1) {
         users[existingIdx].last_active = now;
+        users[existingIdx].device_info = device;
       } else {
         users.push({
           username: cleanName,
           joined_at: now,
           last_active: now,
+          device_info: device,
         });
       }
       localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
@@ -51,7 +154,7 @@ export const supabaseSim = {
   },
 
   // Get list of all real users registered in the app
-  getRealUsers: (): { username: string; joined_at: string; last_active: string }[] => {
+  getRealUsers: (): RegisteredUser[] => {
     try {
       const usersRaw = localStorage.getItem(STORAGE_KEY_USERS);
       if (usersRaw) {
@@ -69,6 +172,7 @@ export const supabaseSim = {
       const scoresRaw = localStorage.getItem(STORAGE_KEY_SCORES);
       const scores: UserScoreRecord[] = scoresRaw ? JSON.parse(scoresRaw) : [];
       const realUsers = supabaseSim.getRealUsers();
+      const currentDevice = detectDevice();
 
       // Aggregate scores by username
       const userMap: { [username: string]: UserAggregatedLeaderboard } = {};
@@ -82,6 +186,7 @@ export const supabaseSim = {
           maxStreak: 0,
           quizzesCompleted: 0,
           lastActive: u.last_active,
+          deviceInfo: u.device_info || currentDevice,
         };
       });
 
@@ -96,6 +201,7 @@ export const supabaseSim = {
             maxStreak: 0,
             quizzesCompleted: 0,
             lastActive: rec.created_at,
+            deviceInfo: rec.device_info || currentDevice,
           };
         }
 
@@ -107,6 +213,9 @@ export const supabaseSim = {
         }
         if (new Date(rec.created_at).getTime() > new Date(userMap[key].lastActive).getTime()) {
           userMap[key].lastActive = rec.created_at;
+        }
+        if (rec.device_info) {
+          userMap[key].deviceInfo = rec.device_info;
         }
       });
 
@@ -153,6 +262,7 @@ export const supabaseSim = {
         max_questions: maxQuestions,
         streak,
         created_at: new Date().toISOString(),
+        device_info: detectDevice(),
       };
 
       scores.push(newRecord);

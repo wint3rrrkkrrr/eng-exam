@@ -16,7 +16,9 @@ import {
   ChevronDown,
   History,
   Shuffle,
-  Home
+  Home,
+  User,
+  LogOut
 } from 'lucide-react';
 import { QuizViewMode, ThemeMode } from '../types';
 
@@ -44,6 +46,8 @@ interface HeaderProps {
   onToggleSound: () => void;
   streakCount: number;
   onBackToHome: () => void;
+  username?: string;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -70,6 +74,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSound,
   streakCount,
   onBackToHome,
+  username,
+  onLogout,
 }) => {
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);
@@ -288,6 +294,25 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
+
+          {/* User Logout Button */}
+          {username && onLogout && (
+            <button
+              onClick={onLogout}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition active:scale-95 ${
+                isDark
+                  ? 'bg-rose-500/10 border-rose-500/25 text-rose-300 hover:bg-rose-500/20'
+                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-2xs'
+              }`}
+              title="ออกจากระบบ"
+              id="user-logout-btn"
+            >
+              <User className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="hidden sm:inline max-w-[80px] truncate text-amber-400 font-extrabold">{username}</span>
+              <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="text-[11px]">ออกจากระบบ</span>
+            </button>
+          )}
 
           {/* View mode toggle */}
           <div

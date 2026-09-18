@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Lock, User, Trash2, X, RefreshCw, CheckCircle2, AlertCircle, LogOut, Users, Award, UserCheck } from 'lucide-react';
+import { Shield, Lock, User, Trash2, X, RefreshCw, CheckCircle2, AlertCircle, LogOut, Users, Award, UserCheck, Laptop } from 'lucide-react';
 import { supabaseSim, UserAggregatedLeaderboard } from '../utils/supabaseSim';
 
 interface AdminModalProps {
@@ -253,11 +253,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       ยังไม่มีผู้ใช้จริงในระบบ
                     </div>
                   ) : (
-                    <div className="max-h-60 overflow-y-auto rounded-xl border border-zinc-800 divide-y divide-zinc-800 text-xs">
+                    <div className="max-h-72 overflow-y-auto rounded-xl border border-zinc-800 divide-y divide-zinc-800 text-xs">
                       {realUsersData.map((u) => (
-                        <div key={u.username} className="p-3 flex items-center justify-between gap-2 hover:bg-zinc-900/50">
-                          <div>
-                            <p className="font-extrabold text-amber-300 text-sm">{u.username}</p>
+                        <div key={u.username} className="p-3.5 flex items-center justify-between gap-3 hover:bg-zinc-900/50 transition">
+                          <div className="space-y-1 text-left">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-amber-300 text-sm">{u.username}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11px] text-amber-200/80 font-medium">
+                              <Laptop className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span>อุปกรณ์: <strong className="text-zinc-200 font-bold">{u.deviceInfo || 'ไม่ระบุอุปกรณ์'}</strong></span>
+                            </div>
                             <p className="text-[11px] text-zinc-400">
                               ทำโจทย์สะสม {u.totalAttempted} ข้อ (ถูก {u.totalScore} ข้อ) • คอมโบสูงสุด {u.maxStreak} 🔥
                             </p>
@@ -265,7 +271,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
                           <button
                             onClick={() => handleDeleteUser(u.username)}
-                            className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 shrink-0 transition"
                             title="ลบผู้ใช้นี้"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
