@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Home, DoorOpen, PlusCircle, Users, Loader2, Pencil } from 'lucide-react';
 import { cheeseGame } from '../../utils/cheeseGameClient';
+import { supabaseSim } from '../../utils/supabaseSim';
 import { CheeseRoom } from './CheeseRoom';
 import { CheeseAvatarPicker } from './CheeseAvatarPicker';
 import {
   MouseAvatarConfig,
   loadMouseAvatarConfig,
+  loadMouseAvatarFromProfile,
   saveMouseAvatarConfig,
   generateMouseAvatarUri,
 } from './mouseavatar';
@@ -29,10 +31,23 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
   const [avatarConfig, setAvatarConfig] = useState<MouseAvatarConfig>(() => loadMouseAvatarConfig(username));
   const [showPicker, setShowPicker] = useState(false);
 
+  // On mount: fetch Supabase profile to restore mouse avatar across devices
+  useEffect(() => {
+    if (!username) return;
+    supabaseSim.fetchProfile(username).then(profile => {
+      if (profile.mouse_avatar) {
+        const config = loadMouseAvatarFromProfile(profile.mouse_avatar);
+        setAvatarConfig(config);
+        // Also update localStorage cache for this device
+        try { localStorage.setItem(`cheese_mouse_avatar_v2_${username}`, profile.mouse_avatar); } catch {}
+      }
+    });
+  }, [username]);
+
   const avatar = generateMouseAvatarUri(avatarConfig);
 
   const handleSaveAvatar = (config: MouseAvatarConfig) => {
-    saveMouseAvatarConfig(username, config);
+    saveMouseAvatarConfig(username, config, supabaseSim.updateProfile);
     setAvatarConfig(config);
   };
 

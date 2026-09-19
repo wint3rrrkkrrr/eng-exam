@@ -39,6 +39,7 @@ export interface UserProfile {
   joined_at: string;
   last_active: string;
   device_info: string;
+  mouse_avatar?: string;
 }
 
 export interface FriendRequest {
@@ -299,6 +300,7 @@ export const supabaseSim = {
           joined_at: row.joined_at,
           last_active: row.last_active,
           device_info: row.device_info || '',
+          mouse_avatar: row.mouse_avatar || undefined,
         };
       });
     } catch (e) {
@@ -306,7 +308,7 @@ export const supabaseSim = {
     }
   },
 
-  updateProfile: async (username: string, updates: { avatar?: string; bio?: string }) => {
+  updateProfile: async (username: string, updates: { avatar?: string; bio?: string; mouse_avatar?: string }) => {
     if (!username) return;
     const clean = username.trim();
     const device = detectDevice();
@@ -316,7 +318,14 @@ export const supabaseSim = {
     profileCache[clean.toLowerCase()] = updated;
     window.dispatchEvent(new Event('storage'));
     try {
-      await supabase.from('winter_profiles').upsert({ username: clean, avatar: updated.avatar, bio: updated.bio, last_active: now, device_info: device }, { onConflict: 'username' });
+      await supabase.from('winter_profiles').upsert({
+        username: clean,
+        avatar: updated.avatar,
+        bio: updated.bio,
+        mouse_avatar: updated.mouse_avatar ?? null,
+        last_active: now,
+        device_info: device,
+      }, { onConflict: 'username' });
     } catch (e) {
       console.error('updateProfile error', e);
     }

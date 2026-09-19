@@ -32,10 +32,29 @@ export function loadMouseAvatarConfig(username: string): MouseAvatarConfig {
   return { ...DEFAULT_AVATAR_CONFIG };
 }
 
-export function saveMouseAvatarConfig(username: string, config: MouseAvatarConfig): void {
+// Save to localStorage immediately, and async-save to Supabase profile
+export function saveMouseAvatarConfig(
+  username: string,
+  config: MouseAvatarConfig,
+  updateProfileFn?: (username: string, updates: { mouse_avatar?: string }) => Promise<void>,
+): void {
+  const serialized = JSON.stringify(config);
   try {
-    localStorage.setItem(`${AVATAR_STORAGE_KEY}_${username}`, JSON.stringify(config));
+    localStorage.setItem(`${AVATAR_STORAGE_KEY}_${username}`, serialized);
   } catch {}
+  if (updateProfileFn) {
+    updateProfileFn(username, { mouse_avatar: serialized }).catch(console.error);
+  }
+}
+
+// Load config from Supabase profile (mouse_avatar field), falling back to localStorage
+export function loadMouseAvatarFromProfile(mouseAvatarJson: string | null | undefined): MouseAvatarConfig {
+  if (mouseAvatarJson) {
+    try {
+      return { ...DEFAULT_AVATAR_CONFIG, ...JSON.parse(mouseAvatarJson) };
+    } catch {}
+  }
+  return { ...DEFAULT_AVATAR_CONFIG };
 }
 
 export function generateMouseAvatarUri(config: MouseAvatarConfig): string {
