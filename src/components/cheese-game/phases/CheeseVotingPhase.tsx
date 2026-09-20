@@ -36,9 +36,13 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
 
   const handleVote = async (target: string) => {
     if (myVote) return; // one vote, no changing mind (matches "ชี้นิ้วพร้อมกัน")
-    setMyVote(target);
-    await cheeseGame.submitVote(roomCode, room.vote_round, username, target);
-    loadVotes();
+    try {
+      await cheeseGame.submitVote(roomCode, room.vote_round, username, target);
+      setMyVote(target);
+      loadVotes();
+    } catch {
+      // submitVote failed — do not set myVote so the user can retry
+    }
   };
 
   const handleForceFinish = async () => {

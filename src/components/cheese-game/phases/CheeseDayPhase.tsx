@@ -12,11 +12,14 @@ export const CheeseDayPhase: React.FC<CheesePhaseProps> = ({ room, players, user
   });
 
   useEffect(() => {
+    let called = false;
     const interval = setInterval(() => {
       if (!room.day_phase_ends_at) return;
       const left = Math.max(0, Math.round((new Date(room.day_phase_ends_at).getTime() - Date.now()) / 1000));
       setSecondsLeft(left);
-      if (left <= 0 && isHost) {
+      if (left <= 0 && isHost && !called) {
+        called = true;
+        clearInterval(interval);
         cheeseGame.goToVoting(roomCode).then(refresh);
       }
     }, 1000);

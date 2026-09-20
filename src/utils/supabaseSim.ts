@@ -275,7 +275,7 @@ export const supabaseSim = {
     try {
       const { data } = await supabase.from('winter_profiles').select('*').eq('username', username.trim()).single();
       if (data) {
-        const p: UserProfile = { username: data.username, avatar: data.avatar || DEFAULT_AVATARS[0], bio: data.bio || '', joined_at: data.joined_at, last_active: data.last_active, device_info: data.device_info || '' };
+        const p: UserProfile = { username: data.username, avatar: data.avatar || DEFAULT_AVATARS[0], bio: data.bio || '', joined_at: data.joined_at, last_active: data.last_active, device_info: data.device_info || '', mouse_avatar: data.mouse_avatar || undefined };
         profileCache[key] = p;
         return p;
       }

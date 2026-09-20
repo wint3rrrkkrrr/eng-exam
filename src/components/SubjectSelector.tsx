@@ -30,6 +30,7 @@ interface SubjectSelectorProps {
   onOpenHistory?: () => void;
   difficultyFilter: 'All' | 'Easy' | 'Medium' | 'Hard';
   onDifficultyFilterChange: (difficulty: 'All' | 'Easy' | 'Medium' | 'Hard') => void;
+  batchSize?: number;
 }
 
 export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
@@ -42,8 +43,9 @@ export const SubjectSelector: React.FC<SubjectSelectorProps> = ({
   onOpenHistory,
   difficultyFilter,
   onDifficultyFilterChange,
+  batchSize,
 }) => {
-  const [selectedBatchSize, setSelectedBatchSize] = useState<number>(20);
+  const [selectedBatchSize, setSelectedBatchSize] = useState<number>(batchSize ?? 20);
 
   const getSubjectIcon = (iconName: string, className: string, color: string) => {
     switch (iconName) {

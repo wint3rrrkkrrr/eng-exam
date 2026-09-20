@@ -270,7 +270,23 @@ export default function App() {
       }
     })();
 
-    const initialBank = allQuestions;
+    const savedSubjectId = (() => {
+      try {
+        const s = localStorage.getItem('quiz_current_subject_id_v1');
+        if (s && subjectsList.some((sub) => sub.id === s)) return s;
+        return 'english';
+      } catch { return 'english'; }
+    })();
+    const initialBank = (() => {
+      if (savedSubjectId === 'biology') return biologyQuestions;
+      if (savedSubjectId === 'history') return historyQuestions;
+      if (savedSubjectId === 'math') return mathQuestions;
+      if (savedSubjectId === 'c-programming') return cQuestions;
+      if (savedSubjectId === 'physics') return physicsQuestions;
+      if (savedSubjectId === 'english-speaking') return englishSpeakingQuestions;
+      if (savedSubjectId === 'music') return musicQuestions;
+      return allQuestions;
+    })();
     const unseen = initialBank.filter((q) => !savedCompleted[q.id]);
     const pool = unseen.length > 0 ? unseen : initialBank;
     const shuffled = shuffleArray(pool);
@@ -780,7 +796,7 @@ export default function App() {
   }, [questions, selectedTopic, activeFilter, answers, flagged]);
 
   // Instant Feedback Handler: also saves into completedHistory pool automatically
-  const handleSelectOption = (questionId: number, option: string) => {
+  const handleSelectOption = useCallback((questionId: number, option: string) => {
     const currentQ = questions.find((q) => q.id === questionId);
     if (!currentQ) return;
 
@@ -837,7 +853,7 @@ export default function App() {
     if (nextAnsweredCount === questions.length) {
       triggerConfetti();
     }
-  };
+  }, [questions, answers, streakCount, maxStreak, username, currentSubjectId]);
 
   const handleToggleFlag = (questionId: number) => {
     soundFX.playTap();
@@ -860,6 +876,11 @@ export default function App() {
       setActiveFilter('all');
       setSelectedTopic('all');
       setCurrentSingleIdx(0);
+      setCompletedHistory((prev) => {
+        const updated = { ...prev };
+        currentIds.forEach((id) => delete updated[id]);
+        return updated;
+      });
     }
   };
 
@@ -928,7 +949,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, currentSingleIdx, questions]);
+  }, [viewMode, currentSingleIdx, questions, handleSelectOption]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1374,6 +1395,7 @@ export default function App() {
           }}
           difficultyFilter={difficultyFilter}
           onDifficultyFilterChange={setDifficultyFilter}
+          batchSize={batchSize}
         />
       )}
 
@@ -1844,6 +1866,7 @@ export default function App() {
         onClose={() => setShowProfileModal(false)}
         username={username}
         isDark={isDark}
+        onProfileUpdated={() => setProfileRefresh((prev) => prev + 1)}
       />
 
       <FloatingChatWidget

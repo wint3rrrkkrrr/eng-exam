@@ -111,7 +111,7 @@ export const ResultSummary: React.FC<ResultSummaryProps> = ({
     return `${mins} นาที ${remainder} วินาที`;
   };
 
-  const missedCount = totalQuestions - score;
+  const missedCount = totalQuestions - score - unansweredCount;
   const isBankAllCompleted = remainingBankCount === 0;
 
   return (
