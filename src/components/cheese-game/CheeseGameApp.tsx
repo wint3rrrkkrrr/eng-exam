@@ -98,7 +98,7 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
   };
 
   if (roomCode) {
-    return <CheeseRoom roomCode={roomCode} username={username} avatar={avatar} isDark={isDark} onExitRoom={exitRoom} onBackToHome={onBack} />;
+    return <CheeseRoom roomCode={roomCode} username={username} avatar={avatar} isDark={isDark} onExitRoom={exitRoom} onBackToHome={() => { exitRoom(); onBack(); }} />;
   }
 
   return (

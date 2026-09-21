@@ -296,13 +296,6 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     }
   }, [iAmAwakeNow]);
 
-  // lock in thief name the moment we see them in awakeWithMe + cheese stolen (timing guard)
-  useEffect(() => {
-    if (!cheeseStolen || witnessedThiefName || !iAmAwakeNow) return;
-    const thief = awakeWithMe.find(l => l.role === 'thief');
-    if (thief) setWitnessedThiefName(thief.username);
-  }, [cheeseStolen, awakeWithMe, iAmAwakeNow, witnessedThiefName]);
-
   // hour 7 dawn chat: countdown + skip vote polling
   useEffect(() => {
     if (!dawnChatStarted || !room.day_phase_ends_at) return;
@@ -403,6 +396,14 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const knownThief = isAccomplice && thiefAmongCoWakers
     ? players.find(p => p.username === thiefAmongCoWakers.username)
     : null;
+
+  // lock in thief name the moment we see them in awakeWithMe + cheese stolen (timing guard)
+  useEffect(() => {
+    if (!cheeseStolen || witnessedThiefName || !iAmAwakeNow) return;
+    const thief = awakeWithMe.find(l => l.role === 'thief');
+    if (thief) setWitnessedThiefName(thief.username);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cheeseStolen, awakeWithMe, iAmAwakeNow, witnessedThiefName]);
 
   // ---- circle layout math ----
   const CONTAINER = 280;
