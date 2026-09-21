@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Crown, RotateCcw, Home } from 'lucide-react';
-import { cheeseGame } from '../../../utils/cheeseGameClient';
+import { cheeseGame, CheeseVote } from '../../../utils/cheeseGameClient';
 import { triggerConfetti } from '../../../utils/confetti';
 import { CheesePhaseProps } from './types';
 
@@ -13,9 +13,11 @@ const ROLE_LABEL: Record<string, string> = {
 
 export const CheeseEndedPhase: React.FC<CheesePhaseProps> = ({ room, players, isDark, isHost, roomCode, refresh, onBackToHome }) => {
   const miceWon = room.winner === 'mice';
+  const [votes, setVotes] = useState<CheeseVote[]>([]);
 
   useEffect(() => {
     if (miceWon) triggerConfetti();
+    cheeseGame.getVotes(roomCode, room.vote_round).then(setVotes);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -69,6 +71,59 @@ export const CheeseEndedPhase: React.FC<CheesePhaseProps> = ({ room, players, is
             </motion.div>
           ))}
         </div>
+
+        {/* Vote summary */}
+        {votes.length > 0 && (() => {
+          const tally: Record<string, number> = {};
+          votes.forEach(v => { tally[v.target] = (tally[v.target] || 0) + 1; });
+          const maxVotes = Math.max(...Object.values(tally));
+          const topTargets = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+          return (
+            <div className={`rounded-3xl border p-4 space-y-3 shadow-xl ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-white border-stone-200'}`}>
+              <p className="text-xs font-black text-amber-400">ผลการโหวต</p>
+              {/* Bar per target */}
+              <div className="space-y-1.5">
+                {topTargets.map(([target, count]) => {
+                  const isTop = count === maxVotes;
+                  const targetPlayer = players.find(p => p.username === target);
+                  return (
+                    <div key={target} className="space-y-0.5">
+                      <div className="flex items-center justify-between text-[11px] font-bold">
+                        <span className={isTop ? 'text-rose-300' : isDark ? 'text-zinc-300' : 'text-stone-700'}>{target}</span>
+                        <span className={isTop ? 'text-rose-400 font-black' : isDark ? 'text-zinc-500' : 'text-stone-500'}>
+                          {count} โหวต {targetPlayer?.role === 'thief' ? '😈' : targetPlayer?.role === 'accomplice' ? '🕵️' : '🐭'}
+                        </span>
+                      </div>
+                      <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-zinc-800' : 'bg-stone-100'}`}>
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(count / votes.length) * 100}%` }}
+                          transition={{ duration: 0.6, delay: 0.1 }}
+                          className={`h-full rounded-full ${isTop ? 'bg-rose-500' : 'bg-zinc-600'}`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Who voted for whom */}
+              <details className="text-[10px]">
+                <summary className={`cursor-pointer font-bold ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'}`}>
+                  ดูว่าใครโหวตใคร ▾
+                </summary>
+                <div className="mt-2 space-y-1">
+                  {votes.map(v => (
+                    <div key={v.voter} className={`flex items-center gap-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                      <span className="font-bold">{v.voter}</span>
+                      <span className="text-zinc-600">→</span>
+                      <span className={`font-bold ${v.target === topTargets[0]?.[0] ? 'text-rose-400' : ''}`}>{v.target}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          );
+        })()}
 
         <div className="space-y-2">
           {isHost ? (
