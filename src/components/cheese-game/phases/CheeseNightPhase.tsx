@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Moon, MessageCircleWarning } from 'lucide-react';
-import { cheeseGame, formatNightHour } from '../../../utils/cheeseGameClient';
+import { cheeseGame, formatNightHour, isBot } from '../../../utils/cheeseGameClient';
+import type { CheeseRole } from '../../../utils/cheeseGameClient';
 import { CheeseChatPanel } from '../CheeseChatPanel';
 import { CheesePhaseProps } from './types';
 
@@ -315,6 +316,57 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     return () => clearInterval(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dawnChatStarted, room.day_phase_ends_at, roomCode]);
+
+  // ---- host drives bots ----
+  const botActedForHourRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isHost) return;
+
+    // Mark bots ready at hour 0
+    if (room.current_hour === 0) {
+      players.filter(p => isBot(p) && p.role).forEach(bot => {
+        cheeseGame.markReadyForNight(roomCode, bot.username, bot.role as CheeseRole);
+      });
+      return;
+    }
+
+    if (room.current_hour < 1 || room.current_hour > 7) return;
+    if (botActedForHourRef.current === room.current_hour) return;
+    botActedForHourRef.current = room.current_hour;
+
+    // Hours 1–6: wake bots that match, thief bot steals
+    if (room.current_hour >= 1 && room.current_hour <= 6) {
+      const awake = players.filter(p => isBot(p) && p.dice_hour === room.current_hour && p.role);
+      awake.forEach(bot => {
+        cheeseGame.logNightWake(roomCode, bot.username, bot.role as CheeseRole);
+      });
+      const thiefBot = awake.find(b => b.role === 'thief');
+      if (thiefBot) {
+        setTimeout(() => cheeseGame.thiefStealCheese(roomCode), 1200 + Math.random() * 1500);
+      }
+    }
+
+    // Hour 7: bot thief picks accomplices
+    if (room.current_hour === 7) {
+      const thiefBot = players.find(p => isBot(p) && p.role === 'thief');
+      if (thiefBot && room.accomplice_count > 0) {
+        const eligible = players.filter(p => p.username !== thiefBot.username);
+        const picks = [...eligible].sort(() => Math.random() - 0.5).slice(0, room.accomplice_count).map(p => p.username);
+        setTimeout(() => cheeseGame.thiefAssignAccomplices(roomCode, picks), 1000 + Math.random() * 1200);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, room.current_hour, roomCode]);
+
+  // Bot skip-chat vote when dawn chat starts
+  useEffect(() => {
+    if (!isHost || !dawnChatStarted) return;
+    const botTeam = players.filter(p => isBot(p) && (p.role === 'thief' || p.role === 'accomplice'));
+    botTeam.forEach((bot, i) => {
+      setTimeout(() => cheeseGame.logSkipChatVote(roomCode, bot.username), 600 + i * 300);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, dawnChatStarted, roomCode]);
 
   // ---- action countdown ----
   useEffect(() => {

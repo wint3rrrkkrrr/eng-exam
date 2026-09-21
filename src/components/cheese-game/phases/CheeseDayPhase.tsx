@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Sun, MessageSquare, SkipForward } from 'lucide-react';
-import { cheeseGame, formatNightHour } from '../../../utils/cheeseGameClient';
+import { cheeseGame, formatNightHour, isBot } from '../../../utils/cheeseGameClient';
 import { CheeseChatPanel } from '../CheeseChatPanel';
 import { CheesePhaseProps } from './types';
 
@@ -36,6 +36,16 @@ export const CheeseDayPhase: React.FC<CheesePhaseProps> = ({ room, players, user
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.day_phase_ends_at, isHost, roomCode, skipNeeded]);
+
+  // host drives bots: auto skip-discussion after short delay
+  useEffect(() => {
+    if (!isHost) return;
+    const bots = players.filter(p => isBot(p));
+    bots.forEach((bot, i) => {
+      setTimeout(() => cheeseGame.logSkipDayVote(roomCode, bot.username), 1500 + i * 400 + Math.random() * 800);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, roomCode]);
 
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;

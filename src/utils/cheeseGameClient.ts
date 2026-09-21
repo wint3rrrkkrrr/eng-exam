@@ -47,6 +47,10 @@ export interface CheeseVote {
   voted_at: string;
 }
 
+export function isBot(player: CheesePlayer): boolean {
+  return player.username.startsWith('🤖');
+}
+
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I confusion
 
 function generateRoomCode(): string {
@@ -156,7 +160,9 @@ export const cheeseGame = {
   // ---- Game start: assign roles + dice hours ----
   startGame: async (roomCode: string, accompliceCountOverride?: number): Promise<{ success: boolean; message: string }> => {
     const players = await cheeseGame.getPlayers(roomCode);
-    if (players.length < 5) return { success: false, message: 'ต้องมีผู้เล่นอย่างน้อย 5 คนถึงจะเริ่มได้' };
+    const hasBots = players.some(p => isBot(p));
+    const minCount = hasBots ? 3 : 5;
+    if (players.length < minCount) return { success: false, message: `ต้องมีผู้เล่นอย่างน้อย ${minCount} คนถึงจะเริ่มได้` };
 
     const room = await cheeseGame.getRoom(roomCode);
     const accompliceCount = Math.min(
@@ -323,6 +329,19 @@ export const cheeseGame = {
     await supabase.from('cheese_rooms').update({
       phase: 'lobby', current_hour: 0, cheese_location: 'center', winner: null, revealed_usernames: [], vote_round: 1, day_phase_ends_at: null,
     }).eq('room_code', roomCode);
+  },
+
+  // ---- Bot management (host-only) ----
+  addBot: async (roomCode: string): Promise<{ success: boolean; message: string }> => {
+    const existing = await cheeseGame.getPlayers(roomCode);
+    const botNums = existing.filter(p => isBot(p)).map(p => parseInt(p.username.replace('🤖บอท ', '')) || 0).sort((a, b) => a - b);
+    let n = 1;
+    while (botNums.includes(n)) n++;
+    return cheeseGame.joinRoom(roomCode, `🤖บอท ${n}`, '🤖');
+  },
+
+  removeBot: async (roomCode: string, botUsername: string): Promise<void> => {
+    await cheeseGame.leaveRoom(roomCode, botUsername);
   },
 
   // ---- Chat ----

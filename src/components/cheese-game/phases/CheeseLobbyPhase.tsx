@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Copy, Check, Crown, UserX, Settings2, Play, LogOut, Loader2, Users2 } from 'lucide-react';
-import { cheeseGame, recommendedAccompliceCount } from '../../../utils/cheeseGameClient';
+import { Copy, Check, Crown, UserX, Settings2, Play, LogOut, Loader2, Users2, Bot, BotOff } from 'lucide-react';
+import { cheeseGame, isBot, recommendedAccompliceCount } from '../../../utils/cheeseGameClient';
 import { CheesePhaseProps } from './types';
 
 export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, username, isDark, isHost, roomCode, refresh, onExitRoom, onBackToHome }) => {
@@ -11,6 +11,10 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [accompliceCount, setAccompliceCount] = useState(room.accomplice_count);
   const [discussionMinutes, setDiscussionMinutes] = useState(Math.round(room.discussion_seconds / 60));
+
+  const botCount = players.filter(p => isBot(p)).length;
+  const minPlayers = botCount > 0 ? 3 : 5;
+  const canStart = players.length >= minPlayers;
 
   const handleCopyCode = async () => {
     try {
@@ -79,8 +83,8 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
               <Users2 className="w-4 h-4 text-amber-400" />
               ผู้เล่น ({players.length})
             </span>
-            <span className={`text-[10px] font-bold ${players.length >= 5 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {players.length >= 5 ? 'พร้อมเริ่ม' : `ต้องการอีก ${5 - players.length} คน`}
+            <span className={`text-[10px] font-bold ${canStart ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {canStart ? 'พร้อมเริ่ม' : `ต้องการอีก ${minPlayers - players.length} คน${botCount > 0 ? ' (รวมบอท)' : ''}`}
             </span>
           </div>
           <AnimatePresence initial={false}>
@@ -93,18 +97,23 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                 className={`flex items-center justify-between gap-2 p-2.5 rounded-2xl ${isDark ? 'bg-zinc-800/50' : 'bg-stone-50'}`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <img src={p.avatar} alt={p.username} className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400/40 shrink-0" />
-                  <span className="font-bold text-sm truncate">{p.username}</span>
-                  {p.is_host && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" title="เจ้าของห้อง" />}
-                  {p.username.toLowerCase() === username.toLowerCase() && (
+                  {isBot(p) ? (
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ring-2 ring-zinc-600/40 shrink-0 ${isDark ? 'bg-zinc-700' : 'bg-stone-200'}`}>🤖</div>
+                  ) : (
+                    <img src={p.avatar} alt={p.username} className="w-8 h-8 rounded-full object-cover ring-2 ring-amber-400/40 shrink-0" />
+                  )}
+                  <span className={`font-bold text-sm truncate ${isBot(p) ? 'text-zinc-400' : ''}`}>{p.username}</span>
+                  {p.is_host && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                  {isBot(p) && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-zinc-600 text-zinc-300 shrink-0">บอท</span>}
+                  {!isBot(p) && p.username.toLowerCase() === username.toLowerCase() && (
                     <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-zinc-950 shrink-0">คุณ</span>
                   )}
                 </div>
                 {isHost && !p.is_host && (
                   <button
-                    onClick={() => handleKick(p.username)}
+                    onClick={() => isBot(p) ? cheeseGame.removeBot(roomCode, p.username).then(refresh) : handleKick(p.username)}
                     className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 transition shrink-0"
-                    title={`เตะ ${p.username}`}
+                    title={isBot(p) ? `ลบบอท ${p.username}` : `เตะ ${p.username}`}
                   >
                     <UserX className="w-4 h-4" />
                   </button>
@@ -113,6 +122,54 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
             ))}
           </AnimatePresence>
         </div>
+
+        {/* Bot controls (host only) */}
+        {isHost && (
+          <div className={`rounded-3xl border p-4 space-y-2 shadow-xl ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-white border-stone-200'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-black">
+                <Bot className="w-4 h-4 text-zinc-400" />
+                <span>บอท {botCount > 0 ? `(${botCount})` : ''}</span>
+                <span className={`text-[9px] font-bold ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>— เล่นคนเดียวได้</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={botCount === 0}
+                  onClick={async () => {
+                    const bots = players.filter(p => isBot(p));
+                    if (bots.length > 0) {
+                      await cheeseGame.removeBot(roomCode, bots[bots.length - 1].username);
+                      refresh();
+                    }
+                  }}
+                  className={`w-7 h-7 rounded-lg font-black text-sm transition ${
+                    botCount === 0 ? 'opacity-30 cursor-not-allowed' : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  −
+                </button>
+                <span className="w-5 text-center text-sm font-black">{botCount}</span>
+                <button
+                  disabled={players.length >= 10}
+                  onClick={async () => {
+                    await cheeseGame.addBot(roomCode);
+                    refresh();
+                  }}
+                  className={`w-7 h-7 rounded-lg font-black text-sm transition ${
+                    players.length >= 10 ? 'opacity-30 cursor-not-allowed' : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            {botCount > 0 && (
+              <p className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>
+                บอทจะเล่นอัตโนมัติ: ตื่นตามเวลา, ขโมยชีส, โหวต
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Host settings */}
         {isHost && (
@@ -181,7 +238,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
           {isHost ? (
             <button
               onClick={handleStart}
-              disabled={players.length < 5 || starting}
+              disabled={!canStart || starting}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-zinc-950 shadow-lg active:scale-95 transition disabled:opacity-50"
             >
               {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-zinc-950" />}

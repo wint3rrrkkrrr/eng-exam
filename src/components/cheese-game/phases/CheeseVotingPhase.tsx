@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Gavel, Check } from 'lucide-react';
-import { cheeseGame, CheeseVote } from '../../../utils/cheeseGameClient';
+import { cheeseGame, isBot, CheeseVote } from '../../../utils/cheeseGameClient';
 import { CheesePhaseProps } from './types';
 
 export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, username, isDark, isHost, roomCode, refresh }) => {
@@ -55,6 +55,22 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.day_phase_ends_at, isHost, roomCode]);
+
+  // host drives bot votes: each bot votes for a random non-self player after a delay
+  useEffect(() => {
+    if (!isHost) return;
+    const bots = players.filter(p => isBot(p));
+    bots.forEach((bot, i) => {
+      const targets = players.filter(p => p.username !== bot.username);
+      if (targets.length === 0) return;
+      const target = targets[Math.floor(Math.random() * targets.length)];
+      setTimeout(
+        () => cheeseGame.submitVote(roomCode, room.vote_round, bot.username, target.username),
+        2000 + i * 700 + Math.random() * 1500
+      );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, roomCode, room.vote_round]);
 
   const handleVote = async (target: string) => {
     if (myVote) return; // one vote, no changing mind (matches "ชี้นิ้วพร้อมกัน")
