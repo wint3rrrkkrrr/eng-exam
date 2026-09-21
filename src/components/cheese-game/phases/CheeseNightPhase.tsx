@@ -618,7 +618,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                           <div className="space-y-1.5">
                             <p className="text-[10px] text-indigo-300 font-bold text-center">เลือก 1 คนที่จะดูเวลาตื่น:</p>
                             <div className="space-y-1 max-h-36 overflow-y-auto">
-                              {players.filter(p => p.username.toLowerCase() !== username.toLowerCase() && !isBot(p)).map(p => (
+                              {players.filter(p => p.username.toLowerCase() !== username.toLowerCase()).map(p => (
                                 <button
                                   key={p.username}
                                   onClick={() => {
