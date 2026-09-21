@@ -128,6 +128,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const [chatSecondsLeft, setChatSecondsLeft] = useState(30);
   const [peekedPlayer, setPeekedPlayer] = useState<string | null>(null);
   const [showPeekList, setShowPeekList] = useState(false);
+  const [witnessedThiefName, setWitnessedThiefName] = useState<string | null>(null);
 
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [introStage, setIntroStage] = useState<
@@ -294,6 +295,13 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
       setShowPeekList(false);
     }
   }, [iAmAwakeNow]);
+
+  // lock in thief name the moment we see them in awakeWithMe + cheese stolen (timing guard)
+  useEffect(() => {
+    if (!cheeseStolen || witnessedThiefName || !iAmAwakeNow) return;
+    const thief = awakeWithMe.find(l => l.role === 'thief');
+    if (thief) setWitnessedThiefName(thief.username);
+  }, [cheeseStolen, awakeWithMe, iAmAwakeNow, witnessedThiefName]);
 
   // hour 7 dawn chat: countdown + skip vote polling
   useEffect(() => {
@@ -597,8 +605,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                       : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                   }`}>
                     {cheeseStolen
-                      ? witnessedThief
-                        ? `😱 ${witnessedThief.username} ขโมยชีสต่อหน้าคุณ!`
+                      ? witnessedThiefName
+                        ? `🧀 ชีสหายเพราะ ${witnessedThiefName} ขโมย!`
                         : '😱 ชีสหายไปแล้ว! ใครเอาไปก็ไม่รู้'
                       : '🧀 ชีสยังอยู่ตรงกลางโต๊ะ'}
                   </div>
