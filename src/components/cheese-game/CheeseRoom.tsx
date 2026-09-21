@@ -5,7 +5,7 @@ import { CheeseNightPhase } from './phases/CheeseNightPhase';
 import { CheeseDayPhase } from './phases/CheeseDayPhase';
 import { CheeseVotingPhase } from './phases/CheeseVotingPhase';
 import { CheeseEndedPhase } from './phases/CheeseEndedPhase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LogOut } from 'lucide-react';
 
 interface CheeseRoomProps {
   roomCode: string;
@@ -49,6 +49,16 @@ export const CheeseRoom: React.FC<CheeseRoomProps> = ({ roomCode, username, avat
   const me = players.find(p => p.username.toLowerCase() === username.toLowerCase());
   const isHost = me?.is_host || room?.host_username?.toLowerCase() === username.toLowerCase();
 
+  const handleLeave = async () => {
+    if (!confirm('ออกจากห้องใช่ไหม?')) return;
+    // If thief leaves mid-game, mice win immediately
+    if (me?.role === 'thief' && room && room.phase !== 'lobby' && room.phase !== 'ended') {
+      await cheeseGame.thiefQuit(roomCode, username);
+    }
+    await cheeseGame.leaveRoom(roomCode, username);
+    onExitRoom();
+  };
+
   if (loading) {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center gap-3 ${isDark ? 'bg-[#0b0c16] text-zinc-300' : 'bg-indigo-50 text-stone-700'}`}>
@@ -74,19 +84,31 @@ export const CheeseRoom: React.FC<CheeseRoomProps> = ({ roomCode, username, avat
   }
 
   const commonProps = { room, players, username, avatar, isDark, isHost, roomCode, refresh, onExitRoom, onBackToHome };
+  const showFloatingExit = room.phase !== 'lobby' && room.phase !== 'ended';
 
-  switch (room.phase) {
-    case 'lobby':
-      return <CheeseLobbyPhase {...commonProps} />;
-    case 'night':
-      return <CheeseNightPhase {...commonProps} />;
-    case 'day':
-      return <CheeseDayPhase {...commonProps} />;
-    case 'voting':
-      return <CheeseVotingPhase {...commonProps} />;
-    case 'ended':
-      return <CheeseEndedPhase {...commonProps} />;
-    default:
-      return null;
-  }
+  const phaseEl = (() => {
+    switch (room.phase) {
+      case 'lobby':  return <CheeseLobbyPhase {...commonProps} />;
+      case 'night':  return <CheeseNightPhase {...commonProps} />;
+      case 'day':    return <CheeseDayPhase {...commonProps} />;
+      case 'voting': return <CheeseVotingPhase {...commonProps} />;
+      case 'ended':  return <CheeseEndedPhase {...commonProps} />;
+      default:       return null;
+    }
+  })();
+
+  return (
+    <>
+      {phaseEl}
+      {showFloatingExit && (
+        <button
+          onClick={handleLeave}
+          className="fixed top-4 left-4 z-[80] flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-zinc-900/80 border border-zinc-700 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 active:scale-95 transition backdrop-blur-sm shadow-lg"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          ออก
+        </button>
+      )}
+    </>
+  );
 };

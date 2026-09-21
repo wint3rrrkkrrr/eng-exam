@@ -13,6 +13,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 export const CheeseEndedPhase: React.FC<CheesePhaseProps> = ({ room, players, isDark, isHost, roomCode, refresh, onBackToHome }) => {
   const miceWon = room.winner === 'mice';
+  const thiefQuit = room.cheese_location === 'thief_quit';
   const [votes, setVotes] = useState<CheeseVote[]>([]);
 
   useEffect(() => {
@@ -34,12 +35,14 @@ export const CheeseEndedPhase: React.FC<CheesePhaseProps> = ({ room, players, is
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 180, damping: 12 }}
         >
-          <div className="text-7xl mb-2">{miceWon ? '🎉🐭' : '🧀🦹'}</div>
+          <div className="text-7xl mb-2">{thiefQuit ? '🏃🧀' : miceWon ? '🎉🐭' : '🧀🦹'}</div>
           <h1 className={`text-2xl sm:text-3xl font-black ${miceWon ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {miceWon ? 'ฝ่ายหนูบริสุทธิ์ชนะ!' : 'ฝ่ายหนูจิ๊ดชนะ!'}
+            {thiefQuit
+              ? `หนูจิ๊ด ${room.revealed_usernames[0] || ''} หนีออกจากเกม!`
+              : miceWon ? 'ฝ่ายหนูบริสุทธิ์ชนะ!' : 'ฝ่ายหนูจิ๊ดชนะ!'}
           </h1>
           <p className={`text-xs mt-1 font-medium ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-            {miceWon ? 'จับหนูจิ๊ดได้สำเร็จ! 🎊' : 'โหวตผิดตัว หนูจิ๊ดรอดไป...'}
+            {thiefQuit ? 'หนูจิ๊ดกดออกกลางเกม ฝ่ายหนูบริสุทธิ์ชนะโดยปริยาย 🎊' : miceWon ? 'จับหนูจิ๊ดได้สำเร็จ! 🎊' : 'โหวตผิดตัว หนูจิ๊ดรอดไป...'}
           </p>
         </motion.div>
 

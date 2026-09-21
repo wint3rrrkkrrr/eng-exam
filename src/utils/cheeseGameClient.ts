@@ -321,6 +321,16 @@ export const cheeseGame = {
     return (data || []) as CheesePlayer[];
   },
 
+  // Thief quit mid-game → mice win, show special ended screen
+  thiefQuit: async (roomCode: string, thiefUsername: string) => {
+    await supabase.from('cheese_rooms').update({
+      phase: 'ended',
+      winner: 'mice',
+      cheese_location: 'thief_quit',
+      revealed_usernames: [thiefUsername],
+    }).eq('room_code', roomCode);
+  },
+
   restartToLobby: async (roomCode: string) => {
     await supabase.from('cheese_players').update({ role: null, dice_hour: null }).eq('room_code', roomCode);
     await supabase.from('cheese_votes').delete().eq('room_code', roomCode);

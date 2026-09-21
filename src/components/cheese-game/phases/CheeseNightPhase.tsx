@@ -372,14 +372,25 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, dawnChatStarted, roomCode]);
 
-  // ---- action countdown ----
+  // ---- action countdown (thief auto-steals when timer hits 0) ----
   useEffect(() => {
     if (!iAmAwakeNow) return;
     setActionTimeLeft(10);
     const interval = setInterval(() => {
-      setActionTimeLeft(t => (t <= 1 ? (clearInterval(interval), 0) : t - 1));
+      setActionTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(interval);
+          // auto-steal if thief hasn't done it yet
+          if (isThief && !stealDone && room.cheese_location !== 'stolen') {
+            cheeseGame.thiefStealCheese(roomCode).then(() => setStealDone(true));
+          }
+          return 0;
+        }
+        return t - 1;
+      });
     }, 1000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iAmAwakeNow, room.current_hour]);
 
   const handleSteal = async () => {
