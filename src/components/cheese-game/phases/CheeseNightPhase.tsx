@@ -531,7 +531,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
               transition={{ duration: 0.4 }}
               className="text-5xl select-none"
             >
-              {cheeseStolen ? '🕳️' : '🧀'}
+              {(cheeseStolen && iAmAwakeNow) ? '🕳️' : '🧀'}
             </motion.div>
             {cheeseStolen && iAmAwakeNow && (
               <p className="text-[8px] font-black text-rose-400 text-center mt-0.5 whitespace-nowrap">ชีสหายแล้ว!</p>
