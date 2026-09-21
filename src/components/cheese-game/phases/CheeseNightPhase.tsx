@@ -126,6 +126,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const [skipChatVoted, setSkipChatVoted] = useState(false);
   const [skipChatVoteCount, setSkipChatVoteCount] = useState(0);
   const [chatSecondsLeft, setChatSecondsLeft] = useState(30);
+  const [peekedPlayer, setPeekedPlayer] = useState<string | null>(null);
+  const [showPeekList, setShowPeekList] = useState(false);
 
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [introStage, setIntroStage] = useState<
@@ -143,15 +145,10 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const isPostDawn = room.current_hour === 7;
   const dawnChatStarted = isPostDawn && !!room.day_phase_ends_at;
 
-  // ---- intro: one-time role+dice reveal ----
+  // ---- intro: role+dice reveal on each new game (ref resets on unmount) ----
   useEffect(() => {
     if (!me || introTriggeredRef.current) return;
-    if (room.current_hour < 0) return;
-    const seenKey = `cheese_intro_seen_${roomCode}`;
-    try {
-      if (sessionStorage.getItem(seenKey)) { introTriggeredRef.current = true; return; }
-      sessionStorage.setItem(seenKey, '1');
-    } catch { /* ignore */ }
+    if (room.current_hour < 0 || !me.role) return;
     introTriggeredRef.current = true;
     setIntroStage('role-waiting');
   }, [me, room.current_hour, roomCode]);
@@ -287,9 +284,13 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iAmAwakeNow, room.current_hour, roomCode]);
 
-  // clear co-wakers when hour changes away from mine
+  // clear co-wakers + peek when hour changes away from mine
   useEffect(() => {
-    if (!iAmAwakeNow) setAwakeWithMe([]);
+    if (!iAmAwakeNow) {
+      setAwakeWithMe([]);
+      setPeekedPlayer(null);
+      setShowPeekList(false);
+    }
   }, [iAmAwakeNow]);
 
   // hour 7 dawn chat: countdown + skip vote polling
@@ -599,6 +600,56 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                         : '😱 ชีสหายไปแล้ว! ใครเอาไปก็ไม่รู้'
                       : '🧀 ชีสยังอยู่ตรงกลางโต๊ะ'}
                   </div>
+
+                  {/* PEEK: only when alone (no co-wakers) and not thief */}
+                  {awakeWithMe.length === 0 && (
+                    <div className="space-y-1.5">
+                      {!peekedPlayer ? (
+                        !showPeekList ? (
+                          <button
+                            onClick={() => setShowPeekList(true)}
+                            className="w-full py-2 rounded-2xl text-xs font-black bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 active:scale-95 transition"
+                          >
+                            🔍 แอบดูเวลาตื่นของใครสักคน (1 คน)
+                          </button>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] text-indigo-300 font-bold text-center">เลือก 1 คนที่จะดูเวลาตื่น:</p>
+                            <div className="space-y-1 max-h-36 overflow-y-auto">
+                              {players.filter(p => p.username.toLowerCase() !== username.toLowerCase() && !isBot(p)).map(p => (
+                                <button
+                                  key={p.username}
+                                  onClick={() => {
+                                    setPeekedPlayer(p.username);
+                                    setShowPeekList(false);
+                                  }}
+                                  className="w-full flex items-center gap-2 p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs font-bold text-indigo-200 active:scale-95 transition hover:border-indigo-400/50"
+                                >
+                                  {isImageUrl(p.avatar)
+                                    ? <img src={p.avatar} className="w-6 h-6 rounded-full object-cover" alt={p.username} />
+                                    : <span className="text-sm">{p.avatar}</span>}
+                                  {p.username}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setShowPeekList(false)}
+                              className="w-full text-[10px] text-zinc-500 py-1"
+                            >
+                              ยกเลิก
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        <div className="p-2.5 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-center space-y-0.5">
+                          <p className="text-[10px] text-indigo-400 font-bold">👁️ ผลการแอบดู</p>
+                          <p className="text-sm font-black text-indigo-200">
+                            {peekedPlayer} ตื่นตอน {formatNightHour(players.find(p => p.username === peekedPlayer)?.dice_hour || 0)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
