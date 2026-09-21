@@ -79,8 +79,8 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
               <Users2 className="w-4 h-4 text-amber-400" />
               ผู้เล่น ({players.length})
             </span>
-            <span className={`text-[10px] font-bold ${players.length >= 4 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {players.length >= 4 ? 'พร้อมเริ่ม' : `ต้องการอีก ${4 - players.length} คน`}
+            <span className={`text-[10px] font-bold ${players.length >= 2 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {players.length >= 2 ? 'พร้อมเริ่ม' : `ต้องการอีก ${2 - players.length} คน`}
             </span>
           </div>
           <AnimatePresence initial={false}>
@@ -181,7 +181,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
           {isHost ? (
             <button
               onClick={handleStart}
-              disabled={players.length < 4 || starting}
+              disabled={players.length < 2 || starting}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-zinc-950 shadow-lg active:scale-95 transition disabled:opacity-50"
             >
               {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-zinc-950" />}

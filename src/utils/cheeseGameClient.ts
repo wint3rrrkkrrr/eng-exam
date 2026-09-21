@@ -164,17 +164,17 @@ export const cheeseGame = {
     );
 
     const shuffled = [...players].sort(() => Math.random() - 0.5);
+    // Accomplice roles are NOT assigned at start — thief picks them at hour 6
     const roles: CheeseRole[] = [
       'thief',
-      ...Array(accompliceCount).fill('accomplice'),
-      ...Array(Math.max(0, shuffled.length - 1 - accompliceCount)).fill('mouse'),
+      ...Array(Math.max(0, shuffled.length - 1)).fill('mouse'),
     ];
 
     const updates = shuffled.map((p, i) => ({
       room_code: roomCode,
       username: p.username,
       role: roles[i],
-      dice_hour: 1 + Math.floor(Math.random() * 6),
+      dice_hour: 1 + Math.floor(Math.random() * 5), // ตี 1–5 only; hour 6 = 6 โมง (thief-selection phase)
     }));
 
     for (const u of updates) {
@@ -232,6 +232,13 @@ export const cheeseGame = {
 
   thiefStealCheese: async (roomCode: string) => {
     await supabase.from('cheese_rooms').update({ cheese_location: 'stolen' }).eq('room_code', roomCode);
+  },
+
+  // Thief picks accomplices at hour 6 (instead of random assignment at game start)
+  thiefAssignAccomplices: async (roomCode: string, usernames: string[]) => {
+    for (const u of usernames) {
+      await supabase.from('cheese_players').update({ role: 'accomplice' }).eq('room_code', roomCode).eq('username', u);
+    }
   },
 
   // ---- Voting ----
