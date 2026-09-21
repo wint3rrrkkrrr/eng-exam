@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { soundFX } from './utils/audio';
 import { triggerConfetti } from './utils/confetti';
+import { BgmButton } from './components/BgmButton';
 import { getQuestionDifficulty } from './utils/difficulty';
 import logoImage from './assets/images/winter_exam_logo_1789496745669.jpg';
 
@@ -989,15 +990,19 @@ export default function App() {
           currentUsername={localStorage.getItem('grammar_quiz_username_v1') || 'ผู้เยือน'}
           isDark={isDark}
         />
+        <BgmButton />
       </div>
     );
   }
 
   if (showCheeseGame) {
     return (
-      <CheeseErrorBoundary onBackToHome={() => setShowCheeseGame(false)}>
-        <CheeseGameApp username={username} isDark={isDark} onBack={() => setShowCheeseGame(false)} />
-      </CheeseErrorBoundary>
+      <>
+        <CheeseErrorBoundary onBackToHome={() => setShowCheeseGame(false)}>
+          <CheeseGameApp username={username} isDark={isDark} onBack={() => setShowCheeseGame(false)} />
+        </CheeseErrorBoundary>
+        <BgmButton />
+      </>
     );
   }
 
@@ -1369,6 +1374,7 @@ export default function App() {
             try { soundFX.playTap(); } catch (e) {}
           }}
         />
+        <BgmButton />
       </div>
     );
   }
@@ -1882,6 +1888,7 @@ export default function App() {
           try { soundFX.playTap(); } catch (e) {}
         }}
       />
+      <BgmButton />
     </div>
   );
 }
