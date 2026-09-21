@@ -188,14 +188,22 @@ export const cheeseGame = {
       await supabase.from('cheese_players').update({ role: u.role, dice_hour: u.dice_hour }).eq('room_code', roomCode).eq('username', u.username);
     }
 
+    // Clear all logs/votes/chat from previous round before starting fresh
+    await Promise.all([
+      supabase.from('cheese_night_log').delete().eq('room_code', roomCode),
+      supabase.from('cheese_votes').delete().eq('room_code', roomCode),
+      supabase.from('cheese_chat').delete().eq('room_code', roomCode),
+    ]);
+
     await supabase.from('cheese_rooms').update({
       phase: 'night',
-      current_hour: 0, // 0 = everyone is still viewing their role/dice card; the hour clock hasn't started
+      current_hour: 0,
       cheese_location: 'center',
       accomplice_count: accompliceCount,
       winner: null,
       revealed_usernames: [],
       vote_round: 1,
+      day_phase_ends_at: null,
     }).eq('room_code', roomCode);
 
     return { success: true, message: 'เริ่มเกม!' };
@@ -206,6 +214,15 @@ export const cheeseGame = {
   // reveal, so the host knows when it's safe to start the real hour clock —
   // otherwise someone whose dice says "hour 1" could still be looking at
   // their card when hour 1 already came and went.
+  // Lobby ready: hour = -1 (separate from night-ready at hour 0)
+  markLobbyReady: async (roomCode: string, username: string) => {
+    await supabase.from('cheese_night_log').upsert({ room_code: roomCode, hour: -1, username, role: 'mouse' }, { onConflict: 'room_code,hour,username' });
+  },
+  getLobbyReadyUsernames: async (roomCode: string): Promise<string[]> => {
+    const { data } = await supabase.from('cheese_night_log').select('username').eq('room_code', roomCode).eq('hour', -1);
+    return (data || []).map((r: { username: string }) => r.username);
+  },
+
   markReadyForNight: async (roomCode: string, username: string, role: CheeseRole) => {
     await supabase.from('cheese_night_log').upsert({ room_code: roomCode, hour: 0, username, role }, { onConflict: 'room_code,hour,username' });
   },

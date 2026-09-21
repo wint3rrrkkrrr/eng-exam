@@ -277,9 +277,20 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     }
 
     let active = true;
+    const currentHour = room.current_hour;
     const poll = async () => {
-      const log = await cheeseGame.getNightLogForHour(roomCode, room.current_hour);
-      if (active) setAwakeWithMe(log.filter(l => l.username.toLowerCase() !== username.toLowerCase()));
+      const log = await cheeseGame.getNightLogForHour(roomCode, currentHour);
+      if (active) {
+        // cross-check with players list: only show players whose assigned dice_hour matches
+        // this prevents stale log entries from showing wrong co-wakers
+        const coWakers = log
+          .filter(l => l.username.toLowerCase() !== username.toLowerCase())
+          .filter(l => {
+            const p = players.find(x => x.username.toLowerCase() === l.username.toLowerCase());
+            return p?.dice_hour === currentHour;
+          });
+        setAwakeWithMe(coWakers);
+      }
     };
     poll();
     const interval = setInterval(poll, 1500);
@@ -287,12 +298,13 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iAmAwakeNow, room.current_hour, roomCode]);
 
-  // clear co-wakers + peek when hour changes away from mine
+  // clear co-wakers + peek + witnessed thief when hour changes away from mine
   useEffect(() => {
     if (!iAmAwakeNow) {
       setAwakeWithMe([]);
       setPeekedPlayer(null);
       setShowPeekList(false);
+      setWitnessedThiefName(null);
     }
   }, [iAmAwakeNow]);
 

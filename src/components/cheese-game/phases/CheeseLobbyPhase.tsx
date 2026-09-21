@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Copy, Check, Crown, UserX, Settings2, Play, LogOut, Loader2, Users2, Bot, BotOff } from 'lucide-react';
+import { Copy, Check, Crown, UserX, Settings2, Play, LogOut, Loader2, Users2, Bot } from 'lucide-react';
 import { cheeseGame, isBot, recommendedAccompliceCount } from '../../../utils/cheeseGameClient';
 import { CheesePhaseProps } from './types';
 
@@ -11,10 +11,28 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [accompliceCount, setAccompliceCount] = useState(room.accomplice_count);
   const [discussionMinutes, setDiscussionMinutes] = useState(Math.round(room.discussion_seconds / 60));
+  const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
+  const [iAmReady, setIAmReady] = useState(false);
 
   const botCount = players.filter(p => isBot(p)).length;
+  const humanPlayers = players.filter(p => !isBot(p));
   const minPlayers = 3;
-  const canStart = players.length >= minPlayers;
+  const allHumansReady = humanPlayers.every(p => readyUsernames.includes(p.username));
+  const canStart = players.length >= minPlayers && allHumansReady;
+
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      const ready = await cheeseGame.getLobbyReadyUsernames(roomCode);
+      if (active) {
+        setReadyUsernames(ready);
+        if (ready.includes(username)) setIAmReady(true);
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 1500);
+    return () => { active = false; clearInterval(interval); };
+  }, [roomCode, username]);
 
   const handleCopyCode = async () => {
     try {
@@ -84,7 +102,9 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
               ผู้เล่น ({players.length})
             </span>
             <span className={`text-[10px] font-bold ${canStart ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {canStart ? 'พร้อมเริ่ม' : `ต้องการอีก ${minPlayers - players.length} คน`}
+              {players.length < minPlayers
+                ? `ต้องการอีก ${minPlayers - players.length} คน`
+                : allHumansReady ? 'ทุกคนพร้อมแล้ว!' : `พร้อม ${readyUsernames.length}/${humanPlayers.length} คน`}
             </span>
           </div>
           <AnimatePresence initial={false}>
@@ -235,6 +255,22 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
 
         {/* Actions */}
         <div className="space-y-2">
+          {/* Ready button (everyone including host) */}
+          <button
+            disabled={iAmReady}
+            onClick={async () => {
+              await cheeseGame.markLobbyReady(roomCode, username);
+              setIAmReady(true);
+            }}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm transition active:scale-95 ${
+              iAmReady
+                ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 cursor-not-allowed'
+                : isDark ? 'bg-zinc-800 border border-zinc-700 text-zinc-200 hover:border-amber-400/40' : 'bg-white border border-stone-200 text-stone-700 hover:border-amber-400'
+            }`}
+          >
+            {iAmReady ? '✅ พร้อมแล้ว' : '👍 กดพร้อม'}
+          </button>
+
           {isHost ? (
             <button
               onClick={handleStart}
@@ -242,7 +278,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-zinc-950 shadow-lg active:scale-95 transition disabled:opacity-50"
             >
               {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-zinc-950" />}
-              <span>เริ่มเกม!</span>
+              <span>{allHumansReady ? 'เริ่มเกม!' : `รอ ${humanPlayers.length - readyUsernames.length} คน...`}</span>
             </button>
           ) : (
             <p className={`text-center text-xs font-bold ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
