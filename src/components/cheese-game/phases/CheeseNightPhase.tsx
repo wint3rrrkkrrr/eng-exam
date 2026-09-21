@@ -122,6 +122,9 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const [accompliceSelecting, setAccompliceSelecting] = useState(false);
   const [pickedAccomplices, setPickedAccomplices] = useState<string[]>([]);
   const [accompliceSubmitted, setAccompliceSubmitted] = useState(false);
+  const [skipChatVoted, setSkipChatVoted] = useState(false);
+  const [skipChatVoteCount, setSkipChatVoteCount] = useState(0);
+  const [chatSecondsLeft, setChatSecondsLeft] = useState(30);
 
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [introStage, setIntroStage] = useState<
@@ -134,8 +137,10 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
 
   const isThief = me?.role === 'thief';
   const isAccomplice = me?.role === 'accomplice';
-  const iAmAwakeNow = !!(me?.dice_hour && me.dice_hour === room.current_hour && room.current_hour >= 1);
-  const canSecretChat = isThief || isAccomplice;
+  const iAmAwakeNow = !!(me?.dice_hour && me.dice_hour === room.current_hour && room.current_hour >= 1 && room.current_hour <= 6);
+  const canSecretChat = (isThief || isAccomplice) && room.current_hour < 7;
+  const isPostDawn = room.current_hour === 7;
+  const dawnChatStarted = isPostDawn && !!room.day_phase_ends_at;
 
   // ---- intro: one-time role+dice reveal ----
   useEffect(() => {
@@ -202,32 +207,39 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
       return () => { cancelled = true; clearInterval(interval); clearTimeout(safetyTimeout); };
     }
 
-    // At hour 6: wait for thief to pick accomplices (or skip if accomplice_count === 0)
-    if (room.current_hour === 6) {
-      if (room.accomplice_count === 0) {
-        // No accomplices needed — go to day immediately
-        const t = setTimeout(async () => {
-          if (advancingRef.current) return;
-          advancingRef.current = true;
-          await cheeseGame.startDayTimer(roomCode, room.discussion_seconds);
-          advancingRef.current = false;
-          refresh();
-        }, HOUR_DURATION_MS);
-        return () => clearTimeout(t);
-      }
-      // Poll until accomplice_count accomplices are assigned (or safety timeout)
+    // Hour 7: post-dawn phase — thief picks accomplices then 30s chat
+    if (room.current_hour === 7) {
       let cancelled = false;
+      let chatTimerSet = !!room.day_phase_ends_at;
+
       const tryAdvance = async () => {
-        if (advancingRef.current || cancelled) return;
+        if (cancelled || advancingRef.current) return;
         const ps = await cheeseGame.getPlayers(roomCode);
-        const accomplices = ps.filter(p => p.role === 'accomplice').length;
-        if (accomplices >= room.accomplice_count) {
-          advancingRef.current = true;
-          await cheeseGame.startDayTimer(roomCode, room.discussion_seconds);
-          advancingRef.current = false;
-          refresh();
+        const accomplicesDone = ps.filter(p => p.role === 'accomplice').length >= room.accomplice_count;
+
+        // Phase 1: wait for accomplice selection, then kick off 30s chat timer
+        if (!chatTimerSet && (accomplicesDone || room.accomplice_count === 0)) {
+          chatTimerSet = true;
+          await cheeseGame.startDawnChatTimer(roomCode);
+          return;
+        }
+
+        // Phase 2: chat running — check skip votes or timer expiry
+        if (chatTimerSet) {
+          const room2 = await cheeseGame.getRoom(roomCode);
+          if (!room2?.day_phase_ends_at) return;
+          const endsAt = new Date(room2.day_phase_ends_at).getTime();
+          const skipVotes = await cheeseGame.getSkipChatVotes(roomCode);
+          const neededSkips = 1 + room.accomplice_count;
+          if (Date.now() >= endsAt || skipVotes.length >= neededSkips) {
+            advancingRef.current = true;
+            await cheeseGame.startDayTimer(roomCode, room.discussion_seconds);
+            advancingRef.current = false;
+            refresh();
+          }
         }
       };
+
       const interval = setInterval(tryAdvance, 1500);
       tryAdvance();
       const safetyTimeout = setTimeout(async () => {
@@ -236,10 +248,11 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         await cheeseGame.startDayTimer(roomCode, room.discussion_seconds);
         advancingRef.current = false;
         refresh();
-      }, 45000);
+      }, 90000);
       return () => { cancelled = true; clearInterval(interval); clearTimeout(safetyTimeout); };
     }
 
+    // Hours 1–6: advance after HOUR_DURATION_MS
     const timer = setTimeout(async () => {
       if (advancingRef.current) return;
       advancingRef.current = true;
@@ -277,6 +290,31 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   useEffect(() => {
     if (!iAmAwakeNow) setAwakeWithMe([]);
   }, [iAmAwakeNow]);
+
+  // hour 7 dawn chat: countdown + skip vote polling
+  useEffect(() => {
+    if (!dawnChatStarted || !room.day_phase_ends_at) return;
+    const endsAt = new Date(room.day_phase_ends_at).getTime();
+
+    const tick = () => {
+      setChatSecondsLeft(Math.max(0, Math.round((endsAt - Date.now()) / 1000)));
+    };
+    tick();
+    const timer = setInterval(tick, 500);
+
+    if (isThief || isAccomplice) {
+      const pollSkip = async () => {
+        const votes = await cheeseGame.getSkipChatVotes(roomCode);
+        setSkipChatVoteCount(votes.length);
+        if (votes.includes(username)) setSkipChatVoted(true);
+      };
+      pollSkip();
+      const pollInterval = setInterval(pollSkip, 1500);
+      return () => { clearInterval(timer); clearInterval(pollInterval); };
+    }
+    return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dawnChatStarted, room.day_phase_ends_at, roomCode]);
 
   // ---- action countdown ----
   useEffect(() => {
@@ -515,88 +553,151 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
           )}
         </AnimatePresence>
 
-        {/* ===== 6 โมง: THIEF PICKS ACCOMPLICES ===== */}
-        {isThief && room.current_hour === 6 && room.accomplice_count > 0 && introStage === null && (
-          <AnimatePresence>
-            {!accompliceSubmitted ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md px-4"
-              >
-                <div className="w-full max-w-sm rounded-3xl bg-zinc-900 border border-rose-500/40 p-5 space-y-4 shadow-2xl">
-                  <div className="text-center space-y-1">
-                    <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">6 โมง — ทุกคนหลับตา</p>
-                    <h2 className="text-lg font-black text-rose-300">เลือกลูกสมุน</h2>
-                    <p className="text-[11px] text-zinc-400">
-                      เลือกได้ {room.accomplice_count} คน — คนที่เลือกจะเป็นพวกคุณในตอนเช้า
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 max-h-52 overflow-y-auto">
-                    {players.filter(p => p.username.toLowerCase() !== username.toLowerCase()).map(p => {
-                      const picked = pickedAccomplices.includes(p.username);
-                      const maxReached = pickedAccomplices.length >= room.accomplice_count;
-                      return (
-                        <button
-                          key={p.username}
-                          onClick={() => {
-                            if (picked) {
-                              setPickedAccomplices(prev => prev.filter(u => u !== p.username));
-                            } else if (!maxReached) {
-                              setPickedAccomplices(prev => [...prev, p.username]);
-                            }
-                          }}
-                          className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition active:scale-95 ${
-                            picked
-                              ? 'bg-rose-500/20 border-rose-400 text-rose-200'
-                              : maxReached
-                              ? 'opacity-40 border-zinc-700 text-zinc-500 cursor-not-allowed'
-                              : 'bg-zinc-800/60 border-zinc-700 hover:border-rose-400/50 text-zinc-200'
-                          }`}
-                        >
-                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-600">
-                            {isImageUrl(p.avatar) ? (
-                              <img src={p.avatar} className="w-full h-full object-cover" alt={p.username} />
-                            ) : (
-                              <div className="w-full h-full bg-zinc-700 flex items-center justify-center text-sm">{p.avatar}</div>
-                            )}
-                          </div>
-                          <span className="font-bold text-sm">{p.username}</span>
-                          {picked && <span className="ml-auto text-rose-400 text-lg">✓</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <button
-                    disabled={pickedAccomplices.length !== room.accomplice_count || accompliceSelecting}
-                    onClick={async () => {
-                      setAccompliceSelecting(true);
-                      await cheeseGame.thiefAssignAccomplices(roomCode, pickedAccomplices);
-                      setAccompliceSubmitted(true);
-                      setAccompliceSelecting(false);
-                    }}
-                    className="w-full py-3 rounded-2xl font-black text-sm bg-gradient-to-r from-rose-500 to-orange-500 text-white active:scale-95 transition shadow-lg disabled:opacity-40"
-                  >
-                    {accompliceSelecting ? 'กำลังยืนยัน...' : `ยืนยัน (${pickedAccomplices.length}/${room.accomplice_count} คน)`}
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
+        {/* ===== HOUR 7 (รุ่งอรุณ): POST-DAWN SELECTION + CHAT ===== */}
+        {isPostDawn && introStage === null && (
+          <>
+            {/* Non-team: sleeping message */}
+            {!isThief && !isAccomplice && (
+              <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md px-4"
+                className="text-xs text-indigo-300 font-medium"
               >
-                <div className="text-center space-y-3">
-                  <p className="text-5xl">✅</p>
-                  <p className="text-lg font-black text-emerald-400">เลือกลูกสมุนแล้ว!</p>
-                  <p className="text-xs text-zinc-400">รอเช้ามา...</p>
-                </div>
-              </motion.div>
+                ทุกคนหลับตา รอสักครู่... 🌅
+              </motion.p>
             )}
-          </AnimatePresence>
+
+            {/* Thief + accomplice overlay */}
+            {(isThief || isAccomplice) && (
+              <AnimatePresence mode="wait">
+                {!dawnChatStarted ? (
+                  /* --- Selection phase --- */
+                  <motion.div
+                    key="selection"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md px-4"
+                  >
+                    {isThief && !accompliceSubmitted && room.accomplice_count > 0 ? (
+                      <div className="w-full max-w-sm rounded-3xl bg-zinc-900 border border-rose-500/40 p-5 space-y-4 shadow-2xl">
+                        <div className="text-center space-y-1">
+                          <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">รุ่งอรุณ — ทุกคนหลับตา</p>
+                          <h2 className="text-lg font-black text-rose-300">เลือกลูกสมุน</h2>
+                          <p className="text-[11px] text-zinc-400">
+                            เลือกได้ {room.accomplice_count} คน — คนที่เลือกจะเป็นพวกคุณในตอนเช้า
+                          </p>
+                        </div>
+                        <div className="space-y-2 max-h-52 overflow-y-auto">
+                          {players.filter(p => p.username.toLowerCase() !== username.toLowerCase()).map(p => {
+                            const picked = pickedAccomplices.includes(p.username);
+                            const maxReached = pickedAccomplices.length >= room.accomplice_count;
+                            return (
+                              <button
+                                key={p.username}
+                                onClick={() => {
+                                  if (picked) setPickedAccomplices(prev => prev.filter(u => u !== p.username));
+                                  else if (!maxReached) setPickedAccomplices(prev => [...prev, p.username]);
+                                }}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition active:scale-95 ${
+                                  picked ? 'bg-rose-500/20 border-rose-400 text-rose-200'
+                                    : maxReached ? 'opacity-40 border-zinc-700 text-zinc-500 cursor-not-allowed'
+                                    : 'bg-zinc-800/60 border-zinc-700 hover:border-rose-400/50 text-zinc-200'
+                                }`}
+                              >
+                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-600">
+                                  {isImageUrl(p.avatar)
+                                    ? <img src={p.avatar} className="w-full h-full object-cover" alt={p.username} />
+                                    : <div className="w-full h-full bg-zinc-700 flex items-center justify-center text-sm">{p.avatar}</div>}
+                                </div>
+                                <span className="font-bold text-sm">{p.username}</span>
+                                {picked && <span className="ml-auto text-rose-400 text-lg">✓</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          disabled={pickedAccomplices.length !== room.accomplice_count || accompliceSelecting}
+                          onClick={async () => {
+                            setAccompliceSelecting(true);
+                            await cheeseGame.thiefAssignAccomplices(roomCode, pickedAccomplices);
+                            setAccompliceSubmitted(true);
+                            setAccompliceSelecting(false);
+                          }}
+                          className="w-full py-3 rounded-2xl font-black text-sm bg-gradient-to-r from-rose-500 to-orange-500 text-white active:scale-95 transition shadow-lg disabled:opacity-40"
+                        >
+                          {accompliceSelecting ? 'กำลังยืนยัน...' : `ยืนยัน (${pickedAccomplices.length}/${room.accomplice_count} คน)`}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center space-y-3">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                          className="text-4xl mx-auto w-fit"
+                        >
+                          🌅
+                        </motion.div>
+                        <p className="text-sm font-black text-indigo-200">
+                          {isThief ? 'รอเริ่มช่วงพูดคุย...' : 'หัวหน้ากำลังเลือกทีม...'}
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                ) : (
+                  /* --- Chat phase: 30s private chat --- */
+                  <motion.div
+                    key="chat"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md pb-0"
+                  >
+                    <div className="w-full max-w-sm rounded-t-3xl bg-zinc-900 border-t border-x border-rose-500/30 p-4 space-y-3 shadow-2xl">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">ก่อนทุกคนลืมตา</p>
+                          <p className="text-sm font-black text-rose-200">คุยลับกับทีม</p>
+                        </div>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl ${
+                          chatSecondsLeft <= 10 ? 'bg-rose-500/30 text-rose-300 animate-pulse' : 'bg-zinc-800 text-amber-300'
+                        }`}>
+                          {chatSecondsLeft}
+                        </div>
+                      </div>
+
+                      <CheeseChatPanel
+                        roomCode={roomCode}
+                        channel="thief"
+                        username={username}
+                        avatar={avatar}
+                        isDark={true}
+                        heightClass="h-40"
+                        placeholder="พิมพ์ข้อความถึงทีม..."
+                      />
+
+                      <button
+                        disabled={skipChatVoted}
+                        onClick={async () => {
+                          await cheeseGame.logSkipChatVote(roomCode, username);
+                          setSkipChatVoted(true);
+                        }}
+                        className={`w-full py-2.5 rounded-2xl font-black text-xs transition active:scale-95 ${
+                          skipChatVoted
+                            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700'
+                        }`}
+                      >
+                        {skipChatVoted
+                          ? `✅ คุณโหวตข้ามแล้ว (${skipChatVoteCount}/${1 + room.accomplice_count})`
+                          : `ข้ามการพูดคุย (${skipChatVoteCount}/${1 + room.accomplice_count})`}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
+          </>
         )}
 
         {/* Secret chat for thief/accomplice */}

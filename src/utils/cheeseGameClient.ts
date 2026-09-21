@@ -57,8 +57,9 @@ function generateRoomCode(): string {
   return code;
 }
 
-// Thai convention: 1am-5am is "ตี X", but 6am breaks that pattern and is said as "6 โมง(เช้า)".
+// Thai convention: 1am-5am is "ตี X", 6am = "6 โมง", hour 7 = post-dawn selection phase
 export function formatNightHour(hour: number): string {
+  if (hour >= 7) return 'รุ่งอรุณ';
   if (hour >= 6) return '6 โมง';
   return `ตี ${hour}`;
 }
@@ -155,7 +156,7 @@ export const cheeseGame = {
   // ---- Game start: assign roles + dice hours ----
   startGame: async (roomCode: string, accompliceCountOverride?: number): Promise<{ success: boolean; message: string }> => {
     const players = await cheeseGame.getPlayers(roomCode);
-    if (players.length < 4) return { success: false, message: 'ต้องมีผู้เล่นอย่างน้อย 4 คนถึงจะเริ่มได้' };
+    if (players.length < 5) return { success: false, message: 'ต้องมีผู้เล่นอย่างน้อย 5 คนถึงจะเริ่มได้' };
 
     const room = await cheeseGame.getRoom(roomCode);
     const accompliceCount = Math.min(
@@ -174,7 +175,7 @@ export const cheeseGame = {
       room_code: roomCode,
       username: p.username,
       role: roles[i],
-      dice_hour: 1 + Math.floor(Math.random() * 5), // ตี 1–5 only; hour 6 = 6 โมง (thief-selection phase)
+      dice_hour: 1 + Math.floor(Math.random() * 6), // ตี 1–5 + 6 โมง; hour 7 = post-dawn selection phase
     }));
 
     for (const u of updates) {
@@ -209,11 +210,37 @@ export const cheeseGame = {
   },
 
   advanceHour: async (roomCode: string, nextHour: number) => {
-    if (nextHour > 6) {
-      await supabase.from('cheese_rooms').update({ phase: 'day', current_hour: 6, day_phase_ends_at: null }).eq('room_code', roomCode);
-    } else {
-      await supabase.from('cheese_rooms').update({ current_hour: nextHour }).eq('room_code', roomCode);
-    }
+    await supabase.from('cheese_rooms').update({ current_hour: nextHour }).eq('room_code', roomCode);
+  },
+
+  // Called by host when accomplice selection is done → 30s thief-team chat begins
+  startDawnChatTimer: async (roomCode: string) => {
+    const endsAt = new Date(Date.now() + 30 * 1000).toISOString();
+    await supabase.from('cheese_rooms').update({ day_phase_ends_at: endsAt }).eq('room_code', roomCode);
+  },
+
+  // Skip-chat vote (thief + accomplices only)
+  logSkipChatVote: async (roomCode: string, username: string) => {
+    await supabase.from('cheese_night_log').upsert(
+      { room_code: roomCode, hour: 7, username, role: 'skip_chat_vote' },
+      { onConflict: 'room_code,hour,username' }
+    );
+  },
+  getSkipChatVotes: async (roomCode: string): Promise<string[]> => {
+    const { data } = await supabase.from('cheese_night_log').select('username').eq('room_code', roomCode).eq('hour', 7).eq('role', 'skip_chat_vote');
+    return (data || []).map((r: { username: string }) => r.username);
+  },
+
+  // Skip-discussion vote (majority of all players during day phase)
+  logSkipDayVote: async (roomCode: string, username: string) => {
+    await supabase.from('cheese_night_log').upsert(
+      { room_code: roomCode, hour: 8, username, role: 'skip_day_vote' },
+      { onConflict: 'room_code,hour,username' }
+    );
+  },
+  getSkipDayVotes: async (roomCode: string): Promise<string[]> => {
+    const { data } = await supabase.from('cheese_night_log').select('username').eq('room_code', roomCode).eq('hour', 8).eq('role', 'skip_day_vote');
+    return (data || []).map((r: { username: string }) => r.username);
   },
 
   startDayTimer: async (roomCode: string, seconds: number) => {
@@ -242,8 +269,9 @@ export const cheeseGame = {
   },
 
   // ---- Voting ----
-  goToVoting: async (roomCode: string) => {
-    await supabase.from('cheese_rooms').update({ phase: 'voting' }).eq('room_code', roomCode);
+  goToVoting: async (roomCode: string, votingSeconds = 90) => {
+    const endsAt = new Date(Date.now() + votingSeconds * 1000).toISOString();
+    await supabase.from('cheese_rooms').update({ phase: 'voting', day_phase_ends_at: endsAt }).eq('room_code', roomCode);
   },
 
   submitVote: async (roomCode: string, round: number, voter: string, target: string) => {

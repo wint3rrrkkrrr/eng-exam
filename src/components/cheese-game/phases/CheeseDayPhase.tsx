@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Sun, MessageSquare, Vote } from 'lucide-react';
+import { Sun, MessageSquare, SkipForward } from 'lucide-react';
 import { cheeseGame, formatNightHour } from '../../../utils/cheeseGameClient';
 import { CheeseChatPanel } from '../CheeseChatPanel';
 import { CheesePhaseProps } from './types';
@@ -10,14 +10,24 @@ export const CheeseDayPhase: React.FC<CheesePhaseProps> = ({ room, players, user
     if (!room.day_phase_ends_at) return room.discussion_seconds;
     return Math.max(0, Math.round((new Date(room.day_phase_ends_at).getTime() - Date.now()) / 1000));
   });
+  const [skipVoted, setSkipVoted] = useState(false);
+  const [skipVoteCount, setSkipVoteCount] = useState(0);
+  const skipNeeded = Math.ceil(players.length / 2);
 
   useEffect(() => {
     let called = false;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (!room.day_phase_ends_at) return;
       const left = Math.max(0, Math.round((new Date(room.day_phase_ends_at).getTime() - Date.now()) / 1000));
       setSecondsLeft(left);
-      if (left <= 0 && isHost && !called) {
+
+      // poll skip votes
+      const skipVotes = await cheeseGame.getSkipDayVotes(roomCode);
+      setSkipVoteCount(skipVotes.length);
+      if (skipVotes.includes(username)) setSkipVoted(true);
+
+      const shouldAdvance = (left <= 0 || skipVotes.length >= skipNeeded) && isHost && !called;
+      if (shouldAdvance) {
         called = true;
         clearInterval(interval);
         cheeseGame.goToVoting(roomCode).then(refresh);
@@ -25,7 +35,7 @@ export const CheeseDayPhase: React.FC<CheesePhaseProps> = ({ room, players, user
     }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.day_phase_ends_at, isHost, roomCode]);
+  }, [room.day_phase_ends_at, isHost, roomCode, skipNeeded]);
 
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
@@ -83,15 +93,24 @@ export const CheeseDayPhase: React.FC<CheesePhaseProps> = ({ room, players, user
           <CheeseChatPanel roomCode={roomCode} channel="main" username={username} avatar={avatar} isDark={isDark} heightClass="h-64" placeholder="พิมพ์ข้อความถกเถียง..." />
         </div>
 
-        {isHost && (
-          <button
-            onClick={async () => { await cheeseGame.goToVoting(roomCode); refresh(); }}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-400 to-orange-400 text-zinc-950 active:scale-95 transition shadow-lg"
-          >
-            <Vote className="w-4 h-4" />
-            เริ่มโหวตเลย (ข้ามเวลาที่เหลือ)
-          </button>
-        )}
+        {/* Skip discussion: majority vote by all players */}
+        <button
+          disabled={skipVoted}
+          onClick={async () => {
+            await cheeseGame.logSkipDayVote(roomCode, username);
+            setSkipVoted(true);
+          }}
+          className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm transition active:scale-95 ${
+            skipVoted
+              ? isDark ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-stone-100 text-stone-400 cursor-not-allowed'
+              : isDark ? 'bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-amber-400/40' : 'bg-white border border-stone-200 text-stone-600 hover:border-amber-400'
+          }`}
+        >
+          <SkipForward className="w-4 h-4" />
+          {skipVoted
+            ? `✅ คุณโหวตข้ามแล้ว (${skipVoteCount}/${skipNeeded} คน)`
+            : `ข้ามการพูดคุย (${skipVoteCount}/${skipNeeded} คน)`}
+        </button>
       </div>
     </div>
   );

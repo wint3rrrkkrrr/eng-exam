@@ -8,6 +8,10 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
   const [myVote, setMyVote] = useState<string | null>(null);
   const [votes, setVotes] = useState<CheeseVote[]>([]);
   const [finishing, setFinishing] = useState(false);
+  const [votingSecondsLeft, setVotingSecondsLeft] = useState<number | null>(() => {
+    if (!room.day_phase_ends_at) return null;
+    return Math.max(0, Math.round((new Date(room.day_phase_ends_at).getTime() - Date.now()) / 1000));
+  });
 
   const loadVotes = async () => {
     const v = await cheeseGame.getVotes(roomCode, room.vote_round);
@@ -34,6 +38,24 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allVoted, isHost]);
 
+  // voting countdown timer
+  useEffect(() => {
+    if (!room.day_phase_ends_at) return;
+    const endsAt = new Date(room.day_phase_ends_at).getTime();
+    const tick = () => {
+      const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+      setVotingSecondsLeft(left);
+      if (left <= 0 && isHost && !finishing) {
+        setFinishing(true);
+        cheeseGame.finishVoting(roomCode).then(refresh);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.day_phase_ends_at, isHost, roomCode]);
+
   const handleVote = async (target: string) => {
     if (myVote) return; // one vote, no changing mind (matches "ชี้นิ้วพร้อมกัน")
     try {
@@ -43,13 +65,6 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
     } catch {
       // submitVote failed — do not set myVote so the user can retry
     }
-  };
-
-  const handleForceFinish = async () => {
-    if (finishing) return;
-    setFinishing(true);
-    await cheeseGame.finishVoting(roomCode);
-    refresh();
   };
 
   return (
@@ -63,9 +78,16 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
           </p>
         </motion.div>
 
-        <p className="text-xs font-bold text-amber-400">
-          โหวตแล้ว {votes.length}/{players.length} คน
-        </p>
+        <div className="flex items-center justify-center gap-3">
+          <p className="text-xs font-bold text-amber-400">
+            โหวตแล้ว {votes.length}/{players.length} คน
+          </p>
+          {votingSecondsLeft !== null && (
+            <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${votingSecondsLeft <= 15 ? 'bg-rose-500/20 text-rose-400 animate-pulse' : 'bg-zinc-800 text-zinc-400'}`}>
+              ⏱️ {votingSecondsLeft}s
+            </span>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-2.5">
           {players.map(p => {
@@ -98,15 +120,6 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
 
         {myVote && (
           <p className="text-xs font-bold text-emerald-400">✅ คุณโหวต {myVote} แล้ว รอเพื่อนที่เหลือ...</p>
-        )}
-
-        {isHost && !allVoted && (
-          <button
-            onClick={handleForceFinish}
-            className={`text-[11px] font-bold underline ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'}`}
-          >
-            (เจ้าของห้อง) จบโหวตตอนนี้เลย แม้ยังไม่ครบทุกคน
-          </button>
         )}
       </div>
     </div>
