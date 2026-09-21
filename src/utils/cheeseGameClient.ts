@@ -161,7 +161,7 @@ export const cheeseGame = {
   startGame: async (roomCode: string, accompliceCountOverride?: number): Promise<{ success: boolean; message: string }> => {
     const players = await cheeseGame.getPlayers(roomCode);
     const hasBots = players.some(p => isBot(p));
-    const minCount = hasBots ? 3 : 5;
+    const minCount = 3;
     if (players.length < minCount) return { success: false, message: `ต้องมีผู้เล่นอย่างน้อย ${minCount} คนถึงจะเริ่มได้` };
 
     const room = await cheeseGame.getRoom(roomCode);

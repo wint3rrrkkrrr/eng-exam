@@ -13,7 +13,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
   const [discussionMinutes, setDiscussionMinutes] = useState(Math.round(room.discussion_seconds / 60));
 
   const botCount = players.filter(p => isBot(p)).length;
-  const minPlayers = botCount > 0 ? 3 : 5;
+  const minPlayers = 3;
   const canStart = players.length >= minPlayers;
 
   const handleCopyCode = async () => {
@@ -84,7 +84,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
               ผู้เล่น ({players.length})
             </span>
             <span className={`text-[10px] font-bold ${canStart ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {canStart ? 'พร้อมเริ่ม' : `ต้องการอีก ${minPlayers - players.length} คน${botCount > 0 ? ' (รวมบอท)' : ''}`}
+              {canStart ? 'พร้อมเริ่ม' : `ต้องการอีก ${minPlayers - players.length} คน`}
             </span>
           </div>
           <AnimatePresence initial={false}>
