@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Crown, RotateCcw, Home } from 'lucide-react';
-import { cheeseGame, CheeseVote } from '../../../utils/cheeseGameClient';
+import { cheeseGame, CheeseVote, formatNightHour } from '../../../utils/cheeseGameClient';
 import { triggerConfetti } from '../../../utils/confetti';
 import { CheesePhaseProps } from './types';
 
@@ -73,6 +73,38 @@ export const CheeseEndedPhase: React.FC<CheesePhaseProps> = ({ room, players, is
               </span>
             </motion.div>
           ))}
+        </div>
+
+        {/* Wake time reveal */}
+        <div className={`rounded-3xl border p-4 space-y-3 shadow-xl ${isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-white border-stone-200'}`}>
+          <p className="text-xs font-black text-indigo-400 mb-1">🌙 ใครตื่นกี่โมง</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[...players].sort((a, b) => (a.dice_hour || 0) - (b.dice_hour || 0)).map((p, i) => (
+              <motion.div
+                key={p.username}
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.07 }}
+                className={`flex items-center gap-2 p-2.5 rounded-2xl border ${
+                  p.role === 'thief'
+                    ? 'bg-rose-500/10 border-rose-500/40'
+                    : p.role === 'accomplice'
+                    ? 'bg-orange-500/10 border-orange-500/30'
+                    : isDark ? 'bg-zinc-800/40 border-zinc-700' : 'bg-stone-50 border-stone-200'
+                }`}
+              >
+                <img src={p.avatar} alt={p.username} className="w-7 h-7 rounded-full object-cover shrink-0 ring-2 ring-zinc-700" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black truncate">{p.username}</p>
+                  <p className={`text-[13px] font-black ${
+                    p.role === 'thief' ? 'text-rose-400' : p.role === 'accomplice' ? 'text-orange-400' : 'text-indigo-300'
+                  }`}>
+                    {p.dice_hour ? formatNightHour(p.dice_hour) : '?'}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
         {/* Vote summary */}
