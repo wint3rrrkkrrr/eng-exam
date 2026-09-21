@@ -341,7 +341,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     if (room.current_hour >= 1 && room.current_hour <= 6) {
       const awake = players.filter(p => isBot(p) && p.dice_hour === room.current_hour && p.role);
       awake.forEach(bot => {
-        cheeseGame.logNightWake(roomCode, bot.username, bot.role as CheeseRole);
+        cheeseGame.logNightWake(roomCode, room.current_hour, bot.username, bot.role as CheeseRole);
       });
       const thiefBot = awake.find(b => b.role === 'thief');
       if (thiefBot) {
