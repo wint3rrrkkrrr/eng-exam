@@ -129,6 +129,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const [peekedPlayer, setPeekedPlayer] = useState<string | null>(null);
   const [showPeekList, setShowPeekList] = useState(false);
   const [witnessedThiefName, setWitnessedThiefName] = useState<string | null>(null);
+  // remember what the cheese state was during MY wake hour
+  const [cheeseMemory, setCheeseMemory] = useState<boolean | null>(null);
 
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [introStage, setIntroStage] = useState<
@@ -414,6 +416,24 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   // Who did I see steal (only visible if they woke at same hour as me)
   const witnessedThief = iAmAwakeNow ? awakeWithMe.find(l => l.role === 'thief') : null;
   const cheeseStolen = room.cheese_location === 'stolen';
+
+  // update memory while awake (captures last-known state during my hour)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (iAmAwakeNow) setCheeseMemory(cheeseStolen);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iAmAwakeNow, cheeseStolen]);
+
+  const myDiceHour = me?.dice_hour ?? null;
+  const myHourNotYet = myDiceHour !== null && room.current_hour >= 1 && room.current_hour < myDiceHour;
+  const myHourPassed = myDiceHour !== null && room.current_hour > myDiceHour && room.current_hour >= 1;
+
+  // what the circle should display (knowledge-gated)
+  const displayCheeseStolen =
+    myHourNotYet ? false :
+    iAmAwakeNow ? cheeseStolen :
+    myHourPassed ? (cheeseMemory ?? false) :
+    false;
   // Accomplice: find the thief among co-wakers (only if same-hour)
   const thiefAmongCoWakers = awakeWithMe.find(l => l.role === 'thief');
   const knownThief = isAccomplice && thiefAmongCoWakers
@@ -527,13 +547,13 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
           {/* Center cheese */}
           <div className="absolute" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
             <motion.div
-              animate={(cheeseStolen && iAmAwakeNow) ? { opacity: 0.25, scale: 0.85 } : { opacity: 1, scale: 1 }}
+              animate={displayCheeseStolen ? { opacity: 0.25, scale: 0.85 } : { opacity: 1, scale: 1 }}
               transition={{ duration: 0.4 }}
               className="text-5xl select-none"
             >
-              {(cheeseStolen && iAmAwakeNow) ? '🕳️' : '🧀'}
+              {displayCheeseStolen ? '🕳️' : '🧀'}
             </motion.div>
-            {cheeseStolen && iAmAwakeNow && (
+            {displayCheeseStolen && (
               <p className="text-[8px] font-black text-rose-400 text-center mt-0.5 whitespace-nowrap">ชีสหายแล้ว!</p>
             )}
           </div>
@@ -542,7 +562,9 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         {/* My hour status */}
         {!iAmAwakeNow && isIntroComplete && (
           <p className="text-xs text-indigo-400 font-medium">
-            {me?.dice_hour ? `คุณจะตื่นตอน ${formatNightHour(me.dice_hour)}` : 'กำลังนับเวลา...'} 💤
+            {myHourPassed && myDiceHour
+              ? `คุณตื่นตอน ${formatNightHour(myDiceHour)} แล้ว — ${cheeseMemory ? '🕳️ เห็นชีสหาย' : '🧀 ชีสยังอยู่ตอนที่ตื่น'}`
+              : me?.dice_hour ? `คุณจะตื่นตอน ${formatNightHour(me.dice_hour)}` : 'กำลังนับเวลา...'} 💤
           </p>
         )}
 
