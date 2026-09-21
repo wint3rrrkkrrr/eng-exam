@@ -144,6 +144,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const canSecretChat = (isThief || isAccomplice) && room.current_hour < 7;
   const isPostDawn = room.current_hour === 7;
   const dawnChatStarted = isPostDawn && !!room.day_phase_ends_at;
+  // intro is either not yet triggered (null) or finished ('done') — both mean main UI should show
+  const isIntroComplete = introStage === null || introStage === 'done';
 
   // ---- intro: role+dice reveal on each new game (ref resets on unmount) ----
   useEffect(() => {
@@ -493,7 +495,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
           {/* Center cheese */}
           <div className="absolute" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
             <motion.div
-              animate={cheeseStolen ? { opacity: 0.25, scale: 0.85 } : { opacity: 1, scale: 1 }}
+              animate={(cheeseStolen && iAmAwakeNow) ? { opacity: 0.25, scale: 0.85 } : { opacity: 1, scale: 1 }}
               transition={{ duration: 0.4 }}
               className="text-5xl select-none"
             >
@@ -506,7 +508,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         </div>
 
         {/* My hour status */}
-        {!iAmAwakeNow && introStage === null && (
+        {!iAmAwakeNow && isIntroComplete && (
           <p className="text-xs text-indigo-400 font-medium">
             {me?.dice_hour ? `คุณจะตื่นตอน ${formatNightHour(me.dice_hour)}` : 'กำลังนับเวลา...'} 💤
           </p>
@@ -514,7 +516,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
 
         {/* ===== MY HOUR ACTION PANEL ===== */}
         <AnimatePresence>
-          {iAmAwakeNow && introStage === null && (
+          {iAmAwakeNow && isIntroComplete && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -657,7 +659,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         </AnimatePresence>
 
         {/* ===== HOUR 7 (รุ่งอรุณ): POST-DAWN SELECTION + CHAT ===== */}
-        {isPostDawn && introStage === null && (
+        {isPostDawn && isIntroComplete && (
           <>
             {/* Non-team: sleeping message */}
             {!isThief && !isAccomplice && (
@@ -804,7 +806,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         )}
 
         {/* Secret chat for thief/accomplice */}
-        {canSecretChat && introStage === null && (
+        {canSecretChat && isIntroComplete && (
           <div className="pt-1">
             <button
               onClick={() => setShowSecretChat(s => !s)}
