@@ -7,11 +7,13 @@ class BgmPlayer {
   private audio: HTMLAudioElement;
   private partIndex = 0;
   private _playing = false;
+  private _volume = 0.45;
+  private _muted = false;
   private listeners: (() => void)[] = [];
 
   constructor() {
     this.audio = new Audio();
-    this.audio.volume = 0.45;
+    this.audio.volume = this._volume;
     this.audio.preload = 'none';
     this.audio.addEventListener('ended', () => this.advance());
     this.audio.addEventListener('error', () => this.advance());
@@ -59,6 +61,26 @@ class BgmPlayer {
 
   get isPlaying() {
     return this._playing;
+  }
+
+  get volume() {
+    return this._volume;
+  }
+
+  get muted() {
+    return this._muted;
+  }
+
+  setVolume(v: number) {
+    this._volume = Math.max(0, Math.min(1, v));
+    if (!this._muted) this.audio.volume = this._volume;
+    this.notify();
+  }
+
+  toggleMute() {
+    this._muted = !this._muted;
+    this.audio.volume = this._muted ? 0 : this._volume;
+    this.notify();
   }
 }
 
