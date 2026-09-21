@@ -129,15 +129,27 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                     <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-zinc-950 shrink-0">คุณ</span>
                   )}
                 </div>
-                {isHost && !p.is_host && (
-                  <button
-                    onClick={() => isBot(p) ? cheeseGame.removeBot(roomCode, p.username).then(refresh) : handleKick(p.username)}
-                    className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 transition shrink-0"
-                    title={isBot(p) ? `ลบบอท ${p.username}` : `เตะ ${p.username}`}
-                  >
-                    <UserX className="w-4 h-4" />
-                  </button>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Ready status badge */}
+                  {!isBot(p) && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                      readyUsernames.includes(p.username)
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : isDark ? 'bg-zinc-800 text-zinc-500 border border-zinc-700' : 'bg-stone-100 text-stone-400 border border-stone-200'
+                    }`}>
+                      {readyUsernames.includes(p.username) ? '✅ พร้อม' : '⏳ รอ...'}
+                    </span>
+                  )}
+                  {isHost && !p.is_host && (
+                    <button
+                      onClick={() => isBot(p) ? cheeseGame.removeBot(roomCode, p.username).then(refresh) : handleKick(p.username)}
+                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 transition shrink-0"
+                      title={isBot(p) ? `ลบบอท ${p.username}` : `เตะ ${p.username}`}
+                    >
+                      <UserX className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>
@@ -255,20 +267,24 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
 
         {/* Actions */}
         <div className="space-y-2">
-          {/* Ready button (everyone including host) */}
+          {/* Ready button (everyone including host) — toggleable */}
           <button
-            disabled={iAmReady}
             onClick={async () => {
-              await cheeseGame.markLobbyReady(roomCode, username);
-              setIAmReady(true);
+              if (iAmReady) {
+                await cheeseGame.unmarkLobbyReady(roomCode, username);
+                setIAmReady(false);
+              } else {
+                await cheeseGame.markLobbyReady(roomCode, username);
+                setIAmReady(true);
+              }
             }}
             className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm transition active:scale-95 ${
               iAmReady
-                ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 cursor-not-allowed'
+                ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400'
                 : isDark ? 'bg-zinc-800 border border-zinc-700 text-zinc-200 hover:border-amber-400/40' : 'bg-white border border-stone-200 text-stone-700 hover:border-amber-400'
             }`}
           >
-            {iAmReady ? '✅ พร้อมแล้ว' : '👍 กดพร้อม'}
+            {iAmReady ? '✅ พร้อมแล้ว — กดเพื่อยกเลิก' : '👍 กดพร้อม'}
           </button>
 
           {isHost ? (

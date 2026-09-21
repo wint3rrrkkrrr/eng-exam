@@ -218,6 +218,9 @@ export const cheeseGame = {
   markLobbyReady: async (roomCode: string, username: string) => {
     await supabase.from('cheese_night_log').upsert({ room_code: roomCode, hour: -1, username, role: 'mouse' }, { onConflict: 'room_code,hour,username' });
   },
+  unmarkLobbyReady: async (roomCode: string, username: string) => {
+    await supabase.from('cheese_night_log').delete().eq('room_code', roomCode).eq('hour', -1).eq('username', username);
+  },
   getLobbyReadyUsernames: async (roomCode: string): Promise<string[]> => {
     const { data } = await supabase.from('cheese_night_log').select('username').eq('room_code', roomCode).eq('hour', -1);
     return (data || []).map((r: { username: string }) => r.username);
