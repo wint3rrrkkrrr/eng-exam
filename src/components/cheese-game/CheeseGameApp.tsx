@@ -5,6 +5,7 @@ import { cheeseGame } from '../../utils/cheeseGameClient';
 import { supabaseSim } from '../../utils/supabaseSim';
 import { CheeseRoom } from './CheeseRoom';
 import { CheeseAvatarPicker } from './CheeseAvatarPicker';
+import { CheeseParticles, AuroraBg } from './CheeseParticles';
 import {
   MouseAvatarConfig,
   loadMouseAvatarConfig,
@@ -31,14 +32,12 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
   const [avatarConfig, setAvatarConfig] = useState<MouseAvatarConfig>(() => loadMouseAvatarConfig(username));
   const [showPicker, setShowPicker] = useState(false);
 
-  // On mount: fetch Supabase profile to restore mouse avatar across devices
   useEffect(() => {
     if (!username) return;
     supabaseSim.fetchProfile(username).then(profile => {
       if (profile.mouse_avatar) {
         const config = loadMouseAvatarFromProfile(profile.mouse_avatar);
         setAvatarConfig(config);
-        // Also update localStorage cache for this device
         try { localStorage.setItem(`cheese_mouse_avatar_v2_${username}`, profile.mouse_avatar); } catch {}
       }
     });
@@ -76,10 +75,7 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
   };
 
   const handleJoinRoom = async () => {
-    if (!joinCodeInput.trim()) {
-      setErrorMsg('กรอกรหัสห้องก่อนครับ');
-      return;
-    }
+    if (!joinCodeInput.trim()) { setErrorMsg('กรอกรหัสห้องก่อนครับ'); return; }
     setErrorMsg(null);
     setLoading('join');
     try {
@@ -102,119 +98,160 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
   }
 
   return (
-    <div className={`min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4 py-10 ${isDark ? 'bg-[#0b0c16]' : 'bg-indigo-50'}`}>
-      {/* Ambient night-sky decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {Array.from({ length: 28 }).map((_, i) => (
-          <motion.span
+    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4 py-10 bg-[#05060f]">
+      <AuroraBg />
+      <CheeseParticles count={28} />
+
+      {/* Stars grid */}
+      <div className="absolute inset-0 pointer-events-none">
+        {Array.from({ length: 60 }).map((_, i) => (
+          <motion.div
             key={i}
-            className="absolute text-yellow-200"
-            style={{ left: `${(i * 37) % 100}%`, top: `${(i * 53) % 100}%`, fontSize: `${6 + (i % 5) * 2}px` }}
-            animate={{ opacity: [0.2, 1, 0.2] }}
-            transition={{ duration: 2 + (i % 4), repeat: Infinity, delay: i * 0.15 }}
-          >
-            ✦
-          </motion.span>
+            className="absolute rounded-full bg-white"
+            style={{
+              left: `${(i * 43 + 7) % 100}%`,
+              top: `${(i * 67 + 11) % 100}%`,
+              width: i % 5 === 0 ? 2 : 1,
+              height: i % 5 === 0 ? 2 : 1,
+            }}
+            animate={{ opacity: [0.1, 0.9, 0.1] }}
+            transition={{ duration: 2 + (i % 5), repeat: Infinity, delay: i * 0.08 }}
+          />
         ))}
-        <motion.div
-          className="absolute -top-10 -right-10 text-[180px] opacity-10 select-none"
-          animate={{ rotate: [0, 8, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          🌙
-        </motion.div>
       </div>
 
       <button
         onClick={onBack}
-        className={`absolute top-4 left-4 sm:top-6 sm:left-6 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition active:scale-95 ${
-          isDark ? 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 border-zinc-700' : 'bg-white/90 hover:bg-white text-stone-800 border-stone-200'
-        }`}
+        className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border border-white/10 bg-white/5 backdrop-blur text-zinc-300 hover:bg-white/10 transition active:scale-95"
       >
-        <Home className="w-3.5 h-3.5 text-amber-500" />
-        <span>กลับหน้าแรก</span>
+        <Home className="w-3.5 h-3.5 text-amber-400" />
+        กลับหน้าแรก
       </button>
 
-      <div className="relative z-10 w-full max-w-md space-y-6 text-center">
+      <div className="relative z-10 w-full max-w-md space-y-7 text-center">
+
+        {/* Hero */}
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 14 }}
-          className="space-y-3"
+          initial={{ scale: 0.7, opacity: 0, y: 30 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 14, delay: 0.1 }}
+          className="space-y-4"
         >
-          {/* Mouse avatar with edit button */}
-          <div className="flex flex-col items-center gap-2">
+          {/* Avatar */}
+          <div className="flex flex-col items-center gap-3">
             <div className="relative inline-block">
+              <motion.div
+                className="absolute inset-0 rounded-full"
+                style={{ boxShadow: '0 0 30px 8px rgba(245,158,11,0.35)' }}
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+              />
               <motion.img
                 key={avatar}
                 src={avatar}
                 alt="avatar"
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                className="w-20 h-20 rounded-full ring-4 ring-amber-400/50 shadow-xl cursor-pointer"
+                className="w-24 h-24 rounded-full ring-4 ring-amber-400/60 shadow-2xl cursor-pointer relative z-10"
                 onClick={() => setShowPicker(true)}
+                whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.93 }}
               />
-              <button
+              <motion.button
                 onClick={() => setShowPicker(true)}
-                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center shadow-lg active:scale-90 transition"
+                className="absolute -bottom-1 -right-1 z-20 w-8 h-8 rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center shadow-lg"
+                whileHover={{ scale: 1.15, rotate: 15 }}
+                whileTap={{ scale: 0.9 }}
               >
                 <Pencil className="w-3.5 h-3.5" />
-              </button>
+              </motion.button>
             </div>
-            <p className={`text-xs font-bold ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-              {username} — <button onClick={() => setShowPicker(true)} className="text-amber-400 underline-offset-2 hover:underline">แต่งตัวหนู</button>
+            <p className="text-xs font-bold text-zinc-400">
+              {username} —{' '}
+              <button onClick={() => setShowPicker(true)} className="text-amber-400 hover:text-amber-300 underline-offset-2 hover:underline transition">
+                แต่งตัวหนู
+              </button>
             </p>
           </div>
-          <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-stone-900'}`}>
-            หนูชีสอยู่ไหน?
-          </h1>
-          <p className={`text-xs sm:text-sm font-medium ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-            Cheese Thief — เกมจับโจรชีสสำหรับเพื่อนกลุ่มคุณ 4-10 คน
-          </p>
+
+          {/* Title */}
+          <div className="space-y-2">
+            <motion.div
+              animate={{ rotate: [-3, 3, -3] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              className="text-6xl select-none"
+            >
+              🧀
+            </motion.div>
+            <h1
+              className="text-3xl sm:text-4xl font-black text-white tracking-tight"
+              style={{ textShadow: '0 0 30px rgba(245,158,11,0.6), 0 0 60px rgba(245,158,11,0.2)' }}
+            >
+              หนูชีสอยู่ไหน?
+            </h1>
+            <p className="text-xs font-medium text-zinc-500">
+              Cheese Thief — เกมจับโจรชีสสำหรับเพื่อนกลุ่มคุณ
+            </p>
+          </div>
         </motion.div>
 
-        <div className={`rounded-3xl border p-5 sm:p-6 space-y-4 shadow-2xl backdrop-blur-sm ${
-          isDark ? 'bg-zinc-900/70 border-zinc-800' : 'bg-white/90 border-stone-200'
-        }`}>
-          <button
+        {/* Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, type: 'spring', stiffness: 160, damping: 16 }}
+          className="rounded-3xl border border-amber-400/20 p-6 space-y-4 backdrop-blur-md"
+          style={{
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(15,15,30,0.9) 100%)',
+            boxShadow: '0 0 40px rgba(245,158,11,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
+          }}
+        >
+          {/* Create */}
+          <motion.button
             onClick={handleCreateRoom}
             disabled={loading !== null}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-zinc-950 shadow-lg active:scale-95 transition disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm text-zinc-950 disabled:opacity-60 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706)',
+              boxShadow: '0 0 25px rgba(245,158,11,0.5), 0 4px 20px rgba(0,0,0,0.4)',
+            }}
+            whileHover={{ scale: 1.02, boxShadow: '0 0 40px rgba(245,158,11,0.7), 0 4px 20px rgba(0,0,0,0.4)' }}
+            whileTap={{ scale: 0.97 }}
           >
+            <motion.div
+              className="absolute inset-0 opacity-30"
+              style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)' }}
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 1.5 }}
+            />
             {loading === 'create' ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
-            <span>สร้างห้องใหม่</span>
-          </button>
+            สร้างห้องใหม่
+          </motion.button>
 
           <div className="flex items-center gap-3">
-            <div className={`h-px flex-1 ${isDark ? 'bg-zinc-800' : 'bg-stone-200'}`} />
-            <span className={`text-[10px] font-bold ${isDark ? 'text-zinc-600' : 'text-stone-400'}`}>หรือ</span>
-            <div className={`h-px flex-1 ${isDark ? 'bg-zinc-800' : 'bg-stone-200'}`} />
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-[10px] font-bold text-zinc-600">หรือ</span>
+            <div className="h-px flex-1 bg-white/10" />
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={joinCodeInput}
-                onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                placeholder="กรอกรหัสห้อง เช่น A3F9K"
-                maxLength={5}
-                className={`flex-1 px-4 py-3 rounded-2xl text-center tracking-[0.3em] font-black text-sm border focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${
-                  isDark ? 'bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600' : 'bg-stone-50 border-stone-300 text-stone-900 placeholder:text-stone-400'
-                }`}
-              />
-            </div>
-            <button
+            <input
+              type="text"
+              value={joinCodeInput}
+              onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+              placeholder="กรอกรหัสห้อง เช่น A3F9K"
+              maxLength={5}
+              className="w-full px-4 py-3 rounded-2xl text-center tracking-[0.35em] font-black text-sm border border-white/10 bg-white/5 text-zinc-100 placeholder:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400/40 transition"
+            />
+            <motion.button
               onClick={handleJoinRoom}
               disabled={loading !== null}
-              className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm border transition active:scale-95 disabled:opacity-60 ${
-                isDark ? 'bg-zinc-800 hover:bg-zinc-700 text-amber-300 border-amber-500/30' : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
-              }`}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm border border-amber-400/30 text-amber-300 disabled:opacity-60 transition"
+              style={{ background: 'rgba(245,158,11,0.08)' }}
+              whileHover={{ scale: 1.02, borderColor: 'rgba(245,158,11,0.6)', background: 'rgba(245,158,11,0.14)' }}
+              whileTap={{ scale: 0.97 }}
             >
               {loading === 'join' ? <Loader2 className="w-4 h-4 animate-spin" /> : <DoorOpen className="w-4 h-4" />}
-              <span>เข้าร่วมห้อง</span>
-            </button>
+              เข้าร่วมห้อง
+            </motion.button>
           </div>
 
           <AnimatePresence>
@@ -225,19 +262,23 @@ export const CheeseGameApp: React.FC<CheeseGameAppProps> = ({ username, isDark, 
                 exit={{ opacity: 0, height: 0 }}
                 className="text-xs font-bold text-rose-400"
               >
-                {errorMsg}
+                ⚠️ {errorMsg}
               </motion.p>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
 
-        <div className={`flex items-center justify-center gap-1.5 text-[11px] font-medium ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-zinc-600"
+        >
           <Users className="w-3.5 h-3.5" />
-          <span>เล่นได้ 4-10 คน • เจ้าของห้องตั้งค่า/เตะผู้เล่นได้ก่อนเริ่ม</span>
-        </div>
+          เล่นได้ 3-20 คน • เจ้าของห้องตั้งค่า/เตะผู้เล่นได้ก่อนเริ่ม
+        </motion.div>
       </div>
 
-      {/* Avatar picker modal */}
       <AnimatePresence>
         {showPicker && (
           <CheeseAvatarPicker

@@ -4,6 +4,7 @@ import { Moon, MessageCircleWarning } from 'lucide-react';
 import { cheeseGame, formatNightHour, isBot } from '../../../utils/cheeseGameClient';
 import type { CheeseRole } from '../../../utils/cheeseGameClient';
 import { CheeseChatPanel } from '../CheeseChatPanel';
+import { AuroraBg } from '../CheeseParticles';
 import { CheesePhaseProps } from './types';
 
 const HOUR_DURATION_MS = 13000;
@@ -475,37 +476,42 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const introInfo = me?.role ? ROLE_INTRO[me.role] : null;
 
   return (
-    <div className={`min-h-screen relative overflow-hidden px-4 py-8 ${isDark ? 'bg-[#070811] text-zinc-100' : 'bg-indigo-950 text-white'}`}>
+    <div className="min-h-screen relative overflow-hidden px-4 py-8 bg-[#05060f] text-zinc-100">
+      <AuroraBg />
       {/* Starfield */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {Array.from({ length: 40 }).map((_, i) => (
-          <motion.span
+        {Array.from({ length: 60 }).map((_, i) => (
+          <motion.div
             key={i}
-            className="absolute text-yellow-100"
-            style={{ left: `${(i * 29) % 100}%`, top: `${(i * 41) % 100}%`, fontSize: `${4 + (i % 4) * 2}px` }}
-            animate={{ opacity: [0.15, 0.9, 0.15] }}
-            transition={{ duration: 2 + (i % 5), repeat: Infinity, delay: i * 0.1 }}
-          >
-            ✦
-          </motion.span>
+            className="absolute rounded-full bg-white"
+            style={{
+              left: `${(i * 43 + 5) % 100}%`,
+              top: `${(i * 67 + 9) % 100}%`,
+              width: i % 7 === 0 ? 2 : 1,
+              height: i % 7 === 0 ? 2 : 1,
+            }}
+            animate={{ opacity: [0.05, 0.8, 0.05] }}
+            transition={{ duration: 2 + (i % 6), repeat: Infinity, delay: i * 0.07 }}
+          />
         ))}
       </div>
 
       <div className="relative z-10 max-w-lg mx-auto text-center space-y-4">
         {/* Moon + hour */}
-        <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
-          <Moon className="w-10 h-10 mx-auto text-indigo-200 fill-indigo-200/30" />
+        <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}>
+          <Moon className="w-12 h-12 mx-auto text-indigo-200 fill-indigo-200/20" style={{ filter: 'drop-shadow(0 0 12px rgba(129,140,248,0.6))' }} />
         </motion.div>
 
         <div>
-          <p className="text-[10px] font-bold text-indigo-300 tracking-widest uppercase">คืนนี้...ทุกคนหลับตา</p>
+          <p className="text-[10px] font-bold text-indigo-400 tracking-widest uppercase">คืนนี้...ทุกคนหลับตา</p>
           <AnimatePresence mode="wait">
             <motion.h1
               key={room.current_hour}
-              initial={{ opacity: 0, scale: 0.7 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.7 }}
-              className="text-4xl font-black mt-0.5"
+              initial={{ opacity: 0, scale: 0.6, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: -10 }}
+              className="text-4xl font-black mt-0.5 text-indigo-100"
+              style={{ textShadow: '0 0 20px rgba(129,140,248,0.5)' }}
             >
               {formatNightHour(room.current_hour)}
             </motion.h1>
@@ -515,17 +521,27 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         {/* Hour dots */}
         <div className="flex items-center justify-center gap-2">
           {[1, 2, 3, 4, 5, 6].map(h => (
-            <div
+            <motion.div
               key={h}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${
-                h < room.current_hour ? 'bg-indigo-400' : h === room.current_hour ? 'bg-amber-400 scale-125' : 'bg-indigo-900'
+              className={`rounded-full transition-all ${
+                h < room.current_hour ? 'bg-indigo-400' : h === room.current_hour ? 'bg-amber-400' : 'bg-indigo-900'
               }`}
+              style={{ width: h === room.current_hour ? 12 : 8, height: h === room.current_hour ? 12 : 8 }}
+              animate={h === room.current_hour ? { boxShadow: ['0 0 0px rgba(245,158,11,0)', '0 0 10px rgba(245,158,11,0.8)', '0 0 0px rgba(245,158,11,0)'] } : {}}
+              transition={{ duration: 1.5, repeat: Infinity }}
             />
           ))}
         </div>
 
         {/* ===== CIRCLE OF MICE ===== */}
         <div className="relative mx-auto" style={{ width: CONTAINER, height: CONTAINER }}>
+          {/* Glowing ring */}
+          <motion.div
+            className="absolute inset-0 rounded-full pointer-events-none"
+            style={{ border: '1px solid rgba(129,140,248,0.15)', boxShadow: '0 0 40px rgba(129,140,248,0.08) inset, 0 0 40px rgba(129,140,248,0.08)' }}
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
           {/* Players */}
           {circlePositions.map(({ player, x, y }) => {
             const state = getMouseState(player);
@@ -576,7 +592,12 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="rounded-3xl bg-zinc-900/90 border border-amber-500/30 p-4 space-y-3 shadow-2xl backdrop-blur-sm"
+              className="rounded-3xl p-4 space-y-3 backdrop-blur-sm"
+              style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(10,10,25,0.92) 100%)',
+                border: '1px solid rgba(245,158,11,0.3)',
+                boxShadow: '0 0 30px rgba(245,158,11,0.1), inset 0 1px 0 rgba(255,255,255,0.04)',
+              }}
             >
               {/* Timer */}
               {(room.show_timer ?? true) && (
