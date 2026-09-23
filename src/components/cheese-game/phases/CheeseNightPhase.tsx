@@ -197,16 +197,19 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     }
   }, [introStage]);
 
-  // ---- star clue 3s before every night hour transition ----
+  // ---- star clue 3s before transition — only for YOUR own wake hour ----
   useEffect(() => {
     const h = room.current_hour;
     if (h < 1 || h > maxNightHour) return;
+    // only show if this is the player's own wake hour
+    if (me?.dice_hour !== h) return;
     if (starClueShownForHourRef.current === h) return;
     const showAt = HOUR_DURATION_MS - 3000;
     const timer = setTimeout(async () => {
       starClueShownForHourRef.current = h;
       const log = await cheeseGame.getNightLogForHour(roomCode, h);
-      setStarClueAwake(log.map(l => l.username));
+      // show co-wakers (everyone who woke same hour, excluding self)
+      setStarClueAwake(log.map(l => l.username).filter(n => n.toLowerCase() !== username.toLowerCase()));
       setStarClueCountdown(3);
       setShowStarClue(true);
       // countdown 3→2→1
@@ -219,7 +222,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     }, showAt);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.current_hour, maxNightHour, roomCode]);
+  }, [room.current_hour, maxNightHour, roomCode, me?.dice_hour, username]);
 
   // ---- poll ready list at hour 0 ----
   useEffect(() => {
@@ -1108,15 +1111,15 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                 {cheeseStolen ? '🕳️ ชีสถูกขโมยไปแล้ว!' : '🧀 ชีสยังอยู่ครบ!'}
               </motion.div>
 
-              {/* Who was awake this hour */}
-              {starClueAwake.length > 0 && (
+              {/* Co-wakers at your hour */}
+              {starClueAwake.length > 0 ? (
                 <motion.div
                   className="space-y-2"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.25 }}
                 >
-                  <p className="text-[11px] font-bold text-purple-300">ตื่นคืนนี้:</p>
+                  <p className="text-[11px] font-bold text-purple-300">🐭 ตื่นคืนเดียวกับคุณ:</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
                     {starClueAwake.map((name, i) => {
                       const p = players.find(pl => pl.username.toLowerCase() === name.toLowerCase());
@@ -1136,6 +1139,15 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                     })}
                   </div>
                 </motion.div>
+              ) : (
+                <motion.p
+                  className="text-[11px] font-bold text-purple-400/60 text-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.25 }}
+                >
+                  🌙 คุณตื่นคนเดียวคืนนี้
+                </motion.p>
               )}
 
               {/* Big countdown */}
