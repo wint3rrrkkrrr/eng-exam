@@ -133,6 +133,10 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   // remember what the cheese state was during MY wake hour
   const [cheeseMemory, setCheeseMemory] = useState<boolean | null>(null);
 
+  const [showStarClue, setShowStarClue] = useState(false);
+  const [starClueAwake, setStarClueAwake] = useState<string[]>([]);
+  const starClueShownRef = useRef(false);
+
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [introStage, setIntroStage] = useState<
     'role-waiting' | 'role-spin' | 'role-reveal' | 'hour-waiting' | 'hour-spin' | 'hour-reveal' | 'done' | null
@@ -170,6 +174,21 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
       return () => clearTimeout(t);
     }
   }, [introStage]);
+
+  // ---- star clue at last night hour (6s before dawn) ----
+  useEffect(() => {
+    if (room.current_hour !== maxNightHour) return;
+    if (starClueShownRef.current) return;
+    const timer = setTimeout(async () => {
+      starClueShownRef.current = true;
+      const log = await cheeseGame.getNightLogForHour(roomCode, maxNightHour);
+      setStarClueAwake(log.map(l => l.username));
+      setShowStarClue(true);
+      setTimeout(() => setShowStarClue(false), 5500);
+    }, HOUR_DURATION_MS - 6000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.current_hour, maxNightHour, roomCode]);
 
   // ---- poll ready list at hour 0 ----
   useEffect(() => {
@@ -949,6 +968,108 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                 {readyUsernames.length}/{players.length} คนพร้อมแล้ว — เกมจะเริ่มเมื่อทุกคนพร้อม
               </p>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== STAR CLUE OVERLAY (last night hour) ===== */}
+      <AnimatePresence>
+        {showStarClue && (
+          <motion.div
+            className="fixed inset-0 z-[55] flex items-center justify-center pointer-events-none px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="relative w-full max-w-sm rounded-3xl p-6 text-center space-y-3"
+              style={{
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.35) 0%, rgba(168,85,247,0.25) 100%)',
+                border: '1px solid rgba(168,85,247,0.55)',
+                boxShadow: '0 0 50px rgba(168,85,247,0.35), inset 0 1px 0 rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(16px)',
+              }}
+              initial={{ scale: 0.7, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+            >
+              {/* Sparkle stars decoration */}
+              {[...Array(6)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute text-purple-300 select-none"
+                  style={{ left: `${10 + i * 15}%`, top: i % 2 === 0 ? '8%' : '88%', fontSize: 12 + (i % 3) * 4 }}
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+                  transition={{ duration: 1.2 + i * 0.2, repeat: Infinity, delay: i * 0.15 }}
+                >
+                  ✦
+                </motion.div>
+              ))}
+
+              <motion.div
+                className="text-5xl select-none"
+                animate={{ rotate: [0, 12, -12, 0], scale: [1, 1.15, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ filter: 'drop-shadow(0 0 12px rgba(168,85,247,0.7))' }}
+              >
+                🌟
+              </motion.div>
+
+              <div>
+                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-0.5">คลูจากดาว</p>
+                <h3
+                  className="text-xl font-black text-purple-100"
+                  style={{ textShadow: '0 0 20px rgba(168,85,247,0.6)' }}
+                >
+                  รุ่งอรุณใกล้แล้ว!
+                </h3>
+              </div>
+
+              <motion.div
+                className={`px-4 py-2.5 rounded-2xl font-black text-sm border ${cheeseStolen
+                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                  : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                }`}
+                style={{ boxShadow: cheeseStolen ? '0 0 15px rgba(239,68,68,0.2)' : '0 0 15px rgba(16,185,129,0.2)' }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                {cheeseStolen ? '🕳️ ชีสถูกขโมยไปแล้ว!' : '🧀 ชีสยังอยู่ครบ!'}
+              </motion.div>
+
+              {starClueAwake.length > 0 && (
+                <motion.div
+                  className="space-y-2"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                >
+                  <p className="text-[11px] font-bold text-purple-300">ผู้ตื่นในคืนสุดท้ายนี้:</p>
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {starClueAwake.map((name, i) => {
+                      const p = players.find(pl => pl.username.toLowerCase() === name.toLowerCase());
+                      return (
+                        <motion.div
+                          key={name}
+                          initial={{ opacity: 0, scale: 0.7 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.4 + i * 0.08 }}
+                          className="flex items-center gap-1 px-2 py-1 rounded-full border border-purple-500/35"
+                          style={{ background: 'rgba(168,85,247,0.15)' }}
+                        >
+                          {p && <img src={p.avatar} alt={name} className="w-4 h-4 rounded-full object-cover" />}
+                          <span className="text-xs font-bold text-purple-200">{name}</span>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+
+              <p className="text-[9px] text-purple-500 font-medium">ข้อมูลนี้ทุกคนมองเห็น</p>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
