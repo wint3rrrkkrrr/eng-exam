@@ -166,149 +166,162 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
         </div>
 
         {/* Player grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {players.map((p, i) => {
-            const isSelf = p.username.toLowerCase() === username.toLowerCase();
-            const isPicked = myVote === p.username;
-            const showLive = room.show_live_votes ?? true;
-            const isAnon = room.anonymous_vote ?? false;
-            // voters who voted for this player
-            const votersForP = votes.filter(v => v.target === p.username);
-            const voteCount = votersForP.length;
-            const maxVotes = Math.max(...players.map(pl => votes.filter(v => v.target === pl.username).length), 1);
-            const isLeading = voteCount > 0 && voteCount === maxVotes && voteCount > 0;
+        {(() => {
+          const showLive = room.show_live_votes ?? true;
+          const isAnon = room.anonymous_vote ?? false;
+          const maxVotes = votes.length === 0 ? 0 : Math.max(...players.map(pl => votes.filter(v => v.target === pl.username).length));
 
-            return (
-              <motion.button
-                key={p.username}
-                onClick={() => !isSelf && handleVote(p.username)}
-                disabled={isSelf || !!myVote}
-                initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: i * 0.06, type: 'spring', stiffness: 200, damping: 16 }}
-                className="relative flex flex-col items-center gap-2 p-4 rounded-3xl border transition disabled:cursor-not-allowed"
-                style={{
-                  background: isPicked
-                    ? 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(245,158,11,0.05) 100%)'
-                    : isLeading && showLive
-                    ? 'linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(10,10,25,0.9) 100%)'
-                    : isSelf
-                    ? 'rgba(255,255,255,0.02)'
-                    : 'rgba(255,255,255,0.04)',
-                  borderColor: isPicked
-                    ? 'rgba(245,158,11,0.6)'
-                    : isLeading && showLive
-                    ? 'rgba(239,68,68,0.45)'
-                    : isSelf
-                    ? 'rgba(255,255,255,0.04)'
-                    : 'rgba(255,255,255,0.08)',
-                  boxShadow: isPicked
-                    ? '0 0 25px rgba(245,158,11,0.3)'
-                    : isLeading && showLive
-                    ? '0 0 18px rgba(239,68,68,0.2)'
-                    : 'none',
-                  opacity: isSelf ? 0.35 : 1,
-                }}
-                whileHover={!isSelf && !myVote ? {
-                  scale: 1.04,
-                  borderColor: 'rgba(239,68,68,0.5)',
-                  boxShadow: '0 0 20px rgba(239,68,68,0.2)',
-                } : {}}
-                whileTap={!isSelf && !myVote ? { scale: 0.96 } : {}}
-              >
-                {isPicked && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center"
-                    style={{ background: '#fbbf24', boxShadow: '0 0 12px rgba(245,158,11,0.6)' }}
-                  >
-                    <Check className="w-4 h-4 text-zinc-950" />
-                  </motion.span>
-                )}
+          return (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {players.map((p, i) => {
+                  const isSelf = p.username.toLowerCase() === username.toLowerCase();
+                  const isPicked = myVote === p.username;
+                  const voteCount = votes.filter(v => v.target === p.username).length;
+                  const isLeading = showLive && voteCount > 0 && voteCount === maxVotes;
 
-                {/* Vote count badge */}
-                {showLive && voteCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-2 -left-2 min-w-[24px] h-6 px-1.5 rounded-full flex items-center justify-center font-black text-xs"
-                    style={{
-                      background: isLeading ? 'rgba(239,68,68,0.9)' : 'rgba(99,102,241,0.8)',
-                      boxShadow: isLeading ? '0 0 10px rgba(239,68,68,0.6)' : '0 0 8px rgba(99,102,241,0.4)',
-                      color: 'white',
-                    }}
-                    key={voteCount}
-                  >
-                    {voteCount}
-                  </motion.span>
-                )}
+                  return (
+                    <motion.button
+                      key={p.username}
+                      onClick={() => !isSelf && handleVote(p.username)}
+                      disabled={isSelf || !!myVote}
+                      initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ delay: i * 0.06, type: 'spring', stiffness: 200, damping: 16 }}
+                      className="relative flex flex-col items-center gap-2 p-4 rounded-3xl border transition disabled:cursor-not-allowed overflow-hidden"
+                      style={{
+                        background: isPicked
+                          ? 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(245,158,11,0.05) 100%)'
+                          : isLeading
+                          ? 'linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(10,10,25,0.9) 100%)'
+                          : isSelf ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
+                        borderColor: isPicked
+                          ? 'rgba(245,158,11,0.6)'
+                          : isLeading ? 'rgba(239,68,68,0.5)' : isSelf ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.08)',
+                        boxShadow: isPicked ? '0 0 25px rgba(245,158,11,0.3)' : isLeading ? '0 0 20px rgba(239,68,68,0.25)' : 'none',
+                        opacity: isSelf ? 0.35 : 1,
+                      }}
+                      whileHover={!isSelf && !myVote ? { scale: 1.04, borderColor: 'rgba(239,68,68,0.5)', boxShadow: '0 0 20px rgba(239,68,68,0.2)' } : {}}
+                      whileTap={!isSelf && !myVote ? { scale: 0.96 } : {}}
+                    >
+                      {/* Leading pulse bar */}
+                      {isLeading && (
+                        <motion.div
+                          className="absolute inset-x-0 top-0 h-0.5"
+                          style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.8), transparent)' }}
+                          animate={{ opacity: [0.4, 1, 0.4] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        />
+                      )}
 
-                <div className="relative">
-                  <img src={p.avatar} alt={p.username} className="w-14 h-14 rounded-full object-cover" style={{ boxShadow: isPicked ? '0 0 15px rgba(245,158,11,0.5)' : isLeading && showLive ? '0 0 12px rgba(239,68,68,0.4)' : '0 0 0px transparent' }} />
-                  {isPicked && (
-                    <motion.div
-                      className="absolute inset-0 rounded-full"
-                      style={{ border: '2px solid rgba(245,158,11,0.6)' }}
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 1.2, repeat: Infinity }}
-                    />
-                  )}
-                  {isLeading && showLive && !isPicked && (
-                    <motion.div
-                      className="absolute inset-0 rounded-full"
-                      style={{ border: '2px solid rgba(239,68,68,0.5)' }}
-                      animate={{ opacity: [0.4, 0.9, 0.4] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    />
-                  )}
-                </div>
+                      {isPicked && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center z-10"
+                          style={{ background: '#fbbf24', boxShadow: '0 0 12px rgba(245,158,11,0.6)' }}
+                        >
+                          <Check className="w-3.5 h-3.5 text-zinc-950" />
+                        </motion.span>
+                      )}
 
-                <span className="text-xs font-black truncate max-w-full text-zinc-200">
-                  {p.username}{isSelf ? ' (คุณ)' : ''}
-                </span>
+                      <div className="relative">
+                        <img src={p.avatar} alt={p.username} className="w-14 h-14 rounded-full object-cover"
+                          style={{ boxShadow: isPicked ? '0 0 15px rgba(245,158,11,0.5)' : isLeading ? '0 0 12px rgba(239,68,68,0.4)' : 'none' }}
+                        />
+                        {(isPicked || isLeading) && (
+                          <motion.div className="absolute inset-0 rounded-full"
+                            style={{ border: `2px solid ${isPicked ? 'rgba(245,158,11,0.7)' : 'rgba(239,68,68,0.6)'}` }}
+                            animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.2, repeat: Infinity }}
+                          />
+                        )}
+                      </div>
 
-                {/* Live voter avatars */}
-                {showLive && votersForP.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-0.5 mt-0.5">
-                    {votersForP.map((v, vi) => {
-                      const voter = players.find(pl => pl.username === v.voter);
-                      const isSelfVoter = v.voter.toLowerCase() === username.toLowerCase();
+                      <span className="text-xs font-black truncate max-w-full text-zinc-200">
+                        {p.username}{isSelf ? ' (คุณ)' : ''}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* ===== LIVE VOTE SCOREBOARD ===== */}
+              {showLive && votes.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="rounded-2xl p-3 space-y-2"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                >
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-wider text-left">
+                    📊 live โหวต {isAnon ? '(ปิดบังชื่อ)' : ''}
+                  </p>
+                  {players
+                    .map(p => ({ p, voters: votes.filter(v => v.target === p.username) }))
+                    .filter(({ voters }) => voters.length > 0)
+                    .sort((a, b) => b.voters.length - a.voters.length)
+                    .map(({ p, voters }, ri) => {
+                      const isLeading = voters.length === maxVotes;
                       return (
                         <motion.div
-                          key={v.voter}
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ delay: vi * 0.05 }}
-                          className="relative"
-                          title={isAnon ? '?' : v.voter}
+                          key={p.username}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: ri * 0.05 }}
+                          className="flex items-center gap-2"
                         >
-                          {isAnon ? (
-                            <div
-                              className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black border"
-                              style={{ background: isSelfVoter ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)', borderColor: isSelfVoter ? 'rgba(245,158,11,0.6)' : 'rgba(99,102,241,0.5)', color: isSelfVoter ? '#fbbf24' : '#a78bfa' }}
-                            >
-                              ?
-                            </div>
-                          ) : voter ? (
-                            <img
-                              src={voter.avatar}
-                              alt={voter.username}
-                              className="w-5 h-5 rounded-full object-cover border"
-                              style={{ borderColor: isSelfVoter ? 'rgba(245,158,11,0.8)' : 'rgba(255,255,255,0.2)' }}
-                            />
-                          ) : (
-                            <div className="w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600" />
-                          )}
+                          {/* Target */}
+                          <img src={p.avatar} alt={p.username}
+                            className="w-7 h-7 rounded-full object-cover shrink-0"
+                            style={{ boxShadow: isLeading ? '0 0 8px rgba(239,68,68,0.5)' : 'none' }}
+                          />
+                          <span className={`text-xs font-black shrink-0 w-24 truncate text-left ${isLeading ? 'text-rose-300' : 'text-zinc-300'}`}>
+                            {p.username}
+                          </span>
+
+                          {/* Voter avatars */}
+                          <div className="flex items-center gap-1 flex-wrap flex-1">
+                            {voters.map((v, vi) => {
+                              const voter = players.find(pl => pl.username === v.voter);
+                              const isSelfVoter = v.voter.toLowerCase() === username.toLowerCase();
+                              return (
+                                <motion.div
+                                  key={v.voter}
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: vi * 0.04 }}
+                                  title={isAnon ? '?' : v.voter}
+                                >
+                                  {isAnon ? (
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black"
+                                      style={{ background: isSelfVoter ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)', border: `1px solid ${isSelfVoter ? 'rgba(245,158,11,0.6)' : 'rgba(99,102,241,0.4)'}`, color: isSelfVoter ? '#fbbf24' : '#a78bfa' }}
+                                    >?</div>
+                                  ) : voter ? (
+                                    <img src={voter.avatar} alt={voter.username}
+                                      className="w-6 h-6 rounded-full object-cover"
+                                      style={{ border: `1.5px solid ${isSelfVoter ? '#fbbf24' : 'rgba(255,255,255,0.15)'}`, boxShadow: isSelfVoter ? '0 0 6px rgba(245,158,11,0.5)' : 'none' }}
+                                    />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-zinc-700 border border-zinc-600" />
+                                  )}
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Count */}
+                          <span className={`text-sm font-black shrink-0 ${isLeading ? 'text-rose-400' : 'text-zinc-500'}`}>
+                            {voters.length}
+                          </span>
                         </motion.div>
                       );
                     })}
-                  </div>
-                )}
-              </motion.button>
-            );
-          })}
-        </div>
+                </motion.div>
+              )}
+            </>
+          );
+        })()}
 
         <AnimatePresence>
           {myVote && (
