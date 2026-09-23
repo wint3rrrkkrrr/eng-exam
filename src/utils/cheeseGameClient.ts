@@ -23,6 +23,7 @@ export interface CheeseRoom {
   anonymous_vote: boolean;
   show_timer: boolean;
   max_players: number;
+  dawn_chat_seconds: number;
 }
 
 export interface CheeseRoomSettings {
@@ -33,6 +34,7 @@ export interface CheeseRoomSettings {
   allow_peek?: boolean;
   anonymous_vote?: boolean;
   show_timer?: boolean;
+  dawn_chat_seconds?: number;
 }
 
 export interface CheesePlayer {
@@ -119,6 +121,7 @@ export const cheeseGame = {
       anonymous_vote: false,
       show_timer: true,
       max_players: 20,
+      dawn_chat_seconds: 30,
     });
     if (error) throw error;
     await supabase.from('cheese_players').insert({
@@ -261,9 +264,11 @@ export const cheeseGame = {
     await supabase.from('cheese_rooms').update({ current_hour: nextHour }).eq('room_code', roomCode);
   },
 
-  // Called by host when accomplice selection is done → 30s thief-team chat begins
+  // Called by host when accomplice selection is done → thief-team chat begins
   startDawnChatTimer: async (roomCode: string) => {
-    const endsAt = new Date(Date.now() + 30 * 1000).toISOString();
+    const room = await cheeseGame.getRoom(roomCode);
+    const secs = room?.dawn_chat_seconds ?? 30;
+    const endsAt = new Date(Date.now() + secs * 1000).toISOString();
     await supabase.from('cheese_rooms').update({ day_phase_ends_at: endsAt }).eq('room_code', roomCode);
   },
 

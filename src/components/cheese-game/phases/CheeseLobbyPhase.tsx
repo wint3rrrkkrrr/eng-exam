@@ -17,6 +17,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
   const [allowPeek, setAllowPeek] = useState(room.allow_peek ?? true);
   const [anonymousVote, setAnonymousVote] = useState(room.anonymous_vote ?? false);
   const [showTimer, setShowTimer] = useState(room.show_timer ?? true);
+  const [dawnChatSeconds, setDawnChatSeconds] = useState(room.dawn_chat_seconds ?? 30);
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [iAmReady, setIAmReady] = useState(false);
 
@@ -64,6 +65,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
       allow_peek: allowPeek,
       anonymous_vote: anonymousVote,
       show_timer: showTimer,
+      dawn_chat_seconds: dawnChatSeconds,
     });
     setShowSettings(false);
     refresh();
@@ -400,6 +402,20 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                     <motion.button whileTap={{ scale: 0.9 }} onClick={() => setAnonymousVote(v => !v)} className={`px-3 h-7 rounded-lg font-black text-xs transition ${settingBtn(anonymousVote)}`}>
                       {anonymousVote ? '✅ เปิด' : '❌ ปิด'}
                     </motion.button>
+                  </div>
+
+                  {/* Section: แชทลับ */}
+                  <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600 pt-1">🌙 แชทลับหนูจิ๊ด (รุ่งอรุณ)</p>
+                  <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                    <span>เวลาคุยลับก่อนเริ่มวัน</span>
+                    <div className="flex items-center gap-1">
+                      {[15, 30, 45, 60].map(n => (
+                        <motion.button key={n} onClick={() => setDawnChatSeconds(n)} whileTap={{ scale: 0.9 }}
+                          className={`px-2 h-7 rounded-lg font-black text-xs transition ${dawnChatSeconds === n ? 'bg-amber-400 text-zinc-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
+                          {n}วิ
+                        </motion.button>
+                      ))}
+                    </div>
                   </div>
 
                   <motion.button
