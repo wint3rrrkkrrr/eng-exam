@@ -135,7 +135,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
 
   const [showStarClue, setShowStarClue] = useState(false);
   const [starClueAwake, setStarClueAwake] = useState<string[]>([]);
-  const starClueShownRef = useRef(false);
+  const [starClueCountdown, setStarClueCountdown] = useState(3);
+  const starClueShownForHourRef = useRef<number | null>(null);
 
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [introStage, setIntroStage] = useState<
@@ -175,17 +176,26 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     }
   }, [introStage]);
 
-  // ---- star clue at last night hour (6s before dawn) ----
+  // ---- star clue 3s before every night hour transition ----
   useEffect(() => {
-    if (room.current_hour !== maxNightHour) return;
-    if (starClueShownRef.current) return;
+    const h = room.current_hour;
+    if (h < 1 || h > maxNightHour) return;
+    if (starClueShownForHourRef.current === h) return;
+    const showAt = HOUR_DURATION_MS - 3000;
     const timer = setTimeout(async () => {
-      starClueShownRef.current = true;
-      const log = await cheeseGame.getNightLogForHour(roomCode, maxNightHour);
+      starClueShownForHourRef.current = h;
+      const log = await cheeseGame.getNightLogForHour(roomCode, h);
       setStarClueAwake(log.map(l => l.username));
+      setStarClueCountdown(3);
       setShowStarClue(true);
-      setTimeout(() => setShowStarClue(false), 5500);
-    }, HOUR_DURATION_MS - 6000);
+      // countdown 3→2→1
+      const cd = setInterval(() => {
+        setStarClueCountdown(c => {
+          if (c <= 1) { clearInterval(cd); setShowStarClue(false); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+    }, showAt);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.current_hour, maxNightHour, roomCode]);
@@ -976,77 +986,100 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
       <AnimatePresence>
         {showStarClue && (
           <motion.div
-            className="fixed inset-0 z-[55] flex items-center justify-center pointer-events-none px-4"
+            className="fixed inset-0 z-[55] flex flex-col items-center justify-center pointer-events-none"
+            style={{ backdropFilter: 'blur(8px)', background: 'rgba(5,6,15,0.75)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
           >
+            {/* Ambient purple glow */}
             <motion.div
-              className="relative w-full max-w-sm rounded-3xl p-6 text-center space-y-3"
-              style={{
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.35) 0%, rgba(168,85,247,0.25) 100%)',
-                border: '1px solid rgba(168,85,247,0.55)',
-                boxShadow: '0 0 50px rgba(168,85,247,0.35), inset 0 1px 0 rgba(255,255,255,0.08)',
-                backdropFilter: 'blur(16px)',
-              }}
-              initial={{ scale: 0.7, y: 30, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 220, damping: 16 }}
-            >
-              {/* Sparkle stars decoration */}
-              {[...Array(6)].map((_, i) => (
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(168,85,247,0.25) 0%, transparent 65%)' }}
+              animate={{ scale: [1, 1.15, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+
+            {/* Sparkle burst */}
+            {[...Array(12)].map((_, i) => {
+              const angle = (i / 12) * 360;
+              return (
                 <motion.div
                   key={i}
                   className="absolute text-purple-300 select-none"
-                  style={{ left: `${10 + i * 15}%`, top: i % 2 === 0 ? '8%' : '88%', fontSize: 12 + (i % 3) * 4 }}
-                  animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
-                  transition={{ duration: 1.2 + i * 0.2, repeat: Infinity, delay: i * 0.15 }}
+                  style={{ fontSize: 10 + (i % 4) * 5 }}
+                  initial={{ x: 0, y: 0, opacity: 0 }}
+                  animate={{
+                    x: Math.cos((angle * Math.PI) / 180) * (80 + (i % 3) * 40),
+                    y: Math.sin((angle * Math.PI) / 180) * (80 + (i % 3) * 40),
+                    opacity: [0, 0.9, 0],
+                  }}
+                  transition={{ duration: 1.2, delay: i * 0.06, repeat: Infinity, repeatDelay: 0.8 }}
                 >
                   ✦
                 </motion.div>
-              ))}
+              );
+            })}
 
+            {/* Main card */}
+            <motion.div
+              className="relative w-full max-w-xs mx-4 rounded-3xl p-7 text-center space-y-4"
+              style={{
+                background: 'linear-gradient(160deg, rgba(99,102,241,0.4) 0%, rgba(168,85,247,0.3) 100%)',
+                border: '1.5px solid rgba(168,85,247,0.6)',
+                boxShadow: '0 0 60px rgba(168,85,247,0.5), 0 0 120px rgba(99,102,241,0.2)',
+              }}
+              initial={{ scale: 0.6, y: 40 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 240, damping: 18 }}
+            >
+              {/* Star icon */}
               <motion.div
-                className="text-5xl select-none"
-                animate={{ rotate: [0, 12, -12, 0], scale: [1, 1.15, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ filter: 'drop-shadow(0 0 12px rgba(168,85,247,0.7))' }}
+                className="text-6xl select-none"
+                animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ filter: 'drop-shadow(0 0 18px rgba(168,85,247,0.8))' }}
               >
                 🌟
               </motion.div>
 
-              <div>
-                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-0.5">คลูจากดาว</p>
-                <h3
-                  className="text-xl font-black text-purple-100"
-                  style={{ textShadow: '0 0 20px rgba(168,85,247,0.6)' }}
+              {/* Header */}
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">คลูจากดาว</p>
+                <h2
+                  className="text-2xl font-black text-white"
+                  style={{ textShadow: '0 0 25px rgba(168,85,247,0.7)' }}
                 >
-                  รุ่งอรุณใกล้แล้ว!
-                </h3>
+                  {room.current_hour >= maxNightHour ? 'รุ่งอรุณใกล้แล้ว!' : `ผ่านคืนที่ ${room.current_hour}`}
+                </h2>
               </div>
 
+              {/* Cheese status */}
               <motion.div
-                className={`px-4 py-2.5 rounded-2xl font-black text-sm border ${cheeseStolen
-                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                  : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                className={`px-4 py-3 rounded-2xl font-black text-base border ${
+                  cheeseStolen
+                    ? 'bg-rose-500/25 border-rose-500/50 text-rose-200'
+                    : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200'
                 }`}
-                style={{ boxShadow: cheeseStolen ? '0 0 15px rgba(239,68,68,0.2)' : '0 0 15px rgba(16,185,129,0.2)' }}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
+                style={{ boxShadow: cheeseStolen ? '0 0 20px rgba(239,68,68,0.3)' : '0 0 20px rgba(16,185,129,0.25)' }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.15 }}
               >
                 {cheeseStolen ? '🕳️ ชีสถูกขโมยไปแล้ว!' : '🧀 ชีสยังอยู่ครบ!'}
               </motion.div>
 
+              {/* Who was awake this hour */}
               {starClueAwake.length > 0 && (
                 <motion.div
                   className="space-y-2"
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35 }}
+                  transition={{ delay: 0.25 }}
                 >
-                  <p className="text-[11px] font-bold text-purple-300">ผู้ตื่นในคืนสุดท้ายนี้:</p>
+                  <p className="text-[11px] font-bold text-purple-300">ตื่นคืนนี้:</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
                     {starClueAwake.map((name, i) => {
                       const p = players.find(pl => pl.username.toLowerCase() === name.toLowerCase());
@@ -1055,12 +1088,12 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                           key={name}
                           initial={{ opacity: 0, scale: 0.7 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.4 + i * 0.08 }}
-                          className="flex items-center gap-1 px-2 py-1 rounded-full border border-purple-500/35"
-                          style={{ background: 'rgba(168,85,247,0.15)' }}
+                          transition={{ delay: 0.3 + i * 0.07 }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple-400/40"
+                          style={{ background: 'rgba(168,85,247,0.2)' }}
                         >
-                          {p && <img src={p.avatar} alt={name} className="w-4 h-4 rounded-full object-cover" />}
-                          <span className="text-xs font-bold text-purple-200">{name}</span>
+                          {p && <img src={p.avatar} alt={name} className="w-5 h-5 rounded-full object-cover" />}
+                          <span className="text-xs font-black text-purple-100">{name}</span>
                         </motion.div>
                       );
                     })}
@@ -1068,7 +1101,30 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                 </motion.div>
               )}
 
-              <p className="text-[9px] text-purple-500 font-medium">ข้อมูลนี้ทุกคนมองเห็น</p>
+              {/* Big countdown */}
+              <motion.div
+                className="flex flex-col items-center gap-1.5"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                <motion.div
+                  key={starClueCountdown}
+                  className="w-14 h-14 rounded-full flex items-center justify-center font-black text-3xl border-2 border-purple-400/60"
+                  style={{
+                    background: 'rgba(168,85,247,0.3)',
+                    boxShadow: '0 0 20px rgba(168,85,247,0.5)',
+                  }}
+                  initial={{ scale: 1.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                >
+                  {starClueCountdown}
+                </motion.div>
+                <p className="text-xs font-black text-purple-300">
+                  {room.current_hour >= maxNightHour ? 'กำลังไปรุ่งอรุณ...' : `กำลังไปคืนที่ ${room.current_hour + 1}...`}
+                </p>
+              </motion.div>
             </motion.div>
           </motion.div>
         )}
