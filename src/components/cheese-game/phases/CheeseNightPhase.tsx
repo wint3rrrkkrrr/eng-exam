@@ -153,6 +153,9 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const [cheeseMemory, setCheeseMemory] = useState<boolean | null>(null);
 
   const [showHatPicker, setShowHatPicker] = useState(false);
+  const [showStarClue, setShowStarClue] = useState(false);
+  const [starClueAwake, setStarClueAwake] = useState<string[]>([]);
+  const [starClueCountdown, setStarClueCountdown] = useState(3);
 
 
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
@@ -163,6 +166,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const advancingRef = useRef(false);
   const introTriggeredRef = useRef(false);
   const wakeLoggedForHourRef = useRef<number | null>(null);
+  const starClueShownForHourRef = useRef<number | null>(null);
 
   const isThief = me?.role === 'thief';
   const isAccomplice = me?.role === 'accomplice';
@@ -472,6 +476,29 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     if (thief) setWitnessedThiefName(thief.username);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cheeseStolen, awakeWithMe, iAmAwakeNow, witnessedThiefName]);
+
+  // ---- star clue: show only during player's own wake hour ----
+  useEffect(() => {
+    if (!iAmAwakeNow) return;
+    const h = room.current_hour;
+    if (starClueShownForHourRef.current === h) return;
+    const showAt = HOUR_DURATION_MS - 3000;
+    const timer = setTimeout(async () => {
+      starClueShownForHourRef.current = h;
+      const log = await cheeseGame.getNightLogForHour(roomCode, h);
+      setStarClueAwake(log.map(l => l.username).filter(n => n.toLowerCase() !== username.toLowerCase()));
+      setStarClueCountdown(3);
+      setShowStarClue(true);
+      const cd = setInterval(() => {
+        setStarClueCountdown(c => {
+          if (c <= 1) { clearInterval(cd); setShowStarClue(false); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+    }, showAt);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iAmAwakeNow, room.current_hour, roomCode, username]);
 
   // ---- circle layout math ----
   const CONTAINER = 280;
@@ -992,6 +1019,86 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         )}
       </AnimatePresence>
 
+
+      {/* Star clue overlay — only shows during player's own wake hour */}
+      <AnimatePresence>
+        {showStarClue && (
+          <motion.div
+            className="fixed inset-0 z-[55] flex items-center justify-center px-4"
+            style={{ background: 'rgba(5,6,15,0.92)', backdropFilter: 'blur(12px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {Array.from({ length: 12 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute pointer-events-none select-none"
+                style={{ left: `${(i * 37 + 10) % 90}%`, top: `${(i * 53 + 5) % 85}%`, fontSize: 18 }}
+                animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5], y: [0, -20, -40] }}
+                transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+              >
+                ✨
+              </motion.div>
+            ))}
+            <motion.div
+              initial={{ scale: 0.7, y: 40 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.7, y: 40 }}
+              className="w-full max-w-sm rounded-3xl p-6 space-y-4 text-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(30,20,60,0.98) 0%, rgba(10,10,30,0.99) 100%)',
+                border: '1.5px solid rgba(168,85,247,0.4)',
+                boxShadow: '0 0 60px rgba(168,85,247,0.25), 0 0 100px rgba(99,102,241,0.15)',
+              }}
+            >
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">🌟 คลูจากดาว</p>
+                <p className="text-sm font-black text-indigo-200">ชั่วโมงที่คุณตื่น...</p>
+              </div>
+
+              <div className={`p-3 rounded-2xl border ${
+                displayCheeseStolen
+                  ? 'bg-rose-500/15 border-rose-500/30'
+                  : 'bg-emerald-500/10 border-emerald-500/25'
+              }`}>
+                <div className="text-4xl mb-1">{displayCheeseStolen ? '🕳️' : '🧀'}</div>
+                <p className={`text-sm font-black ${displayCheeseStolen ? 'text-rose-300' : 'text-emerald-300'}`}>
+                  {displayCheeseStolen ? 'ชีสถูกขโมยไปแล้ว!' : 'ชีสยังอยู่ครบ'}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] text-zinc-400 font-bold">ตื่นชั่วโมงเดียวกับคุณ:</p>
+                {starClueAwake.length > 0 ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {starClueAwake.map(name => {
+                      const p = players.find(x => x.username.toLowerCase() === name.toLowerCase());
+                      return (
+                        <div key={name} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-xs font-bold text-amber-200">
+                          {p && isImageUrl(p.avatar)
+                            ? <img src={p.avatar} className="w-5 h-5 rounded-full object-cover" alt={name} />
+                            : <span className="text-sm">{p?.avatar ?? '🐭'}</span>}
+                          {name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500">ไม่มีใครตื่นพร้อมคุณ</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-purple-500/25 border-2 border-purple-400/50 flex items-center justify-center font-black text-lg text-purple-300">
+                  {starClueCountdown}
+                </div>
+                <p className="text-[10px] text-zinc-500">วินาทีจะปิดอัตโนมัติ</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hat picker */}
       <MouseHatPicker
