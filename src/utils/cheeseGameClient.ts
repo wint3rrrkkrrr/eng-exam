@@ -41,6 +41,7 @@ export interface CheesePlayer {
   room_code: string;
   username: string;
   avatar: string;
+  mouse_hat: string | null;
   role: CheeseRole | null;
   dice_hour: number | null;
   is_host: boolean;
@@ -376,6 +377,10 @@ export const cheeseGame = {
       cheese_location: 'thief_quit',
       revealed_usernames: [thiefUsername],
     }).eq('room_code', roomCode);
+  },
+
+  updateMouseHat: async (roomCode: string, username: string, hat: string | null) => {
+    await supabase.from('cheese_players').update({ mouse_hat: hat }).eq('room_code', roomCode).eq('username', username);
   },
 
   restartToLobby: async (roomCode: string) => {

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Copy, Check, Crown, UserX, Settings2, Play, LogOut, Loader2, Users2, Bot } from 'lucide-react';
+import { Copy, Check, Crown, UserX, Settings2, Play, LogOut, Loader2, Users2, Bot, Shirt } from 'lucide-react';
 import { cheeseGame, isBot, recommendedAccompliceCount } from '../../../utils/cheeseGameClient';
 import { CheeseParticles, AuroraBg } from '../CheeseParticles';
+import { MouseHatPicker } from '../MouseHatPicker';
 import { CheesePhaseProps } from './types';
 
 export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, username, isDark, isHost, roomCode, refresh, onExitRoom }) => {
@@ -20,6 +21,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
   const [dawnChatSeconds, setDawnChatSeconds] = useState(room.dawn_chat_seconds ?? 30);
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [iAmReady, setIAmReady] = useState(false);
+  const [showHatPicker, setShowHatPicker] = useState(false);
 
   const botCount = players.filter(p => isBot(p)).length;
   const humanPlayers = players.filter(p => !isBot(p));
@@ -218,7 +220,15 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                     {isBot(p) ? (
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-base ring-2 ring-zinc-600/40 bg-zinc-800 shrink-0">🤖</div>
                     ) : (
-                      <div className="relative shrink-0">
+                      <div className="relative shrink-0" style={{ paddingTop: p.mouse_hat ? '8px' : undefined }}>
+                        {p.mouse_hat && (
+                          <span
+                            className="absolute pointer-events-none select-none leading-none z-10"
+                            style={{ top: -4, left: '50%', transform: 'translateX(-50%)', fontSize: 16 }}
+                          >
+                            {p.mouse_hat}
+                          </span>
+                        )}
                         <img src={p.avatar} alt={p.username} className="w-8 h-8 rounded-full object-cover" />
                         {isReady && (
                           <motion.div
@@ -244,6 +254,16 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {!isBot(p) && p.username.toLowerCase() === username.toLowerCase() && (
+                      <motion.button
+                        onClick={() => setShowHatPicker(true)}
+                        className="p-1.5 rounded-lg text-purple-400/70 hover:text-purple-300 hover:bg-purple-500/15 transition shrink-0"
+                        whileTap={{ scale: 0.85 }}
+                        title="แต่งตัวหนู"
+                      >
+                        <Shirt className="w-4 h-4" />
+                      </motion.button>
+                    )}
                     {!isBot(p) && (
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                         isReady
@@ -406,13 +426,23 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
 
                   {/* Section: แชทลับ */}
                   <p className="text-[10px] font-black uppercase tracking-wider text-zinc-600 pt-1">🌙 แชทลับหนูจิ๊ด (รุ่งอรุณ)</p>
-                  <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
-                    <span>เวลาคุยลับก่อนเริ่มวัน</span>
-                    <div className="flex items-center gap-1">
-                      {[15, 30, 45, 60].map(n => (
-                        <motion.button key={n} onClick={() => setDawnChatSeconds(n)} whileTap={{ scale: 0.9 }}
-                          className={`px-2 h-7 rounded-lg font-black text-xs transition ${dawnChatSeconds === n ? 'bg-amber-400 text-zinc-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
-                          {n}วิ
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                      <span>เวลาคุยลับก่อนเริ่มวัน</span>
+                      <div className="flex items-center gap-1">
+                        {[15, 30, 45, 60].map(n => (
+                          <motion.button key={n} onClick={() => setDawnChatSeconds(n)} whileTap={{ scale: 0.9 }}
+                            className={`px-2 h-7 rounded-lg font-black text-xs transition ${dawnChatSeconds === n ? 'bg-amber-400 text-zinc-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
+                            {n}วิ
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-1">
+                      {[{ s: 90, label: '1:30' }, { s: 120, label: '2:00' }].map(({ s, label }) => (
+                        <motion.button key={s} onClick={() => setDawnChatSeconds(s)} whileTap={{ scale: 0.9 }}
+                          className={`px-2 h-7 rounded-lg font-black text-xs transition ${dawnChatSeconds === s ? 'bg-amber-400 text-zinc-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]' : 'bg-white/5 text-zinc-400 border border-white/10'}`}>
+                          {label}น.
                         </motion.button>
                       ))}
                     </div>
@@ -506,6 +536,13 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
           </motion.button>
         </motion.div>
       </div>
+
+      <MouseHatPicker
+        open={showHatPicker}
+        currentHat={players.find(p => p.username.toLowerCase() === username.toLowerCase())?.mouse_hat ?? null}
+        onClose={() => setShowHatPicker(false)}
+        onSelect={hat => { cheeseGame.updateMouseHat(roomCode, username, hat); refresh(); }}
+      />
     </div>
   );
 };

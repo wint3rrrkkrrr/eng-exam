@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Moon, MessageCircleWarning } from 'lucide-react';
+import { Moon, MessageCircleWarning, Shirt } from 'lucide-react';
 import { cheeseGame, formatNightHour, isBot } from '../../../utils/cheeseGameClient';
 import type { CheeseRole } from '../../../utils/cheeseGameClient';
 import { CheeseChatPanel } from '../CheeseChatPanel';
 import { AuroraBg } from '../CheeseParticles';
+import { MouseHatPicker } from '../MouseHatPicker';
 import { CheesePhaseProps } from './types';
 
 const HOUR_DURATION_MS = 13000;
@@ -48,11 +49,13 @@ function MouseIcon({
   username,
   size = 44,
   state,
+  hat,
 }: {
   avatar: string;
   username: string;
   size?: number;
   state: 'sleeping' | 'awake' | 'neutral';
+  hat?: string | null;
 }) {
   const isSleeping = state === 'sleeping';
   const isAwake = state === 'awake';
@@ -79,11 +82,27 @@ function MouseIcon({
           )}
         </div>
 
+        {/* Hat overlay */}
+        {hat && (
+          <span
+            className="absolute pointer-events-none select-none leading-none"
+            style={{
+              top: -size * 0.35,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: size * 0.52,
+              filter: isSleeping ? 'grayscale(1) opacity(0.4)' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))',
+            }}
+          >
+            {hat}
+          </span>
+        )}
+
         {/* sleeping / awake badge */}
         {isSleeping && (
           <span className="absolute -top-1 -right-1 text-xs leading-none">💤</span>
         )}
-        {isAwake && (
+        {isAwake && !hat && (
           <motion.span
             className="absolute -top-1 -right-1 text-xs leading-none"
             animate={{ scale: [1, 1.4, 1] }}
@@ -132,6 +151,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const [witnessedThiefName, setWitnessedThiefName] = useState<string | null>(null);
   // remember what the cheese state was during MY wake hour
   const [cheeseMemory, setCheeseMemory] = useState<boolean | null>(null);
+
+  const [showHatPicker, setShowHatPicker] = useState(false);
 
   const [showStarClue, setShowStarClue] = useState(false);
   const [starClueAwake, setStarClueAwake] = useState<string[]>([]);
@@ -585,6 +606,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                   username={player.username}
                   size={42}
                   state={state}
+                  hat={player.mouse_hat}
                 />
               </div>
             );
@@ -638,18 +660,20 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                 </div>
               )}
 
-              {/* Co-wakers banner */}
-              {awakeWithMe.length > 0 && (
+              {/* Co-wakers banner — show everyone awake this hour including self */}
+              {awakeWithMe.length > 0 ? (
                 <div className="flex items-center justify-center gap-1 flex-wrap text-xs text-amber-300 font-bold">
-                  <span>ตื่นพร้อมคุณ:</span>
+                  <span>ตื่นชั่วโมงนี้:</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/50">
+                    {username} (คุณ)
+                  </span>
                   {awakeWithMe.map(w => (
                     <span key={w.username} className="px-1.5 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/30">
                       {w.username}
                     </span>
                   ))}
                 </div>
-              )}
-              {awakeWithMe.length === 0 && (
+              ) : (
                 <p className="text-[10px] text-zinc-500 text-center">ไม่มีใครตื่นพร้อมคุณตอนนี้...</p>
               )}
 
@@ -912,6 +936,19 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
           </>
         )}
 
+        {/* Dress-up button */}
+        {isIntroComplete && (
+          <div className="pt-1">
+            <button
+              onClick={() => setShowHatPicker(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 active:scale-95 transition"
+            >
+              <Shirt className="w-3.5 h-3.5" />
+              แต่งตัวหนู {me?.mouse_hat ? me.mouse_hat : ''}
+            </button>
+          </div>
+        )}
+
         {/* Secret chat for thief/accomplice */}
         {canSecretChat && isIntroComplete && (
           <div className="pt-1">
@@ -1129,6 +1166,14 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Hat picker */}
+      <MouseHatPicker
+        open={showHatPicker}
+        currentHat={me?.mouse_hat ?? null}
+        onClose={() => setShowHatPicker(false)}
+        onSelect={hat => cheeseGame.updateMouseHat(roomCode, username, hat)}
+      />
 
       {/* ===== INTRO OVERLAY (role + dice reveal) ===== */}
       <AnimatePresence>
