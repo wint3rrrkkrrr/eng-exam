@@ -154,10 +154,6 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
 
   const [showHatPicker, setShowHatPicker] = useState(false);
 
-  const [showStarClue, setShowStarClue] = useState(false);
-  const [starClueAwake, setStarClueAwake] = useState<string[]>([]);
-  const [starClueCountdown, setStarClueCountdown] = useState(3);
-  const starClueShownForHourRef = useRef<number | null>(null);
 
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [introStage, setIntroStage] = useState<
@@ -197,32 +193,6 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     }
   }, [introStage]);
 
-  // ---- star clue 3s before transition — only for YOUR own wake hour ----
-  useEffect(() => {
-    const h = room.current_hour;
-    if (h < 1 || h > maxNightHour) return;
-    // only show if this is the player's own wake hour
-    if (me?.dice_hour !== h) return;
-    if (starClueShownForHourRef.current === h) return;
-    const showAt = HOUR_DURATION_MS - 3000;
-    const timer = setTimeout(async () => {
-      starClueShownForHourRef.current = h;
-      const log = await cheeseGame.getNightLogForHour(roomCode, h);
-      // show co-wakers (everyone who woke same hour, excluding self)
-      setStarClueAwake(log.map(l => l.username).filter(n => n.toLowerCase() !== username.toLowerCase()));
-      setStarClueCountdown(3);
-      setShowStarClue(true);
-      // countdown 3→2→1
-      const cd = setInterval(() => {
-        setStarClueCountdown(c => {
-          if (c <= 1) { clearInterval(cd); setShowStarClue(false); return 0; }
-          return c - 1;
-        });
-      }, 1000);
-    }, showAt);
-    return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.current_hour, maxNightHour, roomCode, me?.dice_hour, username]);
 
   // ---- poll ready list at hour 0 ----
   useEffect(() => {
@@ -1022,162 +992,6 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ===== STAR CLUE OVERLAY (last night hour) ===== */}
-      <AnimatePresence>
-        {showStarClue && (
-          <motion.div
-            className="fixed inset-0 z-[55] flex flex-col items-center justify-center pointer-events-none"
-            style={{ backdropFilter: 'blur(8px)', background: 'rgba(5,6,15,0.75)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Ambient purple glow */}
-            <motion.div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(168,85,247,0.25) 0%, transparent 65%)' }}
-              animate={{ scale: [1, 1.15, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-
-            {/* Sparkle burst */}
-            {[...Array(12)].map((_, i) => {
-              const angle = (i / 12) * 360;
-              return (
-                <motion.div
-                  key={i}
-                  className="absolute text-purple-300 select-none"
-                  style={{ fontSize: 10 + (i % 4) * 5 }}
-                  initial={{ x: 0, y: 0, opacity: 0 }}
-                  animate={{
-                    x: Math.cos((angle * Math.PI) / 180) * (80 + (i % 3) * 40),
-                    y: Math.sin((angle * Math.PI) / 180) * (80 + (i % 3) * 40),
-                    opacity: [0, 0.9, 0],
-                  }}
-                  transition={{ duration: 1.2, delay: i * 0.06, repeat: Infinity, repeatDelay: 0.8 }}
-                >
-                  ✦
-                </motion.div>
-              );
-            })}
-
-            {/* Main card */}
-            <motion.div
-              className="relative w-full max-w-xs mx-4 rounded-3xl p-7 text-center space-y-4"
-              style={{
-                background: 'linear-gradient(160deg, rgba(99,102,241,0.4) 0%, rgba(168,85,247,0.3) 100%)',
-                border: '1.5px solid rgba(168,85,247,0.6)',
-                boxShadow: '0 0 60px rgba(168,85,247,0.5), 0 0 120px rgba(99,102,241,0.2)',
-              }}
-              initial={{ scale: 0.6, y: 40 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.85, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 240, damping: 18 }}
-            >
-              {/* Star icon */}
-              <motion.div
-                className="text-6xl select-none"
-                animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ filter: 'drop-shadow(0 0 18px rgba(168,85,247,0.8))' }}
-              >
-                🌟
-              </motion.div>
-
-              {/* Header */}
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">คลูจากดาว</p>
-                <h2
-                  className="text-2xl font-black text-white"
-                  style={{ textShadow: '0 0 25px rgba(168,85,247,0.7)' }}
-                >
-                  {room.current_hour >= maxNightHour ? 'รุ่งอรุณใกล้แล้ว!' : `ผ่านคืนที่ ${room.current_hour}`}
-                </h2>
-              </div>
-
-              {/* Cheese status */}
-              <motion.div
-                className={`px-4 py-3 rounded-2xl font-black text-base border ${
-                  cheeseStolen
-                    ? 'bg-rose-500/25 border-rose-500/50 text-rose-200'
-                    : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200'
-                }`}
-                style={{ boxShadow: cheeseStolen ? '0 0 20px rgba(239,68,68,0.3)' : '0 0 20px rgba(16,185,129,0.25)' }}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.15 }}
-              >
-                {cheeseStolen ? '🕳️ ชีสถูกขโมยไปแล้ว!' : '🧀 ชีสยังอยู่ครบ!'}
-              </motion.div>
-
-              {/* Co-wakers at your hour */}
-              {starClueAwake.length > 0 ? (
-                <motion.div
-                  className="space-y-2"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 }}
-                >
-                  <p className="text-[11px] font-bold text-purple-300">🐭 ตื่นคืนเดียวกับคุณ:</p>
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {starClueAwake.map((name, i) => {
-                      const p = players.find(pl => pl.username.toLowerCase() === name.toLowerCase());
-                      return (
-                        <motion.div
-                          key={name}
-                          initial={{ opacity: 0, scale: 0.7 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.3 + i * 0.07 }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple-400/40"
-                          style={{ background: 'rgba(168,85,247,0.2)' }}
-                        >
-                          {p && <img src={p.avatar} alt={name} className="w-5 h-5 rounded-full object-cover" />}
-                          <span className="text-xs font-black text-purple-100">{name}</span>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.p
-                  className="text-[11px] font-bold text-purple-400/60 text-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.25 }}
-                >
-                  🌙 คุณตื่นคนเดียวคืนนี้
-                </motion.p>
-              )}
-
-              {/* Big countdown */}
-              <motion.div
-                className="flex flex-col items-center gap-1.5"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                <motion.div
-                  key={starClueCountdown}
-                  className="w-14 h-14 rounded-full flex items-center justify-center font-black text-3xl border-2 border-purple-400/60"
-                  style={{
-                    background: 'rgba(168,85,247,0.3)',
-                    boxShadow: '0 0 20px rgba(168,85,247,0.5)',
-                  }}
-                  initial={{ scale: 1.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                >
-                  {starClueCountdown}
-                </motion.div>
-                <p className="text-xs font-black text-purple-300">
-                  {room.current_hour >= maxNightHour ? 'กำลังไปรุ่งอรุณ...' : `กำลังไปคืนที่ ${room.current_hour + 1}...`}
-                </p>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Hat picker */}
       <MouseHatPicker
