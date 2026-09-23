@@ -18,6 +18,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
   const [allowPeek, setAllowPeek] = useState(room.allow_peek ?? true);
   const [anonymousVote, setAnonymousVote] = useState(room.anonymous_vote ?? false);
   const [showTimer, setShowTimer] = useState(room.show_timer ?? true);
+  const [showLiveVotes, setShowLiveVotes] = useState(room.show_live_votes ?? true);
   const [dawnChatSeconds, setDawnChatSeconds] = useState(room.dawn_chat_seconds ?? 30);
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [iAmReady, setIAmReady] = useState(false);
@@ -67,6 +68,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
       allow_peek: allowPeek,
       anonymous_vote: anonymousVote,
       show_timer: showTimer,
+      show_live_votes: showLiveVotes,
       dawn_chat_seconds: dawnChatSeconds,
     });
     setShowSettings(false);
@@ -421,6 +423,12 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                     <span>โหวตแบบปิดบังชื่อ</span>
                     <motion.button whileTap={{ scale: 0.9 }} onClick={() => setAnonymousVote(v => !v)} className={`px-3 h-7 rounded-lg font-black text-xs transition ${settingBtn(anonymousVote)}`}>
                       {anonymousVote ? '✅ เปิด' : '❌ ปิด'}
+                    </motion.button>
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                    <span>เห็น live ว่าใครโหวตใคร</span>
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowLiveVotes(v => !v)} className={`px-3 h-7 rounded-lg font-black text-xs transition ${settingBtn(showLiveVotes)}`}>
+                      {showLiveVotes ? '✅ เปิด' : '❌ ปิด'}
                     </motion.button>
                   </div>
 

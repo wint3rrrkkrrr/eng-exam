@@ -170,6 +170,14 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
           {players.map((p, i) => {
             const isSelf = p.username.toLowerCase() === username.toLowerCase();
             const isPicked = myVote === p.username;
+            const showLive = room.show_live_votes ?? true;
+            const isAnon = room.anonymous_vote ?? false;
+            // voters who voted for this player
+            const votersForP = votes.filter(v => v.target === p.username);
+            const voteCount = votersForP.length;
+            const maxVotes = Math.max(...players.map(pl => votes.filter(v => v.target === pl.username).length), 1);
+            const isLeading = voteCount > 0 && voteCount === maxVotes && voteCount > 0;
+
             return (
               <motion.button
                 key={p.username}
@@ -182,15 +190,23 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
                 style={{
                   background: isPicked
                     ? 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(245,158,11,0.05) 100%)'
+                    : isLeading && showLive
+                    ? 'linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(10,10,25,0.9) 100%)'
                     : isSelf
                     ? 'rgba(255,255,255,0.02)'
                     : 'rgba(255,255,255,0.04)',
                   borderColor: isPicked
                     ? 'rgba(245,158,11,0.6)'
+                    : isLeading && showLive
+                    ? 'rgba(239,68,68,0.45)'
                     : isSelf
                     ? 'rgba(255,255,255,0.04)'
                     : 'rgba(255,255,255,0.08)',
-                  boxShadow: isPicked ? '0 0 25px rgba(245,158,11,0.3)' : 'none',
+                  boxShadow: isPicked
+                    ? '0 0 25px rgba(245,158,11,0.3)'
+                    : isLeading && showLive
+                    ? '0 0 18px rgba(239,68,68,0.2)'
+                    : 'none',
                   opacity: isSelf ? 0.35 : 1,
                 }}
                 whileHover={!isSelf && !myVote ? {
@@ -211,8 +227,25 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
                   </motion.span>
                 )}
 
+                {/* Vote count badge */}
+                {showLive && voteCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-2 -left-2 min-w-[24px] h-6 px-1.5 rounded-full flex items-center justify-center font-black text-xs"
+                    style={{
+                      background: isLeading ? 'rgba(239,68,68,0.9)' : 'rgba(99,102,241,0.8)',
+                      boxShadow: isLeading ? '0 0 10px rgba(239,68,68,0.6)' : '0 0 8px rgba(99,102,241,0.4)',
+                      color: 'white',
+                    }}
+                    key={voteCount}
+                  >
+                    {voteCount}
+                  </motion.span>
+                )}
+
                 <div className="relative">
-                  <img src={p.avatar} alt={p.username} className="w-14 h-14 rounded-full object-cover" style={{ boxShadow: isPicked ? '0 0 15px rgba(245,158,11,0.5)' : '0 0 0px transparent' }} />
+                  <img src={p.avatar} alt={p.username} className="w-14 h-14 rounded-full object-cover" style={{ boxShadow: isPicked ? '0 0 15px rgba(245,158,11,0.5)' : isLeading && showLive ? '0 0 12px rgba(239,68,68,0.4)' : '0 0 0px transparent' }} />
                   {isPicked && (
                     <motion.div
                       className="absolute inset-0 rounded-full"
@@ -221,11 +254,57 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
                       transition={{ duration: 1.2, repeat: Infinity }}
                     />
                   )}
+                  {isLeading && showLive && !isPicked && (
+                    <motion.div
+                      className="absolute inset-0 rounded-full"
+                      style={{ border: '2px solid rgba(239,68,68,0.5)' }}
+                      animate={{ opacity: [0.4, 0.9, 0.4] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                  )}
                 </div>
 
                 <span className="text-xs font-black truncate max-w-full text-zinc-200">
                   {p.username}{isSelf ? ' (คุณ)' : ''}
                 </span>
+
+                {/* Live voter avatars */}
+                {showLive && votersForP.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-0.5 mt-0.5">
+                    {votersForP.map((v, vi) => {
+                      const voter = players.find(pl => pl.username === v.voter);
+                      const isSelfVoter = v.voter.toLowerCase() === username.toLowerCase();
+                      return (
+                        <motion.div
+                          key={v.voter}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: vi * 0.05 }}
+                          className="relative"
+                          title={isAnon ? '?' : v.voter}
+                        >
+                          {isAnon ? (
+                            <div
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black border"
+                              style={{ background: isSelfVoter ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)', borderColor: isSelfVoter ? 'rgba(245,158,11,0.6)' : 'rgba(99,102,241,0.5)', color: isSelfVoter ? '#fbbf24' : '#a78bfa' }}
+                            >
+                              ?
+                            </div>
+                          ) : voter ? (
+                            <img
+                              src={voter.avatar}
+                              alt={voter.username}
+                              className="w-5 h-5 rounded-full object-cover border"
+                              style={{ borderColor: isSelfVoter ? 'rgba(245,158,11,0.8)' : 'rgba(255,255,255,0.2)' }}
+                            />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600" />
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
               </motion.button>
             );
           })}

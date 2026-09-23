@@ -22,6 +22,7 @@ export interface CheeseRoom {
   allow_peek: boolean;
   anonymous_vote: boolean;
   show_timer: boolean;
+  show_live_votes: boolean;
   max_players: number;
   dawn_chat_seconds: number;
 }
@@ -34,6 +35,7 @@ export interface CheeseRoomSettings {
   allow_peek?: boolean;
   anonymous_vote?: boolean;
   show_timer?: boolean;
+  show_live_votes?: boolean;
   dawn_chat_seconds?: number;
 }
 
@@ -121,6 +123,7 @@ export const cheeseGame = {
       allow_peek: true,
       anonymous_vote: false,
       show_timer: true,
+      show_live_votes: true,
       max_players: 20,
       dawn_chat_seconds: 30,
     });
