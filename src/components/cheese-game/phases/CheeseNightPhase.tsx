@@ -119,7 +119,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   const [awakeWithMe, setAwakeWithMe] = useState<{ username: string; role: string }[]>([]);
   const [showSecretChat, setShowSecretChat] = useState(false);
   const [stealDone, setStealDone] = useState(false);
-  const [actionTimeLeft, setActionTimeLeft] = useState(10);
+  const [actionTimeLeft, setActionTimeLeft] = useState(room.action_seconds ?? 15);
   const [accompliceSelecting, setAccompliceSelecting] = useState(false);
   const [pickedAccomplices, setPickedAccomplices] = useState<string[]>([]);
   const [accompliceSubmitted, setAccompliceSubmitted] = useState(false);
@@ -143,7 +143,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
 
   const isThief = me?.role === 'thief';
   const isAccomplice = me?.role === 'accomplice';
-  const iAmAwakeNow = !!(me?.dice_hour && me.dice_hour === room.current_hour && room.current_hour >= 1 && room.current_hour <= 6);
+  const maxNightHour = room.night_hours ?? 6;
+  const iAmAwakeNow = !!(me?.dice_hour && me.dice_hour === room.current_hour && room.current_hour >= 1 && room.current_hour <= maxNightHour);
   const canSecretChat = (isThief || isAccomplice) && room.current_hour < 7;
   const isPostDawn = room.current_hour === 7;
   const dawnChatStarted = isPostDawn && !!room.day_phase_ends_at;
@@ -275,7 +276,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     if (wakeLoggedForHourRef.current !== room.current_hour) {
       wakeLoggedForHourRef.current = room.current_hour;
       cheeseGame.logNightWake(roomCode, room.current_hour, username, me.role || 'mouse');
-      setActionTimeLeft(10);
+      setActionTimeLeft(room.action_seconds ?? 15);
     }
 
     let active = true;
@@ -352,8 +353,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
     if (botActedForHourRef.current === room.current_hour) return;
     botActedForHourRef.current = room.current_hour;
 
-    // Hours 1–6: wake bots that match, thief bot steals
-    if (room.current_hour >= 1 && room.current_hour <= 6) {
+    // Hours 1–maxNightHour: wake bots that match, thief bot steals
+    if (room.current_hour >= 1 && room.current_hour <= maxNightHour) {
       const awake = players.filter(p => isBot(p) && p.dice_hour === room.current_hour && p.role);
       awake.forEach(bot => {
         cheeseGame.logNightWake(roomCode, room.current_hour, bot.username, bot.role as CheeseRole);
@@ -389,7 +390,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   // ---- action countdown (thief auto-steals when timer hits 0) ----
   useEffect(() => {
     if (!iAmAwakeNow) return;
-    setActionTimeLeft(10);
+    setActionTimeLeft(room.action_seconds ?? 15);
     const interval = setInterval(() => {
       setActionTimeLeft(t => {
         if (t <= 1) {
@@ -578,12 +579,14 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
               className="rounded-3xl bg-zinc-900/90 border border-amber-500/30 p-4 space-y-3 shadow-2xl backdrop-blur-sm"
             >
               {/* Timer */}
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-black text-amber-400">
-                  {actionTimeLeft}
+              {(room.show_timer ?? true) && (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-black text-amber-400">
+                    {actionTimeLeft}
+                  </div>
+                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">วินาที</span>
                 </div>
-                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">วินาที</span>
-              </div>
+              )}
 
               {/* Co-wakers banner */}
               {awakeWithMe.length > 0 && (
@@ -657,8 +660,8 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
                       : '🧀 ชีสยังอยู่ตรงกลางโต๊ะ'}
                   </div>
 
-                  {/* PEEK: only when alone (no co-wakers) and not thief */}
-                  {awakeWithMe.length === 0 && (
+                  {/* PEEK: only when alone (no co-wakers), not thief, and allow_peek enabled */}
+                  {(room.allow_peek ?? true) && awakeWithMe.length === 0 && (
                     <div className="space-y-1.5">
                       {!peekedPlayer ? (
                         !showPeekList ? (

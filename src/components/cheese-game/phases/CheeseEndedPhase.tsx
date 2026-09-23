@@ -144,12 +144,12 @@ export const CheeseEndedPhase: React.FC<CheesePhaseProps> = ({ room, players, is
               {/* Who voted for whom */}
               <details className="text-[10px]">
                 <summary className={`cursor-pointer font-bold ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'}`}>
-                  ดูว่าใครโหวตใคร ▾
+                  {(room.anonymous_vote ?? false) ? 'ดูผลโหวต (ไม่เปิดเผยชื่อผู้โหวต) ▾' : 'ดูว่าใครโหวตใคร ▾'}
                 </summary>
                 <div className="mt-2 space-y-1">
-                  {votes.map(v => (
+                  {votes.map((v, i) => (
                     <div key={v.voter} className={`flex items-center gap-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                      <span className="font-bold">{v.voter}</span>
+                      <span className="font-bold">{(room.anonymous_vote ?? false) ? `ผู้โหวต ${i + 1}` : v.voter}</span>
                       <span className="text-zinc-600">→</span>
                       <span className={`font-bold ${v.target === topTargets[0]?.[0] ? 'text-rose-400' : ''}`}>{v.target}</span>
                     </div>

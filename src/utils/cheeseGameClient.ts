@@ -16,6 +16,23 @@ export interface CheeseRoom {
   winner: 'mice' | 'thief' | null;
   revealed_usernames: string[];
   created_at: string;
+  // extended settings
+  action_seconds: number;
+  night_hours: number;
+  allow_peek: boolean;
+  anonymous_vote: boolean;
+  show_timer: boolean;
+  max_players: number;
+}
+
+export interface CheeseRoomSettings {
+  accomplice_count?: number;
+  discussion_seconds?: number;
+  action_seconds?: number;
+  night_hours?: number;
+  allow_peek?: boolean;
+  anonymous_vote?: boolean;
+  show_timer?: boolean;
 }
 
 export interface CheesePlayer {
@@ -96,6 +113,12 @@ export const cheeseGame = {
       discussion_seconds: 180,
       vote_round: 1,
       revealed_usernames: [],
+      action_seconds: 15,
+      night_hours: 6,
+      allow_peek: true,
+      anonymous_vote: false,
+      show_timer: true,
+      max_players: 20,
     });
     if (error) throw error;
     await supabase.from('cheese_players').insert({
@@ -115,8 +138,7 @@ export const cheeseGame = {
     if (room.phase !== 'lobby') return { success: false, message: 'เกมเริ่มไปแล้ว เข้าร่วมไม่ได้' };
 
     const { data: existing } = await supabase.from('cheese_players').select('*').eq('room_code', code).eq('username', clean).maybeSingle();
-    if (existing) {
-      if (existing.is_kicked) return { success: false, message: 'คุณถูกเตะออกจากห้องนี้แล้ว' };
+    if (existing && !existing.is_kicked) {
       return { success: true, message: 'กลับเข้าห้องแล้ว' };
     }
 
@@ -140,10 +162,10 @@ export const cheeseGame = {
   },
 
   kickPlayer: async (roomCode: string, username: string) => {
-    await supabase.from('cheese_players').update({ is_kicked: true }).eq('room_code', roomCode).eq('username', username);
+    await supabase.from('cheese_players').delete().eq('room_code', roomCode).eq('username', username);
   },
 
-  updateSettings: async (roomCode: string, settings: { accomplice_count?: number; discussion_seconds?: number }) => {
+  updateSettings: async (roomCode: string, settings: CheeseRoomSettings) => {
     await supabase.from('cheese_rooms').update(settings).eq('room_code', roomCode);
   },
 
@@ -181,7 +203,7 @@ export const cheeseGame = {
       room_code: roomCode,
       username: p.username,
       role: roles[i],
-      dice_hour: 1 + Math.floor(Math.random() * 6), // ตี 1–5 + 6 โมง; hour 7 = post-dawn selection phase
+      dice_hour: 1 + Math.floor(Math.random() * (room?.night_hours ?? 6)), // ตี 1–N; hour N+1 = post-dawn
     }));
 
     for (const u of updates) {

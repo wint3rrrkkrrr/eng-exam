@@ -11,11 +11,17 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [accompliceCount, setAccompliceCount] = useState(room.accomplice_count);
   const [discussionMinutes, setDiscussionMinutes] = useState(Math.round(room.discussion_seconds / 60));
+  const [actionSeconds, setActionSeconds] = useState(room.action_seconds ?? 15);
+  const [nightHours, setNightHours] = useState(room.night_hours ?? 6);
+  const [allowPeek, setAllowPeek] = useState(room.allow_peek ?? true);
+  const [anonymousVote, setAnonymousVote] = useState(room.anonymous_vote ?? false);
+  const [showTimer, setShowTimer] = useState(room.show_timer ?? true);
   const [readyUsernames, setReadyUsernames] = useState<string[]>([]);
   const [iAmReady, setIAmReady] = useState(false);
 
   const botCount = players.filter(p => isBot(p)).length;
   const humanPlayers = players.filter(p => !isBot(p));
+  const maxPlayers = room.max_players ?? 20;
   const minPlayers = 3;
   const allHumansReady = humanPlayers.every(p => readyUsernames.includes(p.username));
   const canStart = players.length >= minPlayers && allHumansReady;
@@ -54,6 +60,11 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
     await cheeseGame.updateSettings(roomCode, {
       accomplice_count: accompliceCount,
       discussion_seconds: Math.max(30, discussionMinutes * 60),
+      action_seconds: actionSeconds,
+      night_hours: nightHours,
+      allow_peek: allowPeek,
+      anonymous_vote: anonymousVote,
+      show_timer: showTimer,
     });
     setShowSettings(false);
     refresh();
@@ -182,13 +193,13 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                 </button>
                 <span className="w-5 text-center text-sm font-black">{botCount}</span>
                 <button
-                  disabled={players.length >= 10}
+                  disabled={players.length >= maxPlayers}
                   onClick={async () => {
                     await cheeseGame.addBot(roomCode);
                     refresh();
                   }}
                   className={`w-7 h-7 rounded-lg font-black text-sm transition ${
-                    players.length >= 10 ? 'opacity-30 cursor-not-allowed' : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    players.length >= maxPlayers ? 'opacity-30 cursor-not-allowed' : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                   }`}
                 >
                   +
@@ -219,45 +230,94 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="space-y-3 overflow-hidden"
+                  className="space-y-4 overflow-hidden"
                 >
+                  {/* Section: บทบาท */}
+                  <p className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>⚔️ บทบาท</p>
+
                   <div className="flex items-center justify-between text-xs font-bold">
-                    <span>จำนวนลูกสมุนหนูจิ๊ด (แนะนำ {recommendedAccompliceCount(players.length)})</span>
+                    <span>ลูกสมุนหนูจิ๊ด <span className={`font-normal ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>(แนะนำ {recommendedAccompliceCount(players.length)})</span></span>
                     <div className="flex items-center gap-1">
                       {[0, 1, 2, 3].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setAccompliceCount(n)}
-                          className={`w-7 h-7 rounded-lg font-black text-xs transition ${
-                            accompliceCount === n ? 'bg-amber-400 text-zinc-950' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'
-                          }`}
-                        >
+                        <button key={n} onClick={() => setAccompliceCount(n)}
+                          className={`w-7 h-7 rounded-lg font-black text-xs transition ${accompliceCount === n ? 'bg-amber-400 text-zinc-950' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
                           {n}
                         </button>
                       ))}
                     </div>
                   </div>
+
+                  {/* Section: กลางคืน */}
+                  <p className={`text-[10px] font-black uppercase tracking-wider pt-1 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>🌙 คืน</p>
+
                   <div className="flex items-center justify-between text-xs font-bold">
-                    <span>เวลาถกเถียงตอนเช้า (นาที)</span>
+                    <span>จำนวนคืน</span>
                     <div className="flex items-center gap-1">
-                      {[2, 3, 5].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setDiscussionMinutes(n)}
-                          className={`px-2.5 h-7 rounded-lg font-black text-xs transition ${
-                            discussionMinutes === n ? 'bg-amber-400 text-zinc-950' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'
-                          }`}
-                        >
-                          {n} น.
+                      {[4, 5, 6].map(n => (
+                        <button key={n} onClick={() => setNightHours(n)}
+                          className={`px-2.5 h-7 rounded-lg font-black text-xs transition ${nightHours === n ? 'bg-amber-400 text-zinc-950' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
+                          {n} คืน
                         </button>
                       ))}
                     </div>
                   </div>
+
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span>เวลาตัดสินใจต่อคืน</span>
+                    <div className="flex items-center gap-1">
+                      {[10, 15, 20, 30].map(n => (
+                        <button key={n} onClick={() => setActionSeconds(n)}
+                          className={`px-2 h-7 rounded-lg font-black text-xs transition ${actionSeconds === n ? 'bg-amber-400 text-zinc-950' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
+                          {n}วิ
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span>แสดงตัวจับเวลาคืน</span>
+                    <button onClick={() => setShowTimer(v => !v)}
+                      className={`px-3 h-7 rounded-lg font-black text-xs transition ${showTimer ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
+                      {showTimer ? '✅ เปิด' : '❌ ปิด'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span>ระบบแอบดูเวลาคนอื่น</span>
+                    <button onClick={() => setAllowPeek(v => !v)}
+                      className={`px-3 h-7 rounded-lg font-black text-xs transition ${allowPeek ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
+                      {allowPeek ? '✅ เปิด' : '❌ ปิด'}
+                    </button>
+                  </div>
+
+                  {/* Section: กลางวัน */}
+                  <p className={`text-[10px] font-black uppercase tracking-wider pt-1 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>☀️ กลางวัน & โหวต</p>
+
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span>เวลาถกเถียงตอนเช้า</span>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 5, 10].map(n => (
+                        <button key={n} onClick={() => setDiscussionMinutes(n)}
+                          className={`px-2 h-7 rounded-lg font-black text-xs transition ${discussionMinutes === n ? 'bg-amber-400 text-zinc-950' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
+                          {n}น.
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span>โหวตแบบปิดบังชื่อ</span>
+                    <button onClick={() => setAnonymousVote(v => !v)}
+                      className={`px-3 h-7 rounded-lg font-black text-xs transition ${anonymousVote ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
+                      {anonymousVote ? '✅ เปิด' : '❌ ปิด'}
+                    </button>
+                  </div>
+
                   <button
                     onClick={handleSaveSettings}
-                    className="w-full py-2 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 active:scale-95 transition"
+                    className="w-full py-2 rounded-xl text-xs font-black bg-amber-500/20 text-amber-400 active:scale-95 transition border border-amber-500/20"
                   >
-                    บันทึกการตั้งค่า
+                    💾 บันทึกการตั้งค่า
                   </button>
                 </motion.div>
               )}

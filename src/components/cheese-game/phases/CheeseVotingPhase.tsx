@@ -97,6 +97,7 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
         <div className="flex items-center justify-center gap-3">
           <p className="text-xs font-bold text-amber-400">
             โหวตแล้ว {votes.length}/{players.length} คน
+            {(room.anonymous_vote ?? false) && <span className="ml-1.5 text-zinc-500 font-normal">(ลับ)</span>}
           </p>
           {votingSecondsLeft !== null && (
             <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${votingSecondsLeft <= 15 ? 'bg-rose-500/20 text-rose-400 animate-pulse' : 'bg-zinc-800 text-zinc-400'}`}>
