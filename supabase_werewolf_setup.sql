@@ -346,7 +346,7 @@ revoke all on function public.ww_commit_state(text, int, jsonb, jsonb, jsonb, js
 --     ซื้อ: ล็อกแถวกระเป๋า ตรวจเหรียญพอ + ยังไม่มีของ → หักเหรียญ+เพิ่มของ ใน transaction เดียว (กันกดซื้อซ้อน)
 -- ---------------------------------------------------------------------
 create or replace function public.ww_wallet_buy(p_wallet uuid, p_item text, p_price int)
-returns jsonb language plpgsql security invoker set search_path = public as $
+returns jsonb language plpgsql security invoker set search_path = public as $$
 declare w public.ww_wallets%rowtype;
 begin
   select * into w from public.ww_wallets where wallet_id = p_wallet for update;
@@ -358,10 +358,10 @@ begin
    where wallet_id = p_wallet;
   return jsonb_build_object('ok', true);
 end
-$;
+$$;
 
 create or replace function public.ww_wallet_credit(p_wallet uuid, p_amount int, p_won boolean)
-returns int language plpgsql security invoker set search_path = public as $
+returns int language plpgsql security invoker set search_path = public as $$
 declare c int;
 begin
   update public.ww_wallets
@@ -371,7 +371,7 @@ begin
    returning coins into c;
   return c;
 end
-$;
+$$;
 
 revoke all on function public.ww_wallet_buy(uuid, text, int) from public, anon, authenticated;
 revoke all on function public.ww_wallet_credit(uuid, int, boolean) from public, anon, authenticated;
