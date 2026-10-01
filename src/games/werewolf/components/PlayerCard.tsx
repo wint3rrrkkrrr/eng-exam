@@ -1,0 +1,97 @@
+import React from 'react';
+import { Crown, WifiOff } from 'lucide-react';
+import type { LobbyPlayer } from '../shared/api';
+import { parseAvatar } from '../shared/avatar';
+import { RoleIcon } from './avatar/RoleIcon';
+import { AvatarArt, GraveArt } from './avatar/AvatarArt';
+
+export interface PlayerCardProps {
+  player: LobbyPlayer;
+  isMe?: boolean;
+  selected?: boolean;
+  selectable?: boolean; // แตะเลือกได้ตอนนี้
+  dimmed?: boolean; // มีการเลือกอยู่แต่การ์ดนี้เลือกไม่ได้ → ทำให้จางลง
+  onClick?: () => void;
+  chip?: { text: string; tone: string } | null; // ป้ายด้านล่างการ์ด (เช่น "→ ส้ม", "ยังไม่โหวต")
+  badge?: number | null; // วงกลมตัวเลขมุมขวาบน (จำนวนคนเสนอชื่อ/โหวต)
+  topRight?: React.ReactNode; // ปุ่ม/ไอคอนมุมขวาบน (เช่น เชิญออก)
+  offline?: boolean; // หลุดการเชื่อมต่ออยู่
+  onRoleClick?: (roleId: string) => void; // แตะไอคอนบทของคนตาย → ดูข้อมูลบท
+}
+
+/** การ์ดผู้เล่นแบบในเกมแววูฟ: อวตารเต็มการ์ด + เลขที่นั่ง/ชื่อด้านบน · ตายแล้วเป็นป้ายหลุมศพ + ไอคอนบท (แตะดูข้อมูลบทได้) */
+export const PlayerCard: React.FC<PlayerCardProps> = ({
+  player, isMe, selected, selectable, dimmed, onClick, chip, badge, topRight, offline, onRoleClick,
+}) => {
+  const avatar = parseAvatar(player.avatar);
+  const dead = !player.isAlive;
+
+  const body = (
+    <>
+      {dead ? <GraveArt backdrop={avatar.backdrop} grave={avatar.grave} role={player.revealedRole} className="absolute inset-0 w-full h-full" /> : <AvatarArt config={avatar} className="absolute inset-0 w-full h-full" />}
+
+      {/* ชื่อ + เลขที่นั่ง (เหมือนในภาพตัวอย่าง: "1 20p") */}
+      <div className="absolute top-0 inset-x-0 px-1 pt-0.5 flex items-center justify-center gap-1 text-white font-black text-[11px] leading-tight [text-shadow:0_1px_2px_rgba(0,0,0,.75)]">
+        <span>{player.seat}</span>
+        <span className="truncate max-w-[70%]">{player.displayName}</span>
+      </div>
+
+      {offline && <span className="absolute bottom-1 left-1 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center" role="img" aria-label="หลุดการเชื่อมต่อ"><WifiOff className="w-3.5 h-3.5 text-amber-300" /></span>}
+      {player.isHost && <Crown className="absolute top-4 left-0.5 w-3.5 h-3.5 text-amber-300 drop-shadow" aria-label="เจ้าของห้อง" />}
+      {topRight && <div className="absolute top-3 right-0">{topRight}</div>}
+
+      {badge != null && badge > 0 && (
+        <div className="absolute top-4 right-1 min-w-6 h-6 px-1 rounded-full bg-red-600 border-2 border-white text-white text-[12px] font-black flex items-center justify-center shadow" aria-label={`${badge} เสียง`}>
+          {badge}
+        </div>
+      )}
+
+      {/* ไอคอนบท (ตายแล้ว/ถูกเปิดเผย) — แตะเพื่อดูข้อมูลบท */}
+      {player.revealedRole && (
+        onRoleClick ? (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={`ดูข้อมูลบท`}
+            onClick={(e) => { e.stopPropagation(); onRoleClick(player.revealedRole!); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onRoleClick(player.revealedRole!); } }}
+            className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-white/95 border border-slate-300 flex items-center justify-center text-[16px] shadow cursor-pointer active:scale-90"
+          >
+            <RoleIcon id={player.revealedRole} className="w-[78%] h-[78%]" />
+          </span>
+        ) : (
+          <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-white/90 border border-slate-300 flex items-center justify-center text-[13px] shadow"><RoleIcon id={player.revealedRole} className="w-[78%] h-[78%]" /></div>
+        )
+      )}
+
+      {chip && (
+        <div className={`absolute bottom-0 inset-x-0 px-1 py-0.5 text-center text-[10px] font-bold truncate bg-black/60 ${chip.tone}`}>{chip.text}</div>
+      )}
+      {isMe && <div className="absolute inset-0 rounded-lg ring-2 ring-amber-300 ring-inset pointer-events-none" />}
+      {selectable && !selected && <div className="absolute inset-0 rounded-lg ring-2 ring-white/70 ring-inset pointer-events-none" />}
+      {selected && <div className="absolute inset-0 rounded-lg ring-4 ring-red-500 ring-inset bg-red-500/20 pointer-events-none" />}
+    </>
+  );
+
+  const cls = `relative aspect-[4/5] w-full rounded-lg overflow-hidden bg-sky-300 border border-white/30 transition-opacity ${dimmed ? 'opacity-40' : dead ? 'opacity-90' : ''}`;
+  const label = `${player.seat} ${player.displayName}${dead ? ' (ตายแล้ว)' : ''}`;
+  if (!onClick) return <div className={cls} aria-label={label}>{body}</div>;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      aria-pressed={selected}
+      aria-label={label}
+      className={`${cls} cursor-pointer active:scale-95 transition-transform`}
+    >
+      {body}
+    </div>
+  );
+};
+
+/** ตารางการ์ดผู้เล่น 4 คอลัมน์ (เหมือนภาพตัวอย่าง) */
+export const PlayerGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="grid grid-cols-4 gap-1.5">{children}</div>
+);

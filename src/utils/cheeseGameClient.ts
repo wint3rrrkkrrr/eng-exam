@@ -123,9 +123,7 @@ export const cheeseGame = {
       allow_peek: true,
       anonymous_vote: false,
       show_timer: true,
-      show_live_votes: true,
       max_players: 20,
-      dawn_chat_seconds: 30,
     });
     if (error) throw error;
     await supabase.from('cheese_players').insert({

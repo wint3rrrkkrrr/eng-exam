@@ -2,9 +2,10 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
+import { wwDevHandler } from './netlify/functions/_shared/devBridge';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000; // อ่านจากตัวแปร PORT ได้ (ใช้ตอนเปิดพรีวิวคู่กับเซิร์ฟเวอร์อีกตัว) · ไม่ตั้ง = 3000 เหมือนเดิม
 
 // Increase payload limit for avatar base64 uploads
 app.use(express.json({ limit: '10mb' }));
@@ -226,6 +227,9 @@ app.post('/api/admin/delete-user', (req, res) => {
   saveDB();
   res.json({ success: true });
 });
+
+// เกมแววูฟ: ใช้ตรรกะชุดเดียวกับ Netlify Functions (รันในเครื่องด้วยที่เก็บในหน่วยความจำถ้าไม่มี Supabase)
+app.post('/api/ww/:route', wwDevHandler());
 
 // Vite middleware for dev / express static for prod
 async function start() {

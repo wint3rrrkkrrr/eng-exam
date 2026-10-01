@@ -16,6 +16,8 @@ import { UserProfileModal } from './components/UserProfileModal';
 import { FloatingChatWidget } from './components/FloatingChatWidget';
 import { CheeseGameApp } from './components/cheese-game/CheeseGameApp';
 import { CheeseErrorBoundary } from './components/cheese-game/CheeseErrorBoundary';
+import { WerewolfApp } from './games/werewolf/components/WerewolfApp';
+import { WerewolfErrorBoundary } from './games/werewolf/components/WerewolfErrorBoundary';
 import { supabaseSim, syncWithServer } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
@@ -178,6 +180,7 @@ export default function App() {
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [showCheeseGame, setShowCheeseGame] = useState<boolean>(false);
+  const [showWerewolfGame, setShowWerewolfGame] = useState<boolean>(false);
 
   // User details & Leaderboard landing tabs
   const [username, setUsername] = useState<string>(() => {
@@ -1006,6 +1009,14 @@ export default function App() {
     );
   }
 
+  if (showWerewolfGame) {
+    return (
+      <WerewolfErrorBoundary onBack={() => setShowWerewolfGame(false)}>
+        <WerewolfApp username={username} isDark={isDark} onBack={() => setShowWerewolfGame(false)} />
+      </WerewolfErrorBoundary>
+    );
+  }
+
   if (showLandingPage) {
     return (
       <div
@@ -1172,6 +1183,19 @@ export default function App() {
                   className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-rose-500/20 hover:scale-[1.03] cursor-pointer bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500 text-white"
                 >
                   <span>🐭🧀 เล่นเกมหนูชีส</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowWerewolfGame(true);
+                    if (soundEnabled) {
+                      try { soundFX.playTap(); } catch (e) {}
+                    }
+                  }}
+                  className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-red-500/20 hover:scale-[1.03] cursor-pointer bg-gradient-to-r from-slate-800 via-violet-800 to-red-700 text-white"
+                >
+                  <span>🐺🌕 เล่นเกมแววูฟ</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>

@@ -2,6 +2,15 @@
   publish = "dist"
   command = "npm run build"
 
+[functions]
+  directory = "netlify/functions"
+
+# เกมแววูฟ: ★ ต้องอยู่ก่อนกฎ SPA (/*) ด้านล่าง ไม่เช่นนั้น /api/ww/* จะถูกส่งไปหน้าเว็บแทน
+[[redirects]]
+  from = "/api/ww/*"
+  to = "/.netlify/functions/ww-:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
