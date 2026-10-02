@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crown, WifiOff, ZoomIn } from 'lucide-react';
+import { Crown, WifiOff } from 'lucide-react';
 import type { LobbyPlayer } from '../shared/api';
 import { parseAvatar } from '../shared/avatar';
 import { RoleIcon } from './avatar/RoleIcon';
@@ -17,7 +17,7 @@ export interface PlayerCardProps {
   topRight?: React.ReactNode; // ปุ่ม/ไอคอนมุมขวาบน (เช่น เชิญออก)
   offline?: boolean; // หลุดการเชื่อมต่ออยู่
   onRoleClick?: (roleId: string) => void; // แตะไอคอนบทของคนตาย → ดูข้อมูลบท
-  onZoom?: () => void; // ดูตัวละครแบบใหญ่ (ปุ่มแว่นขยายมุมซ้ายล่าง · ถ้าการ์ดนี้ไม่ได้ใช้เลือกเป้าหมาย แตะที่การ์ดได้เลย)
+  onZoom?: () => void; // ดูตัวละครแบบใหญ่: แตะที่การ์ด (เมื่อการ์ดนี้ไม่ได้ใช้เลือกเป้าหมาย)
 }
 
 /** การ์ดผู้เล่นแบบในเกมแววูฟ: อวตารเต็มการ์ด + เลขที่นั่ง/ชื่อด้านบน · ตายแล้วเป็นป้ายหลุมศพ + ไอคอนบท (แตะดูข้อมูลบทได้) */
@@ -37,17 +37,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
         <span className="truncate max-w-[70%]">{player.displayName}</span>
       </div>
 
-      {onZoom && onClick && (
-        <span
-          role="button"
-          tabIndex={0}
-          aria-label={`ดูตัวละครของ ${player.displayName} ใหญ่ๆ`}
-          onClick={(e) => { e.stopPropagation(); onZoom(); }}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onZoom(); } }}
-          className="absolute bottom-1 left-1 w-7 h-7 rounded-full bg-black/55 text-white flex items-center justify-center cursor-pointer active:scale-90"
-        ><ZoomIn className="w-4 h-4" /></span>
-      )}
-      {offline && <span className="absolute bottom-1 left-9 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center" role="img" aria-label="หลุดการเชื่อมต่อ"><WifiOff className="w-3.5 h-3.5 text-amber-300" /></span>}
+      {offline && <span className="absolute bottom-1 left-1 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center" role="img" aria-label="หลุดการเชื่อมต่อ"><WifiOff className="w-3.5 h-3.5 text-amber-300" /></span>}
       {player.isHost && <Crown className="absolute top-4 left-0.5 w-3.5 h-3.5 text-amber-300 drop-shadow" aria-label="เจ้าของห้อง" />}
       {topRight && <div className="absolute top-3 right-0">{topRight}</div>}
 
