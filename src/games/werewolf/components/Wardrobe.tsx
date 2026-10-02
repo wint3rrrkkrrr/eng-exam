@@ -7,6 +7,7 @@ import type { AvatarConfig, AvatarSlot, Rarity } from '../shared/avatar';
 import { VARIANTS, VARIANT_SLOTS } from '../shared/avatarExtra';
 import { COLLECTIONS } from '../shared/collections';
 import type { WalletView } from '../shared/api';
+import { playGameSound } from '../shared/sound';
 import { buyItem, ensureWallet, saveAvatar } from '../net/wallet';
 import type { WalletCreds } from '../net/wallet';
 import { AvatarArt, GraveArt } from './avatar/AvatarArt';
@@ -99,7 +100,8 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
     setError(null);
     const r = await buyItem(creds, pendingItem.id);
     setBusy(null);
-    if (!r.ok) return setError(r.errorTh);
+    if (!r.ok) { playGameSound('error'); return setError(r.errorTh); }
+    playGameSound('buy');
     setWallet(r.data);
     setDraft((d) => ({ ...d, [pendingItem.slot]: pendingItem.id }));
     setPending(null);

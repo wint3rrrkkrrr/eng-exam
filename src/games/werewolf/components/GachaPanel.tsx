@@ -138,11 +138,14 @@ export const GachaPanel: React.FC<Props> = ({ creds, wallet, draft, onWallet, on
       const base = Math.ceil(cur / 360) * 360 + 360 * 5;
       return { ...a, [w.id]: base + (360 - (target + 0.5) * segAngle) };
     });
+    // เสียงติ๊กวงล้อ: ถี่ตอนเริ่ม ช้าลงตอนใกล้หยุด
+    let t = 0;
+    for (let i = 0; i < 28; i++) { t += 60 + i * i * 0.35; const at = t; window.setTimeout(() => playGameSound('gacha_tick'), at); }
     timer.current = window.setTimeout(() => {
       setSpinning(null);
       onWallet(r.data.wallet);
       setResult(r.data);
-      if (r.data.results.some((x) => x.rarity === 'legendary')) playGameSound('win');
+      playGameSound(('rarity_' + best) as 'rarity_common');
     }, 3500);
   };
 

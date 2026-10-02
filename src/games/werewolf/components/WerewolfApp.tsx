@@ -12,6 +12,8 @@ import type { WardrobeTab } from './Wardrobe';
 import { AvatarArt } from './avatar/AvatarArt';
 import { HowToPlay } from './HowToPlay';
 import { AvatarLab } from './AvatarLab';
+import { SoundControls } from './SoundControls';
+import { setMusic } from '../shared/sound';
 
 // ดาวบนท้องฟ้าหน้าเมนู [x%, y%, ขนาด px] — ตำแหน่งคงที่ (ไม่สุ่มทุกครั้งที่วาด)
 const STARS: [number, number, number][] = Array.from({ length: 56 }, (_, i) => [(i * 37 + 11) % 100, (i * 53 + 7) % 92, 1 + (i % 4) * 0.6]);
@@ -36,6 +38,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
   const [summary, setSummary] = useState<{ coins: number; avatar: AvatarConfig } | null>(null);
   const [howTo, setHowTo] = useState(false);
   const [canSpectate, setCanSpectate] = useState(false);
+  useEffect(() => { if (!session) setMusic('menu'); }, [session]); // เพลงหน้าแรก/ร้านค้า (ในห้องใช้เพลงตามเฟส)
 
   // ล็อกอินด้วยบัญชีเว็บแล้ว → ดึงกระเป๋า/ตู้เสื้อผ้าของ "บัญชี" มาไว้ในเครื่องนี้ก่อนเข้าห้อง (เปลี่ยนเครื่องก็ได้ของเดิม)
   const refreshSummary = async () => {
@@ -144,6 +147,8 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
             </button>
           )}
         </div>
+
+        <SoundControls className="absolute top-2 right-2 z-20" />
 
         {/* พระจันทร์ + หมาป่าหอน */}
         <header className="relative text-center pt-2 ww-rise">
