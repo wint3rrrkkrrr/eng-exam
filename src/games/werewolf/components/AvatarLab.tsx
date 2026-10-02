@@ -4,6 +4,7 @@ import { AvatarArt, GraveArt } from './avatar/AvatarArt';
 import { DEFAULT_AVATAR } from '../shared/avatar';
 import type { AvatarConfig } from '../shared/avatar';
 import { COLLECTIONS } from '../shared/collections';
+import { AVATAR_ITEMS } from '../shared/avatar';
 import { setItemIds } from '../shared/avatarExtra';
 
 const setCfg = (set: 'winter' | 'nongfloat' | 'mos' | 'khowfang'): Partial<AvatarConfig> => ({
@@ -25,6 +26,14 @@ export const AvatarLab: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0b1020] text-slate-100 p-4 space-y-6">
       <h1 className="font-black">Avatar Lab</h1>
+      {([['hairStyle', 'hair2_'], ['eyes', 'eyes2_'], ['mouth', 'mouth2_']] as const).map(([slot, p]) => (
+        <section key={slot} className="space-y-2">
+          <h2 className="text-sm font-bold">{slot} ใหม่</h2>
+          <div className="grid grid-cols-8 gap-1">
+            {AVATAR_ITEMS.filter((i) => i.id.startsWith(p)).map((i) => <div key={i.id} title={i.nameTh} className="aspect-square rounded-lg overflow-hidden bg-sky-200"><AvatarArt config={{ ...DEFAULT_AVATAR, [slot]: i.id, hairColor: slot === 'hairStyle' ? 'hc_pink' : DEFAULT_AVATAR.hairColor }} still className="w-full h-full" /></div>)}
+          </div>
+        </section>
+      ))}
       <section className="space-y-2">
         <h2 className="text-sm font-bold">คอลเลกชันธีม</h2>
         <div className="grid grid-cols-6 gap-1.5">

@@ -2,6 +2,7 @@
 // ★ ราคา/สิทธิ์การเป็นเจ้าของตัดสินที่เซิร์ฟเวอร์เสมอ — ไฟล์นี้บอกแค่ "มีอะไรขายบ้าง ราคาเท่าไร"
 
 import { buildCollectionItems } from './collections';
+import { buildFaceItems } from './faceExtras';
 import { buildPatternOutfits, buildRapItems, buildSpecialItems, buildVariantItems } from './avatarExtra';
 
 export type AvatarSlot =
@@ -177,9 +178,10 @@ const BASE_ITEMS: AvatarItem[] = [
 const PATTERN_ITEMS = buildPatternOutfits();
 const RAP_ITEMS = buildRapItems();
 const COL_ITEMS = buildCollectionItems();
+const FACE_ITEMS = buildFaceItems();
 const SPECIAL_ITEMS = buildSpecialItems();
 /** ของทั้งหมด = ของเดิม + เสื้อลาย + เซ็ตพิเศษ + โทนสีของทุกชิ้นที่คูณได้ (หลายพันชิ้น) */
-export const AVATAR_ITEMS: AvatarItem[] = [...BASE_ITEMS, ...PATTERN_ITEMS, ...RAP_ITEMS, ...COL_ITEMS, ...SPECIAL_ITEMS, ...buildVariantItems([...BASE_ITEMS, ...PATTERN_ITEMS, ...RAP_ITEMS, ...COL_ITEMS])];
+export const AVATAR_ITEMS: AvatarItem[] = [...BASE_ITEMS, ...PATTERN_ITEMS, ...RAP_ITEMS, ...COL_ITEMS, ...FACE_ITEMS, ...SPECIAL_ITEMS, ...buildVariantItems([...BASE_ITEMS, ...PATTERN_ITEMS, ...RAP_ITEMS, ...COL_ITEMS])];
 
 export const ITEM_BY_ID: Record<string, AvatarItem> = Object.fromEntries(AVATAR_ITEMS.map((i) => [i.id, i]));
 

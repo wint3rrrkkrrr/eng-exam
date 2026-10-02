@@ -2,6 +2,7 @@
 // พิกัด: viewBox 0 0 100 125 · หัวอยู่กลาง (50,50) กว้าง 42 สูง 48 · ตา y=50 · ปาก y=66
 import React from 'react';
 import { RapMouth, isRapId } from './layersRap';
+import { Face2Eyes, Face2HairBack, Face2HairFront, Face2Mouth, isFace2Id } from './layersFace';
 import { INK, shade } from './colors';
 import { Blink, Move, Pulse, heartPath, starPath } from './anim';
 
@@ -18,6 +19,7 @@ const HL = 'rgba(255,255,255,.18)';
 // ================================================================ ทรงผม
 // back = ชั้นหลังหัว/ไหล่ · front = ชั้นหน้า (หน้าม้า/ยอดผม)
 export const HairBack: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
+  if (isFace2Id(id)) return <Face2HairBack id={id} c={c} />;
   const f = c.hair;
   switch (id) {
     case 'hair_bob':
@@ -74,6 +76,7 @@ export const HairBack: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
 };
 
 export const HairFront: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
+  if (isFace2Id(id)) return <Face2HairFront id={id} c={c} />;
   const f = c.hair;
   const shortCap = (
     <g>
@@ -171,6 +174,7 @@ export const HairFront: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
 
 // ================================================================ ดวงตา
 export const Eyes: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
+  if (isFace2Id(id)) return <Face2Eyes id={id} c={c} />;
   const eye = (cx: number, extra?: React.ReactNode) => (
     <g key={cx}>
       <ellipse cx={cx} cy="50" rx="5.2" ry="5.6" fill="#fff" />
@@ -346,6 +350,7 @@ export const Nose: React.FC<{ c: Ctx }> = ({ c }) => (
 
 // ================================================================ ปาก
 export const Mouth: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
+  if (isFace2Id(id)) return <Face2Mouth id={id} c={c} />;
   if (isRapId(id)) return <RapMouth id={id} c={c} />; // ฟันกริลล์ของคอลเลกชันแรปเปอร์
   const line = { stroke: INK, strokeWidth: 2, strokeLinecap: 'round' as const, fill: 'none' };
   const fang = (x: number, tip: string) => <path d={`M${x} 66.6 L${x + 1.8} 72 L${x + 3.6} 67.4 Z`} fill="#fff" stroke={INK} strokeWidth=".7" />;

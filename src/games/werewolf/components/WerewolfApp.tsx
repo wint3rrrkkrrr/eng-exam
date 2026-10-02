@@ -148,7 +148,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
           )}
         </div>
 
-        <SoundControls className="absolute top-2 right-2 z-20" />
+        <SoundControls className="justify-end -mt-2" />
 
         {/* พระจันทร์ + หมาป่าหอน */}
         <header className="relative text-center pt-2 ww-rise">
