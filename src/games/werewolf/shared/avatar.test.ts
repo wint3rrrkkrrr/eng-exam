@@ -3,6 +3,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AVATAR_ITEMS, DEFAULT_AVATAR, FREE_ITEM_IDS, ITEM_BY_ID, SLOTS, STARTING_COINS, randomFreeAvatar, sanitizeAvatar } from './avatar';
 import { VARIANTS, VARIANT_SLOTS } from './avatarExtra';
+import { COLLECTIONS } from './collections';
 import { isSpecialId } from '../components/avatar/layersSpecial';
 import type { AvatarSlot } from './avatar';
 import { AvatarArt, GraveArt } from '../components/avatar/AvatarArt';
@@ -105,6 +106,25 @@ describe('ตัววาดอวตารครบทุกชิ้น', () =
       expect(svg, id).not.toBe(unknown);
       expect(seen.has(svg), id).toBe(false);
       seen.add(svg);
+    }
+  });
+});
+
+describe('คอลเลกชันธีม', () => {
+  it('ทุกคอลเลกชัน 10 ชิ้น วาดได้และต่างจากค่าเริ่มต้น (รวมฉากหลัง/หลุมศพ ทั้งกลางวัน-คืน)', () => {
+    const base = strip(art({}));
+    const baseGrave = strip(renderToStaticMarkup(React.createElement(GraveArt, { grave: 'gr_cross', role: 'seer', still: true })));
+    const items = AVATAR_ITEMS.filter((i) => i.id.startsWith('col_') && !i.id.includes('~'));
+    expect(items.length).toBe(COLLECTIONS.length * 10);
+    for (const item of items) {
+      if (item.slot === 'grave') {
+        expect(strip(renderToStaticMarkup(React.createElement(GraveArt, { grave: item.id, role: 'seer', still: true }))), item.id).not.toBe(baseGrave);
+      } else {
+        expect(strip(art({ [item.slot]: item.id })), item.id).not.toBe(base);
+        if (item.slot === 'backdrop') expect(strip(art({ backdrop: item.id }, true)), item.id).not.toBe(strip(art({ backdrop: item.id })));
+      }
+      expect(isSpecialId(item.id)).toBe(true);
+      expect(ITEM_BY_ID[item.id + '~' + VARIANTS[0].key]?.slot).toBe(item.slot);
     }
   });
 });

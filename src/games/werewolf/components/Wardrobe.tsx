@@ -5,6 +5,7 @@ import {
 } from '../shared/avatar';
 import type { AvatarConfig, AvatarSlot, Rarity } from '../shared/avatar';
 import { VARIANTS, VARIANT_SLOTS } from '../shared/avatarExtra';
+import { COLLECTIONS } from '../shared/collections';
 import type { WalletView } from '../shared/api';
 import { buyItem, ensureWallet, saveAvatar } from '../net/wallet';
 import type { WalletCreds } from '../net/wallet';
@@ -51,7 +52,7 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
   const [rarityF, setRarityF] = useState<'all' | Rarity>('all');
   const [ownF, setOwnF] = useState<'all' | 'owned' | 'notOwned'>('all');
   const [toneF, setToneF] = useState<string>('all'); // all | base | <variant key>
-  const [collF, setCollF] = useState<'all' | 'rap'>('all'); // คอลเลกชัน
+  const [collF, setCollF] = useState<string>('all'); // คอลเลกชัน
   const [sort, setSort] = useState<'default' | 'priceAsc' | 'priceDesc'>('default');
   const [limit, setLimit] = useState(PAGE);
 
@@ -144,6 +145,7 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
       if (ownF === 'owned' && !owned.has(i.id)) return false;
       if (ownF === 'notOwned' && owned.has(i.id)) return false;
       if (collF === 'rap' && !i.id.startsWith('rap_')) return false;
+      if (collF.startsWith('col:') && !i.id.startsWith('col_' + collF.slice(4) + '_')) return false;
       if (toneF === 'base' && i.id.includes('~')) return false;
       if (toneF !== 'all' && toneF !== 'base' && !i.id.endsWith(`~${toneF}`)) return false;
       return true;
@@ -236,6 +238,7 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
                   <div className="flex gap-1.5 overflow-x-auto pb-1" aria-label="คอลเลกชัน">
                     <button className={chip(collF === 'all')} onClick={() => setCollF('all')}>ทุกคอลเลกชัน</button>
                     <button className={chip(collF === 'rap')} onClick={() => setCollF('rap')}>🎤 แรปเปอร์</button>
+                    {COLLECTIONS.map((c) => <button key={c.id} className={chip(collF === 'col:' + c.id)} onClick={() => setCollF('col:' + c.id)}>{c.emoji} {c.nameTh}</button>)}
                   </div>
                   <div className="flex gap-2">
                     {toneAble && (

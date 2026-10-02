@@ -3,6 +3,7 @@
 import React from 'react';
 import { Blink, Move, Pulse, heartPath, starPath } from './anim';
 import type { Ctx } from './layersHead';
+import { ColAccessoryBack, ColAccessoryFront, ColBackdrop, ColEffectBack, ColEffectFront, ColEyewear, ColHeadwear, ColOutfit, colGraveBody, isColId } from './layersCollections';
 import {
   RapAccessoryBack, RapAccessoryFront, RapBackdrop, RapEffectBack, RapEffectFront, RapEyewear, RapHeadwear, RapOutfit, isRapId, rapGraveBody,
 } from './layersRap';
@@ -19,7 +20,7 @@ const PAL: Record<SetKey, Pal> = {
 };
 
 /** เซ็ตพิเศษ (sp_) และคอลเลกชันแรปเปอร์ (rap_) — วาดในไฟล์นี้/layersRap แทนชั้นปกติ */
-export const isSpecialId = (id: string): boolean => id.startsWith('sp_') || isRapId(id);
+export const isSpecialId = (id: string): boolean => id.startsWith('sp_') || isRapId(id) || isColId(id);
 const setOf = (id: string): SetKey => (id.split('_')[1] as SetKey);
 
 const TORSO = 'M6 125 C6 100 26 86 50 86 C74 86 94 100 94 125 Z';
@@ -40,6 +41,7 @@ const Sparkle: React.FC<{ x: number; y: number; r?: number; fill: string; on: bo
 // ================================================================ เสื้อผ้า
 export const SpecialOutfit: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
   if (isRapId(id)) return <RapOutfit id={id} c={c} />;
+  if (isColId(id)) return <ColOutfit id={id} c={c} />;
   const set = setOf(id);
   const p = PAL[set];
   const gid = `${c.uid}so${set}`;
@@ -101,6 +103,7 @@ export const SpecialOutfit: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
 // ================================================================ หมวก/มงกุฎ
 export const SpecialHeadwear: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
   if (isRapId(id)) return <RapHeadwear id={id} c={c} />;
+  if (isColId(id)) return <ColHeadwear id={id} c={c} />;
   const set = setOf(id);
   const p = PAL[set];
   if (set === 'winter') {
@@ -166,6 +169,7 @@ export const SpecialHeadwear: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => 
 // ================================================================ แว่น/หน้ากาก
 export const SpecialEyewear: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
   if (isRapId(id)) return <RapEyewear id={id} c={c} />;
+  if (isColId(id)) return <ColEyewear id={id} c={c} />;
   const set = setOf(id);
   const p = PAL[set];
   if (set === 'winter') {
@@ -210,6 +214,7 @@ export const SpecialEyewear: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
 // ================================================================ ของประดับ: ปีก (หลัง) + ธงชื่อ (หน้า)
 export const SpecialAccessoryBack: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
   if (isRapId(id)) return <RapAccessoryBack id={id} c={c} />;
+  if (isColId(id)) return <ColAccessoryBack id={id} c={c} />;
   const set = setOf(id);
   const p = PAL[set];
   const wing = (side: 1 | -1) => (
@@ -227,6 +232,7 @@ export const SpecialAccessoryBack: React.FC<{ id: string; c: Ctx }> = ({ id, c }
 
 export const SpecialAccessoryFront: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
   if (isRapId(id)) return <RapAccessoryFront id={id} c={c} />;
+  if (isColId(id)) return <ColAccessoryFront id={id} c={c} />;
   const set = setOf(id);
   const p = PAL[set];
   const fw = set === 'mos' ? 22 : set === 'winter' ? 30 : 38;
@@ -245,6 +251,7 @@ export const SpecialAccessoryFront: React.FC<{ id: string; c: Ctx }> = ({ id, c 
 // ================================================================ เอฟเฟกต์
 export const SpecialEffectBack: React.FC<{ id: string; uid: string; anim: boolean }> = ({ id, uid, anim }) => {
   if (isRapId(id)) return <RapEffectBack id={id} uid={uid} anim={anim} />;
+  if (isColId(id)) return <ColEffectBack id={id} uid={uid} anim={anim} />;
   const set = setOf(id);
   const p = PAL[set];
   const gid = `${uid}sg${set}`;
@@ -265,6 +272,7 @@ export const SpecialEffectBack: React.FC<{ id: string; uid: string; anim: boolea
 
 export const SpecialEffectFront: React.FC<{ id: string; uid: string; anim: boolean }> = ({ id, uid, anim }) => {
   if (isRapId(id)) return <RapEffectFront id={id} uid={uid} anim={anim} />;
+  if (isColId(id)) return <ColEffectFront id={id} uid={uid} anim={anim} />;
   const set = setOf(id);
   const p = PAL[set];
   const bits: [number, number, number][] = [[10, 20, 0], [88, 30, 1.1], [18, 70, 2.2], [84, 78, 0.5], [30, 40, 1.7], [70, 18, 2.8], [6, 100, 3.3], [94, 104, 1.4]];
@@ -302,6 +310,7 @@ const Snow: React.FC<{ on: boolean; fill?: string; n?: number }> = ({ on, fill =
 
 export const SpecialBackdrop: React.FC<{ id: string; uid: string; anim: boolean; night: boolean }> = ({ id, uid, anim, night }) => {
   if (isRapId(id)) return <RapBackdrop id={id} uid={uid} anim={anim} night={night} />;
+  if (isColId(id)) return <ColBackdrop id={id} uid={uid} anim={anim} night={night} />;
   const set = setOf(id);
   const p = PAL[set];
   const sky = `${uid}sk${set}`;
@@ -398,6 +407,7 @@ export const SpecialBackdrop: React.FC<{ id: string; uid: string; anim: boolean;
 // ================================================================ หลุมศพ
 export function specialGraveBody(id: string, anim: boolean): { shape: React.ReactNode; plate: [number, number, number] } {
   if (isRapId(id)) return rapGraveBody(id, anim);
+  if (isColId(id)) return colGraveBody(id, anim);
   const set = setOf(id);
   const p = PAL[set];
   if (set === 'winter') {

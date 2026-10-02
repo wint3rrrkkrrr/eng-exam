@@ -3,6 +3,7 @@ import React from 'react';
 import { AvatarArt, GraveArt } from './avatar/AvatarArt';
 import { DEFAULT_AVATAR } from '../shared/avatar';
 import type { AvatarConfig } from '../shared/avatar';
+import { COLLECTIONS } from '../shared/collections';
 import { setItemIds } from '../shared/avatarExtra';
 
 const setCfg = (set: 'winter' | 'nongfloat' | 'mos' | 'khowfang'): Partial<AvatarConfig> => ({
@@ -24,6 +25,12 @@ export const AvatarLab: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0b1020] text-slate-100 p-4 space-y-6">
       <h1 className="font-black">Avatar Lab</h1>
+      <section className="space-y-2">
+        <h2 className="text-sm font-bold">คอลเลกชันธีม</h2>
+        <div className="grid grid-cols-6 gap-1.5">
+          {COLLECTIONS.map((c, i) => <div key={c.id} className="aspect-[4/5] rounded-xl overflow-hidden"><AvatarArt config={{ ...DEFAULT_AVATAR, outfit: `col_${c.id}_outfit_${i % 2 ? 'b' : 'a'}`, headwear: `col_${c.id}_headwear_${i % 2 ? 'a' : 'b'}`, eyewear: `col_${c.id}_eyewear`, accessory: `col_${c.id}_accessory_${i % 2 ? 'b' : 'a'}`, effect: `col_${c.id}_effect`, backdrop: `col_${c.id}_backdrop` }} night={i % 3 === 2} className="w-full h-full" /></div>)}
+        </div>
+      </section>
       <section className="space-y-2">
         <h2 className="text-sm font-bold">แรปเปอร์ 🎤</h2>
         <div className="grid grid-cols-6 gap-1.5">
