@@ -6,6 +6,7 @@ import {
 } from '../../../src/games/werewolf/engine';
 import type { GameAction, GameEvent, GameState } from '../../../src/games/werewolf/engine';
 import { publicCause } from '../../../src/games/werewolf/engine/deaths';
+import { nextRand } from '../../../src/games/werewolf/engine/rng';
 import {
   DEFAULT_LOBBY, TIME_ADJUST_SECONDS, expandRoles, sanitizeLobby,
 } from '../../../src/games/werewolf/shared/lobby';
@@ -675,6 +676,38 @@ export async function updateSettings(ctx: Ctx, headers: Headers, body: Record<st
   return ok({ ok: true, lobby: next });
 }
 
+export const MAX_BOTS_PER_CALL = 30;
+/** เจ้าของห้องเพิ่มบอทในล็อบบี้ (ไว้ทดสอบหรือเติมคนให้ครบ) — บอทเล่นเองตามเวลา ไม่มีตั๋ว/กระเป๋า ไม่ได้เหรียญ/XP */
+export async function addBots(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {
+  const a = await authenticate(ctx, headers, body.roomCode);
+  if (isFail(a)) return a;
+  if (!a.player.is_host) return fail(403, 'เฉพาะเจ้าของห้องเท่านั้นที่เพิ่มบอทได้', 'not_host');
+  if (a.room.phase !== 'lobby' || a.room.is_locked) return fail(409, 'เริ่มเกมแล้ว เพิ่มบอทไม่ได้', 'not_lobby');
+  const want = Math.floor(Number(body.count));
+  if (!Number.isFinite(want) || want < 1) return fail(400, 'จำนวนบอทไม่ถูกต้อง', 'bad_count');
+  const lobby = lobbyOf(a.room);
+  const room = Math.max(0, lobby.maxPlayers - a.players.filter((p) => !p.is_spectator).length);
+  const n = Math.min(want, MAX_BOTS_PER_CALL, room);
+  if (n < 1) return fail(403, 'ห้องเต็มแล้ว', 'full');
+
+  const names = new Set(a.players.map((p) => p.display_name.toLowerCase()));
+  let seat = a.players.reduce((m, p) => Math.max(m, p.seat), 0);
+  let label = 0;
+  for (let i = 0; i < n; i++) {
+    let name = '';
+    do { label++; name = `🤖บอท${label}`; } while (names.has(name.toLowerCase()));
+    names.add(name.toLowerCase());
+    const id = newId();
+    await ctx.store.addPlayer({
+      player_id: id, room_code: a.room.room_code, display_name: name, avatar: serializeAvatar(randomFreeAvatar(id)), seat: ++seat,
+      is_host: false, is_bot: true, is_alive: true, is_connected: true, last_seen_at: new Date(ctx.now()).toISOString(),
+      can_vote: true, death_day: null, death_cause: null, revealed_role: null, revealed_team: null,
+    }, hashToken(newToken())); // ตั๋วสุ่มที่ไม่มีใครรู้ — แอบอ้างเป็นบอทไม่ได้
+  }
+  await ctx.store.updateLobbySettings(a.room.room_code, a.room.settings); // ขยับ state_version ให้ทุกเครื่องเห็น
+  return ok({ added: n });
+}
+
 export async function releaseSeat(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {
   const a = await authenticate(ctx, headers, body.roomCode);
   if (isFail(a)) return a;
@@ -935,6 +968,37 @@ export function applyPresence(g: GameState, players: PlayerRow[], nowMs: number)
   return out;
 }
 
+/** บอทที่นั่งอยู่ในห้องทำสิ่งที่ค้างอยู่ (กลางคืน/เสนอชื่อ/โหวต/นายพรานยิง/พร้อม) · ช่วงอภิปรายสุ่มโหวตข้ามบ้างให้เกมไม่ค้างรอเวลา */
+export function applyBots(g: GameState, players: PlayerRow[], nowMs: number): PresenceResult {
+  const out: PresenceResult = { state: g, events: [], changed: false };
+  if (g.phase === 'game_over' || g.phase === 'lobby') return out;
+  const bots = players.filter((p) => p.is_bot && !p.is_spectator);
+  if (bots.length === 0) return out;
+  const slice = Math.floor(nowMs / 3000);
+  for (let pass = 0; pass < 4; pass++) {
+    let progressed = false;
+    for (const row of bots) {
+      const ep = out.state.players.find((p) => p.id === row.player_id);
+      if (!ep) continue;
+      const rng = { rngState: hashSeed(`${out.state.seed}:${out.state.dayNumber}:${out.state.phase}:${ep.id}:${pass}:${slice}`) };
+      let act: GameAction | null = botActionFor(out.state, ep.id, rng);
+      if (!act && out.state.phase === 'discussion' && ep.alive && !out.state.skipVotes.includes(ep.id) && nextRand(rng) < 0.2) {
+        act = { type: 'skip_discussion', actorId: ep.id };
+      }
+      if (!act) continue;
+      const r = applyAction(out.state, act);
+      if (r.error) continue;
+      out.state = r.state;
+      out.events = out.events.concat(r.events);
+      out.changed = true;
+      progressed = true;
+      if (out.state.phase === 'game_over') return out;
+    }
+    if (!progressed) break;
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- tick: เดินเวลา (ใครเรียกก็ได้ เซิร์ฟเวอร์ตรวจเองว่าถึงเวลาจริงไหม)
 export async function tick(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {
   const a = await authenticate(ctx, headers, body.roomCode);
@@ -953,7 +1017,10 @@ export async function tick(ctx: Ctx, headers: Headers, body: Record<string, unkn
     const endsAt = room.phase_ends_at ? Date.parse(room.phase_ends_at) : null;
     const timedOut = endsAt !== null && now >= endsAt;
 
-    const sw = applyPresence(g, await ctx.store.listPlayers(room.room_code), now);
+    const roster = await ctx.store.listPlayers(room.room_code);
+    const pr = applyPresence(g, roster, now);
+    const bt = applyBots(pr.state, roster, now);
+    const sw: PresenceResult = { state: bt.state, events: pr.events.concat(bt.events), changed: pr.changed || bt.changed };
     const r = applyAction(sw.state, { type: 'advance', timedOut });
     let next: GameState;
     let events: GameEvent[];

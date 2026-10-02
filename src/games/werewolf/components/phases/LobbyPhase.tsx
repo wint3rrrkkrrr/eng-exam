@@ -48,6 +48,18 @@ export const LobbyPhase: React.FC<Props> = ({ view, session, refresh }) => {
     await refresh();
   };
 
+  const bots = view.players.filter((p) => !p.isSpectator && p.displayName.startsWith('🤖'));
+  const room = Math.max(0, view.lobby.maxPlayers - view.players.filter((p) => !p.isSpectator).length);
+  const addBots = async (count: number) => {
+    const r = await api('add-bots', { count }, session);
+    if (!r.ok) setError(r.errorTh);
+    await refresh();
+  };
+  const clearBots = async () => {
+    for (const b of bots) await api('release-seat', { targetPlayerId: b.playerId }, session);
+    await refresh();
+  };
+
   const kick = async (playerId: string) => {
     const r = await api('release-seat', { targetPlayerId: playerId }, session);
     if (!r.ok) setError(r.errorTh);
@@ -104,6 +116,21 @@ export const LobbyPhase: React.FC<Props> = ({ view, session, refresh }) => {
             />
           ))}
         </PlayerGrid>
+        {isHost && (
+          <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-2.5 space-y-2" aria-label="บอท">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-black text-slate-300">🤖 บอท <span className="font-semibold text-slate-500">(ไว้ทดสอบ/เติมคนให้ครบ · เล่นเองอัตโนมัติ)</span></span>
+              {bots.length > 0 && <span className="text-[11px] font-bold text-violet-300">ตอนนี้ {bots.length} ตัว</span>}
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[1, 3, 5].map((n) => (
+                <button key={n} onClick={() => addBots(n)} disabled={room < 1} className="min-h-11 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">+{n}</button>
+              ))}
+              <button onClick={() => addBots(Math.max(1, Math.min(room, Math.max(5, 8) - view.players.filter((p) => !p.isSpectator).length)))} disabled={room < 1 || view.players.filter((p) => !p.isSpectator).length >= 8} className="min-h-11 rounded-lg bg-violet-800/70 hover:bg-violet-700 text-xs font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">ครบ 8 คน</button>
+            </div>
+            {bots.length > 0 && <button onClick={clearBots} className="w-full min-h-10 rounded-lg bg-red-950/50 hover:bg-red-900/50 text-xs font-bold text-red-200 cursor-pointer">ลบบอททั้งหมด</button>}
+          </div>
+        )}
       </section>
 
       <SettingsPanel view={view} session={session} refresh={refresh} />

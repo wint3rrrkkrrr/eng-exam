@@ -7,12 +7,12 @@ import type { Ctx, Headers, HandlerResult } from './handlers';
 
 export type Route =
   | 'create-room' | 'join-room' | 'update-settings' | 'start-game' | 'my-view'
-  | 'action' | 'nominate' | 'vote' | 'chat' | 'release-seat' | 'tick' | 'play-again'
+  | 'action' | 'nominate' | 'vote' | 'chat' | 'release-seat' | 'add-bots' | 'tick' | 'play-again'
   | 'gacha-spin' | 'redeem-code' | 'auth-login' | 'auth-logout' | 'auth-password' | 'auth-admin-reset' | 'progress-get' | 'leaderboard' | 'friends-list' | 'report-submit' | 'report-list' | 'report-resolve' | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'shop-buy-collection' | 'avatar-save' | 'sync-avatar';
 
 export const ROUTES: Route[] = [
   'create-room', 'join-room', 'update-settings', 'start-game', 'my-view',
-  'action', 'nominate', 'vote', 'chat', 'release-seat', 'tick', 'play-again',
+  'action', 'nominate', 'vote', 'chat', 'release-seat', 'add-bots', 'tick', 'play-again',
   'gacha-spin', 'redeem-code', 'auth-login', 'auth-logout', 'auth-password', 'auth-admin-reset', 'auth-admin-reset', 'progress-get', 'leaderboard', 'friends-list', 'report-submit', 'report-list', 'report-resolve', 'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'shop-buy-collection', 'avatar-save', 'sync-avatar',
 ];
 
@@ -35,7 +35,7 @@ export function usingMemoryStore(): boolean {
 export const RATE_LIMITS: Record<Route, [number, number]> = {
   'create-room': [10, 60], 'join-room': [30, 60], 'update-settings': [60, 60], 'start-game': [10, 60],
   'my-view': [400, 60], 'action': [240, 60], 'nominate': [60, 60], 'vote': [60, 60], 'chat': [60, 60],
-  'release-seat': [30, 60], 'tick': [120, 60], 'play-again': [10, 60],
+  'release-seat': [30, 60], 'add-bots': [20, 60], 'tick': [120, 60], 'play-again': [10, 60],
   'auth-login': [20, 60], 'auth-logout': [30, 60], 'auth-password': [10, 60], 'auth-admin-reset': [10, 60], 'progress-get': [60, 60], 'leaderboard': [60, 60], 'friends-list': [60, 60], 'report-submit': [10, 60], 'report-list': [30, 60], 'report-resolve': [30, 60], 'wallet-create': [10, 60], 'wallet-login': [20, 60], 'wallet': [120, 60],
   'shop-buy': [30, 60], 'shop-buy-collection': [20, 60], 'avatar-save': [30, 60], 'sync-avatar': [30, 60],
   'gacha-spin': [40, 60], 'redeem-code': [10, 60],
@@ -85,6 +85,7 @@ export async function dispatch(
       case 'vote': return await H.action(ctx, headers, body, 'vote');
       case 'chat': return await H.chat(ctx, headers, body);
       case 'release-seat': return await H.releaseSeat(ctx, headers, body);
+      case 'add-bots': return await H.addBots(ctx, headers, body);
       case 'tick': return await H.tick(ctx, headers, body);
       case 'play-again': return await H.playAgain(ctx, headers, body);
       case 'gacha-spin': return await H.gachaSpin(ctx, headers, body);
