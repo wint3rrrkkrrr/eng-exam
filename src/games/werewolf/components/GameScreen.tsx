@@ -127,19 +127,6 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   // ผลส่วนตัวล่าสุด (เช่น ผลส่อง) — โชว์สั้นๆ ไม่ให้พลาด · ที่เหลืออยู่แท็บ เหตุการณ์ → ของฉัน
   const mineLatest = game.privateResults.filter((r) => !(r.textTh.startsWith('💀') || r.textTh.startsWith('🔔'))).slice(-2);
 
-  // แถบ "บทของคุณ" ติดเหนือแถบแท็บ (เป็นข้อความชื่อบท แตะดูความสามารถ)
-  const roleRef = useRef<HTMLDivElement>(null);
-  const [roleH, setRoleH] = useState(0);
-  const showRoleBar = tab === 'game' && !view.spectator;
-  useEffect(() => {
-    const el = roleRef.current;
-    if (!el) { setRoleH(0); return; }
-    setRoleH(el.offsetHeight);
-    const ro = new ResizeObserver(() => setRoleH(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [showRoleBar]);
-
   // ความสูงจริงของแถบแท็บ (วัดเอง — รวมพื้นที่ปลอดภัยของเครื่อง ไม่เดาเป็น rem)
   const navRef = useRef<HTMLElement>(null);
   const [navH, setNavH] = useState(65);
@@ -155,7 +142,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   // ตารางผู้เล่น: เลือกคอลัมน์ให้ทุกคนพอดีจอ (หักแถบแท็บ + ปุ่มลงมือที่ติดล่าง)
   const playerCount = view.players.filter((p) => !p.isSpectator).length;
   // ขนาดการ์ดคงที่ทั้งเกม: คิดจากความสูงจอ − ส่วนหัว/การ์ดสถานะโดยประมาณ − แถบล่างคงที่ (ไม่ผันตามปุ่มลงมือที่โผล่/หาย) ส่วนที่เกินให้เลื่อนลงนิดหน่อย
-  const fit = useFitColumns<HTMLElement>(playerCount, navH + 44 + 8, 8, 215);
+  const fit = useFitColumns<HTMLElement>(playerCount, navH + 8, 8, 175);
   const tabBtn = (key: 'game' | 'chat' | 'events', icon: string, label: string, badge?: React.ReactNode) => (
     <button
       key={key}
@@ -181,7 +168,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
 
       {/* ===== แท็บ เกม ===== */}
       {tab === 'game' && (
-        <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + roleH + navH + 12 }}>
+        <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + navH + 12 }}>
           <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} />
 
           {/* เหตุการณ์สำคัญที่เกิดกับเรา (ตาย/ถูกเปลี่ยนฝ่าย) */}
@@ -248,7 +235,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
 
       {/* ปุ่มลงมือ: ติดเหนือแถบแท็บ เห็นตลอดในแท็บเกม */}
       {showDock && (
-        <div ref={dockRef} className="fixed inset-x-0 z-30 border-t border-slate-600/70 bg-[#0b1020]/97 backdrop-blur shadow-[0_-8px_24px_rgba(0,0,0,.45)]" style={{ bottom: navH + roleH }}>
+        <div ref={dockRef} className="fixed inset-x-0 z-30 border-t border-slate-600/70 bg-[#0b1020]/97 backdrop-blur shadow-[0_-8px_24px_rgba(0,0,0,.45)]" style={{ bottom: navH }}>
           <div className="max-w-xl mx-auto px-3 py-2 space-y-2 max-h-[42vh] overflow-y-auto">
             {hunterTurn && <HunterShot {...props} />}
             {timeLord && <TimeLordControls {...props} uses={Number(roleState.timeUses)} />}
@@ -258,25 +245,18 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
         </div>
       )}
 
-      {/* บทของคุณ: ข้อความชื่อบทอยู่เหนือแถบแท็บ */}
-      {showRoleBar && (
-        <div ref={roleRef} className="fixed inset-x-0 z-30 border-t border-slate-700/70 bg-[#0e1426]/97 backdrop-blur" style={{ bottom: navH }}>
-          <button type="button" onClick={() => setRoleInfo(game.me.role)} aria-label={`ดูข้อมูลบท ${game.me.roleNameTh}`} className="w-full max-w-xl mx-auto min-h-11 px-4 flex items-center gap-2 text-left cursor-pointer">
-            <span className="text-slate-400 text-sm">บทของคุณ:</span>
-            <b className="text-white text-base">{game.me.roleNameTh}</b>
-            {game.me.role === 'witch' && <span className="text-[11px] font-bold text-amber-300">{GAME_UI.potions(Number(roleState.heal ?? 0), Number(roleState.poison ?? 0))}</span>}
-            {game.lover && <span className="text-[11px] font-bold text-pink-300">💘 {nameOf(game.lover)}</span>}
-            <span className="ml-auto text-[11px] text-slate-500 underline">ดูความสามารถ</span>
-          </button>
-        </div>
-      )}
-
       {/* แถบแท็บล่าง */}
       <nav ref={navRef} role="tablist" aria-label="เมนูหน้าเล่น" className="fixed bottom-0 inset-x-0 z-40 border-t border-slate-600/70 bg-[#0a0f1f]/98 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <div className="max-w-xl mx-auto grid grid-cols-3">
+        <div className={`max-w-xl mx-auto grid ${view.spectator ? 'grid-cols-3' : 'grid-cols-4'}`}>
           {tabBtn('game', '🎮', 'เกม', needsMe && tab !== 'game' ? <span className="absolute top-1.5 right-[22%] px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black animate-pulse">ถึงตาคุณ!</span> : null)}
           {tabBtn('chat', '💬', 'แชท', unread > 0 ? <span className="absolute top-1.5 right-[28%] min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span> : null)}
-          {tabBtn('events', '📜', 'เหตุการณ์', newEvents > 0 ? <span className="absolute top-2 right-[30%] w-3 h-3 rounded-full bg-pink-400" aria-label="มีเหตุการณ์ใหม่" /> : null)}
+          {tabBtn('events', '📜', 'เหตุการณ์', newEvents > 0 ? <span className="absolute top-2 right-[26%] w-3 h-3 rounded-full bg-pink-400" aria-label="มีเหตุการณ์ใหม่" /> : null)}
+          {!view.spectator && (
+            <button type="button" onClick={() => setRoleInfo(game.me.role)} aria-label={`ดูข้อมูลบท ${game.me.roleNameTh}`} className="relative flex flex-col items-center justify-center gap-0.5 min-h-16 px-1 cursor-pointer text-slate-300 hover:text-white">
+              <span className="text-2xl leading-none">🎭</span>
+              <span className="text-xs font-black max-w-full truncate">{game.me.roleNameTh}</span>
+            </button>
+          )}
         </div>
       </nav>
     </>
