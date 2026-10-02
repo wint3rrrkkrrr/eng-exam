@@ -1,7 +1,7 @@
 // engine/reducer.ts — ★ ฟังก์ชันหลักเดียว: applyAction(state, action) → { state, events, error? }
 // บริสุทธิ์ (pure): ไม่แก้ state เดิม ไม่แตะเน็ตเวิร์ก/เวลา/Math.random — สุ่มด้วย rngState ใน state
 import type { ApplyResult, EngineError, GameAction, GameEvent, GameState } from './types';
-import { clone, err, ev, player } from './state';
+import { clone, err, ev, player, skipNeeded } from './state';
 import { advanceNight, applyNightAction, startNight } from './night';
 import { afterPending } from './pipeline';
 import { checkEnd, settleDeaths } from './deaths';
@@ -54,6 +54,9 @@ export function applyAction(input: GameState, action: GameAction): ApplyResult {
       }
       break;
     }
+    case 'skip_discussion':
+      error = applySkipDiscussion(s, action.actorId, events);
+      break;
     case 'time_adjust':
       error = applyTimeAdjust(s, action.actorId, action.direction, events);
       break;
@@ -64,6 +67,23 @@ export function applyAction(input: GameState, action: GameAction): ApplyResult {
 
   if (error) return fail(input, error);
   return { state: s, events };
+}
+
+// ---------------------------------------------------------------- โหวตข้ามการพูดคุย
+function applySkipDiscussion(s: GameState, actorId: string, events: GameEvent[]): EngineError | undefined {
+  if (s.phase !== 'discussion') return err('wrong_phase', 'โหวตข้ามการพูดคุยได้เฉพาะช่วงอภิปราย');
+  const actor = player(s, actorId);
+  if (!actor || !actor.alive) return err('dead', 'ผู้ที่ตายแล้วโหวตข้ามไม่ได้');
+  if (s.pendingHunters.length > 0) return err('wrong_phase', 'ตอนนี้ต้องรอนายพรานยิงก่อน');
+  if (s.skipVotes.includes(actorId)) s.skipVotes = s.skipVotes.filter((id) => id !== actorId); // กดซ้ำ = ถอนโหวต
+  else s.skipVotes.push(actorId);
+  if (s.skipVotes.length >= skipNeeded(s)) {
+    s.phase = 'nomination';
+    s.skipVotes = [];
+    events.push(ev(s, 'discussion_skipped', true, {}));
+    events.push(ev(s, 'nomination_start', true, {}));
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------- ผู้ควบคุมเวลา: เพิ่ม/ลดเวลาอภิปราย (ธงให้เซิร์ฟเวอร์ปรับเวลาจริง)
@@ -133,6 +153,7 @@ function resetDay(s: GameState): void {
   s.candidates = [];
   s.votes = {};
   s.voteRound = 1;
+  s.skipVotes = [];
 }
 
 /**

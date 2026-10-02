@@ -4,7 +4,7 @@ import type { GameState, IntentKind, PrivateResult, RoleId, Team } from './types
 import { getRole } from './roles';
 import { abilityForSlot, actingDef, canVeil, isPackRole, legalTargets, pendingSlotFor, witchOptions } from './night';
 import { publicCause } from './deaths';
-import { player } from './state';
+import { player, skipNeeded } from './state';
 import { TH } from '../text/th';
 
 /** ค่าแทน "โหวตแล้วแต่ถูกบดบัง" ในกระดานโหวตสด */
@@ -60,6 +60,8 @@ export interface MyView {
   liveVotes: Record<string, string | null> | null;
   /** โหวตรอบนี้ถูกหมาป่าบดบังหรือไม่ (ถ้าใช่ liveVotes จะบอกแค่ว่าใครโหวตแล้ว ไม่บอกว่าโหวตใคร) */
   voteVeiled: boolean;
+  /** ช่วงอภิปราย: จำนวนคนที่โหวตข้ามการพูดคุย / ที่ต้องมี / เรากดแล้วหรือยัง */
+  skipDiscussion: { votes: number; needed: number; mine: boolean } | null;
   lastExecution: GameState['lastExecution'];
   gameOver: null | {
     winners: GameState['winners'];
@@ -245,6 +247,9 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
         : { ...s.votes })
       : null,
     voteVeiled: s.phase === 'vote' && s.voteVeiled,
+    skipDiscussion: s.phase === 'discussion'
+      ? { votes: s.skipVotes.length, needed: skipNeeded(s), mine: s.skipVotes.includes(me.id) }
+      : null,
     lastExecution: s.lastExecution,
     gameOver: over
       ? {

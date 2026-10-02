@@ -355,6 +355,11 @@ export const GAME_UI = {
   },
   execution: { title: 'ผลการโหวต' },
   hunter: { title: 'นัดสุดท้ายของนายพราน', hint: 'เลือกผู้ที่จะยิง — เมื่อหมดเวลา ระบบอาจสุ่มให้' },
+  skipDiscussion: {
+    button: (votes: number, needed: number) => `⏭️ โหวตข้ามการพูดคุย (${votes}/${needed})`,
+    undo: (votes: number, needed: number) => `✓ โหวตข้ามแล้ว (${votes}/${needed}) — กดอีกครั้งเพื่อถอน`,
+    hint: 'ถ้าเกินครึ่งของผู้ที่ยังรอดกดข้าม จะเข้าสู่การเสนอชื่อทันที',
+  },
   timeLord: {
     title: (uses: number) => `คุณคือผู้ควบคุมเวลา (เหลือ ${uses} ครั้ง)`,
     hint: 'ปรับเวลาอภิปรายครั้งละ 1 นาที — ทุกคนเห็นว่าเวลาถูกปรับ แต่ไม่รู้ว่าใครกด',
@@ -385,6 +390,7 @@ export const GAME_UI = {
 };
 
 export const EVENT_TEXT = {
+  discussionSkipped: '⏭️ ส่วนใหญ่โหวตข้ามการพูดคุย — เข้าสู่การเสนอชื่อ',
   timeAdjusted: (less: boolean) => `⏱️ เวลาอภิปรายถูก${less ? 'ลด' : 'เพิ่ม'} 1 นาที`,
   nightStart: (day: number) => `🌙 คืนที่ ${day} — หมู่บ้านหลับใหล`,
   nobodyDied: '☀️ เช้าวันใหม่ — เมื่อคืนไม่มีผู้เสียชีวิต',

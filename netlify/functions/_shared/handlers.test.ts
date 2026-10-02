@@ -261,6 +261,32 @@ describe('ตัวจับเวลา (tick)', () => {
     expect(room1.phase_ends_at).toBe(ends0);
   });
 
+  it('★ โหวตข้ามการพูดคุย: เกินครึ่งแล้วเข้าเสนอชื่อทันที และตั้งเวลาเฟสใหม่ที่เซิร์ฟเวอร์', async () => {
+    const env = makeEnv();
+    const lob = await startWith(env, 6);
+    for (const a of lob.players) await H.action(env.ctx, hdr(a), { roomCode: lob.code, type: 'ready' });
+    env.clock.t += 300_000;
+    await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code });
+    env.clock.t += 9_000;
+    await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code });
+    const r0 = (await env.store.getRoom(lob.code))!;
+    expect(r0.phase).toBe('discussion');
+    const g = (await env.store.getRoomSecrets(lob.code))!.engine_state!.game;
+    const aliveIds = g.players.filter((p) => p.alive).map((p) => p.id);
+    const need = Math.floor(aliveIds.length / 2) + 1;
+    const voters = lob.players.filter((a) => aliveIds.includes(a.playerId));
+    for (let i = 0; i < need - 1; i++) {
+      expect((await H.action(env.ctx, hdr(voters[i]), { roomCode: lob.code, type: 'skip_discussion' })).status).toBe(200);
+    }
+    expect((await env.store.getRoom(lob.code))!.phase).toBe('discussion');
+    expect((await H.action(env.ctx, hdr(voters[need - 1]), { roomCode: lob.code, type: 'skip_discussion' })).status).toBe(200);
+    const r1 = (await env.store.getRoom(lob.code))!;
+    expect(r1.phase).toBe('nomination');
+    expect(r1.phase_ends_at).not.toBe(r0.phase_ends_at); // เวลาของเฟสใหม่
+    // ผู้ชมโหวตไม่ได้ · นอกช่วงอภิปรายถูกปฏิเสธ
+    expect((await H.action(env.ctx, hdr(voters[0]), { roomCode: lob.code, type: 'skip_discussion' })).status).toBe(403);
+  });
+
   it('★ ผู้ควบคุมเวลา: เพิ่ม/ลดเวลาอภิปรายจริงที่เซิร์ฟเวอร์ (ครั้งละ 60 วินาที) · ลดแล้วเหลือไม่ต่ำกว่า 10 วินาที', async () => {
     const env = makeEnv();
     const roles = ['time_lord', 'werewolf', 'villager', 'villager', 'villager', 'villager'];

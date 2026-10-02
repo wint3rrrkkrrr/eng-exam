@@ -232,6 +232,8 @@ export interface GameState {
   packExtraKill: boolean;
   /** ผู้ควบคุมเวลากดปรับ → ธงให้เซิร์ฟเวอร์ปรับ phase_ends_at แล้วเคลียร์ (เอนจินไม่รู้จักเวลา) */
   timeAdjust: 'more' | 'less' | null;
+  /** ผู้ที่กดโหวตข้ามการพูดคุยในช่วงอภิปรายวันนี้ */
+  skipVotes: string[];
   veilNext: boolean; // คืนนี้มีหมาป่าสั่งบดบัง → โหวตวันถัดไปจะซ่อนว่าใครโหวตใคร
   voteVeiled: boolean; // โหวตรอบนี้ถูกบดบังอยู่หรือไม่
   winners: Winner[] | null;
@@ -248,6 +250,7 @@ export type GameAction =
   | { type: 'vote'; actorId: string; targetId: string | null }
   | { type: 'hunter_shot'; actorId: string; targetId: string }
   | { type: 'disconnect_dead'; actorId: string } // เซิร์ฟเวอร์สั่งเมื่อหลุดเกินเวลาและตั้งค่า 'ถือว่าตาย'
+  | { type: 'skip_discussion'; actorId: string } // โหวตข้ามการพูดคุย (กดซ้ำ = ถอนโหวต) · เกินครึ่งของผู้รอด → เข้าเสนอชื่อทันที
   | { type: 'time_adjust'; actorId: string; direction: 'more' | 'less' } // ผู้ควบคุมเวลา: เพิ่ม/ลดเวลาอภิปราย (เซิร์ฟเวอร์ปรับเวลาจริง)
   | { type: 'gunner_shot'; actorId: string; targetId: string } // มือปืน: ยิงได้ตอนช่วงอภิปราย (กลางวัน)
   | { type: 'advance'; timedOut?: boolean };

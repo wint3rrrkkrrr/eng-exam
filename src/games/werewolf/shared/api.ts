@@ -85,7 +85,8 @@ export type ActionRequest =
   | { type: 'vote'; targetId: string | null }
   | { type: 'hunter_shot'; targetId: string }
   | { type: 'gunner_shot'; targetId: string }
-  | { type: 'time_adjust'; direction: 'more' | 'less' };
+  | { type: 'time_adjust'; direction: 'more' | 'less' }
+  | { type: 'skip_discussion' };
 
 export interface ChatRequest {
   channel: 'public' | 'wolf' | 'lovers' | 'dead';

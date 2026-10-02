@@ -108,9 +108,30 @@ export const MorningPhase: React.FC<Props> = ({ view }) => {
 };
 
 // ---------------------------------------------------------------- อภิปราย
-export const DiscussionPhase: React.FC<Props> = ({ view }) => (
-  <Box title={GAME_UI.discussion.title} hint={view.lobby.chatMode === 'voice' ? GAME_UI.discussion.voiceHint : GAME_UI.discussion.hint} />
-);
+export const DiscussionPhase: React.FC<Props> = ({ view, session, refresh, selection }) => {
+  const { busy, error, send } = useSend(session, refresh, selection);
+  const skip = view.game?.skipDiscussion;
+  const canSkip = !!skip && !!view.game?.me.isAlive && !view.spectator;
+  return (
+    <Box title={GAME_UI.discussion.title} hint={view.lobby.chatMode === 'voice' ? GAME_UI.discussion.voiceHint : GAME_UI.discussion.hint}>
+      {canSkip && skip && (
+        <div className="space-y-1">
+          {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+          <button
+            disabled={busy}
+            onClick={() => send({ type: 'skip_discussion' })}
+            aria-pressed={skip.mine}
+            className={`w-full min-h-12 rounded-xl border text-sm font-bold cursor-pointer disabled:opacity-50 ${skip.mine ? 'border-emerald-400 bg-emerald-950/50 text-emerald-100' : 'border-slate-600 bg-slate-800 hover:bg-slate-700'}`}
+          >
+            {busy && <Loader2 className="w-4 h-4 animate-spin inline mr-1" />}
+            {skip.mine ? GAME_UI.skipDiscussion.undo(skip.votes, skip.needed) : GAME_UI.skipDiscussion.button(skip.votes, skip.needed)}
+          </button>
+          <p className="text-[11px] text-slate-500">{GAME_UI.skipDiscussion.hint}</p>
+        </div>
+      )}
+    </Box>
+  );
+};
 
 // ---------------------------------------------------------------- เสนอชื่อ
 export const NominationPhase: React.FC<Props> = ({ view, session, refresh, selection }) => {

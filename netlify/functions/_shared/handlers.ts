@@ -576,7 +576,7 @@ async function saveState(
 }
 
 // ---------------------------------------------------------------- ส่งแอคชัน (กลางคืน/เสนอชื่อ/โหวต/ยิง/พร้อม)
-const ACTION_TYPES = new Set(['ready', 'night_action', 'nominate', 'vote', 'hunter_shot', 'gunner_shot', 'time_adjust']);
+const ACTION_TYPES = new Set(['ready', 'night_action', 'nominate', 'vote', 'hunter_shot', 'gunner_shot', 'time_adjust', 'skip_discussion']);
 
 export async function action(ctx: Ctx, headers: Headers, body: Record<string, unknown>, forceType?: ActionRequest['type']): Promise<HandlerResult> {
   const a = await authenticate(ctx, headers, body.roomCode);
@@ -598,6 +598,7 @@ export async function action(ctx: Ctx, headers: Headers, body: Record<string, un
       case 'night_action': ga = { type: 'night_action', actorId, kind: String(body.kind) as never, targets, meta }; break;
       case 'nominate': ga = { type: 'nominate', actorId, targetId: String(body.targetId) }; break;
       case 'vote': ga = { type: 'vote', actorId, targetId: body.targetId === null || body.targetId === undefined ? null : String(body.targetId) }; break;
+      case 'skip_discussion': ga = { type: 'skip_discussion', actorId }; break;
       case 'time_adjust': ga = { type: 'time_adjust', actorId, direction: body.direction === 'less' ? 'less' : 'more' }; break;
       case 'gunner_shot': ga = { type: 'gunner_shot', actorId, targetId: String(body.targetId) }; break;
       default: ga = { type: 'hunter_shot', actorId, targetId: String(body.targetId) };

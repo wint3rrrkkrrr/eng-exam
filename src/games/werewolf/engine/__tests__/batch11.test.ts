@@ -112,6 +112,59 @@ describe('นักเลียนแบบ', () => {
   });
 });
 
+describe('โหวตข้ามการพูดคุย', () => {
+  const ROLES = ['werewolf', 'seer', 'villager', 'villager', 'villager', 'villager', 'villager']; // 7 คน → ต้อง 4 เสียง
+
+  const toDiscussion = () => {
+    const g = makeGame(ROLES);
+    playNight(g, {});
+    act(g, { type: 'advance' });
+    expect(g.s.phase).toBe('discussion');
+    return g;
+  };
+
+  it('เกินครึ่งของผู้รอด (4/7) → เข้าเสนอชื่อทันที · น้อยกว่านั้นยังอยู่ช่วงอภิปราย · ประกาศให้ทุกคนรู้', () => {
+    const g = toDiscussion();
+    for (const id of ['p1', 'p2', 'p3']) act(g, { type: 'skip_discussion', actorId: id });
+    expect(g.s.phase).toBe('discussion');
+    expect(buildView(g.s, 'p4')!.skipDiscussion).toEqual({ votes: 3, needed: 4, mine: false });
+    expect(buildView(g.s, 'p1')!.skipDiscussion!.mine).toBe(true);
+    act(g, { type: 'skip_discussion', actorId: 'p4' });
+    expect(g.s.phase).toBe('nomination');
+    expect(g.s.skipVotes).toEqual([]);
+    expect(g.events.some((e) => e.kind === 'discussion_skipped' && e.public)).toBe(true);
+    expect(buildView(g.s, 'p1')!.skipDiscussion).toBeNull(); // นอกช่วงอภิปราย ไม่มีปุ่ม
+  });
+
+  it('กดซ้ำ = ถอนโหวต · ผู้ตาย/นอกช่วงอภิปรายโหวตไม่ได้', () => {
+    const g = toDiscussion();
+    act(g, { type: 'skip_discussion', actorId: 'p3' });
+    act(g, { type: 'skip_discussion', actorId: 'p3' });
+    expect(g.s.skipVotes).toEqual([]);
+    g.s.players[4].alive = false; // p5 ตาย → ผู้รอด 6 ต้อง 4 เสียง
+    expect(tryAct(g, { type: 'skip_discussion', actorId: 'p5' }).error?.code).toBe('dead');
+    act(g, { type: 'advance', timedOut: true }); // → nomination
+    expect(tryAct(g, { type: 'skip_discussion', actorId: 'p3' }).error?.code).toBe('wrong_phase');
+  });
+
+  it('จำนวนเสียงที่ต้องใช้คิดจากผู้ที่ "ยังรอด" · วันถัดไปเริ่มนับใหม่', () => {
+    const g = makeGame(ROLES);
+    g.s.players[5].alive = false;
+    g.s.players[6].alive = false; // เหลือ 5 → ต้อง 3
+    playNight(g, {});
+    act(g, { type: 'advance' });
+    act(g, { type: 'skip_discussion', actorId: 'p1' });
+    act(g, { type: 'skip_discussion', actorId: 'p2' });
+    expect(g.s.phase).toBe('discussion');
+    act(g, { type: 'skip_discussion', actorId: 'p3' });
+    expect(g.s.phase).toBe('nomination');
+    act(g, { type: 'advance', timedOut: true }); // ไม่มีใครเสนอชื่อ → คืนถัดไป
+    playNight(g, {});
+    act(g, { type: 'advance' });
+    expect(g.s.skipVotes).toEqual([]);
+  });
+});
+
 describe('ผู้ควบคุมเวลา', () => {
   // p1 ผู้ควบคุมเวลา · p2 หมาป่า · p3-p6 ชาวบ้าน
   const ROLES = ['time_lord', 'werewolf', 'villager', 'villager', 'villager', 'villager'];

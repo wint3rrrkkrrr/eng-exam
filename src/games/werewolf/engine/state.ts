@@ -94,6 +94,7 @@ export function createGame(opts: CreateGameOptions): { state: GameState | null; 
     delayed: [],
     packExtraKill: false,
     timeAdjust: null,
+    skipVotes: [],
     veilNext: false,
     voteVeiled: false,
     privateLog: {},
@@ -126,4 +127,9 @@ export function playersWithRole(s: GameState, roleId: RoleId, aliveOnly = true):
 
 export function err(code: string, messageTh: string): EngineError {
   return { code, messageTh };
+}
+
+/** จำนวนเสียงที่ต้องมีเพื่อข้ามการพูดคุย = เกินครึ่งของผู้ที่ยังรอด */
+export function skipNeeded(s: GameState): number {
+  return Math.floor(s.players.filter((p) => p.alive).length / 2) + 1;
 }
