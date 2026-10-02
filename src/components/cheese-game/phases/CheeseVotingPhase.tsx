@@ -24,7 +24,7 @@ export const CheeseVotingPhase: React.FC<CheesePhaseProps> = ({ room, players, u
   useEffect(() => {
     loadVotes();
     const unsubscribe = cheeseGame.subscribeToRoom(roomCode, loadVotes);
-    const interval = setInterval(loadVotes, 2500);
+    const interval = setInterval(() => { if (!document.hidden) loadVotes(); }, 4000);
     return () => { unsubscribe(); clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode, room.vote_round]);

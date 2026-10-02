@@ -39,7 +39,7 @@ export const CheeseRoom: React.FC<CheeseRoomProps> = ({ roomCode, username, avat
     refresh();
     const unsubscribe = cheeseGame.subscribeToRoom(roomCode, refresh);
     // Backup poll in case a realtime event is missed
-    pollRef.current = setInterval(refresh, 4000);
+    pollRef.current = setInterval(() => { if (!document.hidden) refresh(); }, 6000);
     return () => {
       unsubscribe();
       if (pollRef.current) clearInterval(pollRef.current);

@@ -41,7 +41,7 @@ export const CheeseLobbyPhase: React.FC<CheesePhaseProps> = ({ room, players, us
       }
     };
     poll();
-    const interval = setInterval(poll, 1500);
+    const interval = setInterval(() => { if (!document.hidden) poll(); }, 3000);
     return () => { active = false; clearInterval(interval); };
   }, [roomCode, username]);
 

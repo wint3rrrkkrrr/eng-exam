@@ -208,7 +208,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
       });
     };
     poll();
-    const interval = setInterval(poll, 1500);
+    const interval = setInterval(() => { if (!document.hidden) poll(); }, 3000);
     return () => { active = false; clearInterval(interval); };
   }, [room.current_hour, roomCode]);
 
@@ -227,7 +227,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         advancingRef.current = false;
         refresh();
       };
-      const interval = setInterval(tryAdvance, 1500);
+      const interval = setInterval(tryAdvance, 2500);
       tryAdvance();
       const safetyTimeout = setTimeout(async () => {
         if (cancelled || advancingRef.current) return;
@@ -272,7 +272,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         }
       };
 
-      const interval = setInterval(tryAdvance, 1500);
+      const interval = setInterval(tryAdvance, 2500);
       tryAdvance();
       const safetyTimeout = setTimeout(async () => {
         if (cancelled || advancingRef.current) return;
@@ -324,7 +324,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
       }
     };
     poll();
-    const interval = setInterval(poll, 1500);
+    const interval = setInterval(() => { if (!document.hidden) poll(); }, 3000);
     return () => { active = false; clearInterval(interval); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iAmAwakeNow, room.current_hour, roomCode]);
@@ -357,7 +357,7 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
         if (votes.includes(username)) setSkipChatVoted(true);
       };
       pollSkip();
-      const pollInterval = setInterval(pollSkip, 1500);
+      const pollInterval = setInterval(() => { if (!document.hidden) pollSkip(); }, 3000);
       return () => { clearInterval(timer); clearInterval(pollInterval); };
     }
     return () => clearInterval(timer);

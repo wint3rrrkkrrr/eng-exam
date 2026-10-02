@@ -16,11 +16,14 @@ export const CheeseDayPhase: React.FC<CheesePhaseProps> = ({ room, players, user
 
   useEffect(() => {
     let called = false;
+    let n = 0;
+    let skipVotes: string[] = [];
     const interval = setInterval(async () => {
       if (!room.day_phase_ends_at) return;
       const left = Math.max(0, Math.round((new Date(room.day_phase_ends_at).getTime() - Date.now()) / 1000));
       setSecondsLeft(left);
-      const skipVotes = await cheeseGame.getSkipDayVotes(roomCode);
+      // นาฬิกานับทุกวินาที แต่ถามเซิร์ฟเวอร์เรื่องโหวตข้าม แค่ทุก 3 วินาที (และไม่ถามตอนซ่อนแท็บ)
+      if (n++ % 3 === 0 && !document.hidden) skipVotes = await cheeseGame.getSkipDayVotes(roomCode);
       setSkipVoteCount(skipVotes.length);
       if (skipVotes.includes(username)) setSkipVoted(true);
       const shouldAdvance = (left <= 0 || skipVotes.length >= skipNeeded) && isHost && !called;

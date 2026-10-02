@@ -25,7 +25,7 @@ export const CheeseChatPanel: React.FC<CheeseChatPanelProps> = ({ roomCode, chan
   useEffect(() => {
     load();
     const unsubscribe = cheeseGame.subscribeToRoom(roomCode, load);
-    const interval = setInterval(load, 3000);
+    const interval = setInterval(() => { if (!document.hidden) load(); }, 5000);
     return () => { unsubscribe(); clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode, channel]);
