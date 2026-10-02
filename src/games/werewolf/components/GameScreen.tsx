@@ -7,6 +7,7 @@ import { useCountdown } from './useCountdown';
 import { playGameSound } from '../shared/sound';
 import { buzz } from '../shared/notify';
 import { StatusPanel } from './StatusPanel';
+import { EventsPanel } from './EventsPanel';
 import { GameChatPanel } from './GameChatPanel';
 import { PlayerCard, PlayerGrid } from './PlayerCard';
 import { RoleInfoModal } from './InfoModals';
@@ -41,6 +42,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   const roleState = game.me.roleState as { heal?: number; poison?: number; gunnerShots?: number; timeUses?: number };
   const gunnerTurn = game.me.role === 'gunner' && game.me.isAlive && view.phase === 'discussion' && (roleState.gunnerShots ?? 0) > 0;
   const [roleInfo, setRoleInfo] = useState<string | null>(null);
+  const [eventsOpen, setEventsOpen] = useState(false);
 
   // ---- การเลือกผู้เล่นบนตารางหลัก (ล้างทุกครั้งที่เปลี่ยนเฟส/ช่อง/ตา)
   const [selected, setSelected] = useState<string[]>([]);
@@ -90,7 +92,8 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
       {roleInfo && <RoleInfoModal roleId={roleInfo} onClose={() => setRoleInfo(null)} />}
 
       {/* แผงสถานะ: ช่วงไหน · ต้องทำอะไร · รออะไร · เมื่อกี้เกิดอะไรขึ้น */}
-      <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} />
+      <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} onOpenEvents={() => setEventsOpen(true)} />
+      {eventsOpen && <EventsPanel view={view} nameOf={nameOf} onClose={() => setEventsOpen(false)} />}
 
       {/* ตารางการ์ดผู้เล่น 4 คอลัมน์ — แตะการ์ดเพื่อเลือกเป้าหมาย/โหวต · แตะไอคอนบทของคนตายเพื่อดูข้อมูลบท */}
       <section aria-label={UI.game.players}>

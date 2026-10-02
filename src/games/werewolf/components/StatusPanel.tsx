@@ -13,6 +13,7 @@ interface Props {
   /** วินาทีที่เหลือ (null = ไม่มีเวลา) */
   left: number | null;
   onOpenRole: () => void;
+  onOpenEvents: () => void;
 }
 
 const TONE_STYLE: Record<Tone, { box: string; accent: string }> = {
@@ -28,7 +29,7 @@ const TONE_STYLE: Record<Tone, { box: string; accent: string }> = {
  * แผงสถานะบนสุดของหน้าเล่น — ตอบ 4 คำถามเสมอ: ตอนนี้อยู่ช่วงไหน · ถึงตาฉันไหม/ต้องกดอะไร · รออะไรอยู่ · เมื่อกี้เกิดอะไรขึ้น
  * (แทนแถบเฟส+ผู้บรรยายเดิมที่เป็นแค่ชื่อเฟสกับข้อความสั้นๆ)
  */
-export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerTurn, left, onOpenRole }) => {
+export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerTurn, left, onOpenRole, onOpenEvents }) => {
   const [showHelp, setShowHelp] = useState(false);
   const game = view.game!;
   const g = guidanceFor({ view, nameOf, hunterTurn, gunnerTurn });
@@ -43,9 +44,12 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
       <div className="rounded-2xl border border-slate-700/60 bg-black/30 px-2.5 py-2">
         <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
           <div className="text-xs font-black text-slate-200">{UI.phases[view.phase] ?? view.phase} <span className="font-semibold text-slate-400">· วันที่ {game.dayNumber}</span></div>
+          <div className="flex gap-1.5">
+          <button type="button" onClick={onOpenEvents} aria-haspopup="dialog" className="min-h-9 px-2.5 rounded-full text-[11px] font-black inline-flex items-center gap-1 cursor-pointer bg-pink-700 hover:bg-pink-600 text-white">📜 เหตุการณ์</button>
           <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} className={`min-h-9 px-2.5 rounded-full text-[11px] font-black inline-flex items-center gap-1 cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
             <HelpCircle className="w-3.5 h-3.5" /> ช่วงนี้คืออะไร
           </button>
+          </div>
         </div>
         <ol className="grid grid-cols-7 gap-1" aria-label="ขั้นตอนของวัน">
           {FLOW.map((f, i) => {
