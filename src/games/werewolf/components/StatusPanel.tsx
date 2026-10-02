@@ -43,11 +43,16 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
           <h2 className={`text-base font-black leading-snug ${style.accent}`}><span aria-hidden>{g.icon} </span>{g.title}</h2>
           {g.body && <p className="text-xs text-slate-200/85 leading-snug">{g.body}</p>}
         </div>
-        {left !== null && view.phase !== 'game_over' && (
-          <div className={`shrink-0 w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 ${urgent ? 'border-red-400 bg-red-900/70 text-red-100 animate-pulse' : 'border-white/30 bg-black/35 text-slate-100'}`} aria-label={`เหลือเวลา ${left} วินาที`}>
-            <span className="text-base font-black tabular-nums leading-none">{left}</span>
-          </div>
-        )}
+        <div className="shrink-0 flex flex-col items-center gap-1">
+          {left !== null && view.phase !== 'game_over' && (
+            <div className={`shrink-0 w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 ${urgent ? 'border-red-400 bg-red-900/70 text-red-100 animate-pulse' : 'border-white/30 bg-black/35 text-slate-100'}`} aria-label={`เหลือเวลา ${left} วินาที`}>
+              <span className="text-base font-black tabular-nums leading-none">{left}</span>
+            </div>
+          )}
+          <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} aria-label="ช่วงนี้คืออะไร" className={`min-w-9 min-h-9 rounded-full flex items-center justify-center cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-black/30 text-slate-300 hover:bg-black/45'}`}>
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {g.progress && (
@@ -64,13 +69,6 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
           {g.lines.map((l, i) => <li key={i} className="rounded-xl bg-black/30 px-3 py-1.5 text-sm font-bold break-words">{l}</li>)}
         </ul>
       )}
-
-      {/* ปุ่มช่วยเหลือ (ชื่อบทของฉันอยู่ที่แถบล่าง) */}
-      <div className="mt-1.5 flex justify-end">
-        <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} aria-label="ช่วงนี้คืออะไร" className={`min-w-9 min-h-9 rounded-full flex items-center justify-center cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-black/30 text-slate-300 hover:bg-black/45'}`}>
-          <HelpCircle className="w-4 h-4" />
-        </button>
-      </div>
 
       {showHelp && (
         <div className="mt-2 rounded-xl bg-slate-950/80 p-3 space-y-2">

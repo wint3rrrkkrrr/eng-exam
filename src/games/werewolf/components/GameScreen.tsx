@@ -154,7 +154,8 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   const TABBAR = `${navH}px`;
   // ตารางผู้เล่น: เลือกคอลัมน์ให้ทุกคนพอดีจอ (หักแถบแท็บ + ปุ่มลงมือที่ติดล่าง)
   const playerCount = view.players.filter((p) => !p.isSpectator).length;
-  const fit = useFitColumns<HTMLElement>(playerCount, navH + roleH + (showDock ? dockH : 0) + 12);
+  // ขนาดการ์ดคงที่ทั้งเกม: คิดจากความสูงจอ − ส่วนหัว/การ์ดสถานะโดยประมาณ − แถบล่างคงที่ (ไม่ผันตามปุ่มลงมือที่โผล่/หาย) ส่วนที่เกินให้เลื่อนลงนิดหน่อย
+  const fit = useFitColumns<HTMLElement>(playerCount, navH + 44 + 8, 8, 215);
   const tabBtn = (key: 'game' | 'chat' | 'events', icon: string, label: string, badge?: React.ReactNode) => (
     <button
       key={key}
