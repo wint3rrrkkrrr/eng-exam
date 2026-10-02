@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 import type { MyViewResponse } from '../shared/api';
-import { UI } from '../text/th';
+import { GAME_UI, UI } from '../text/th';
 import { FLOW, guidanceFor, phaseHelp, recentHighlights } from './guidance';
 import type { Tone } from './guidance';
 
@@ -36,7 +36,9 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
   const style = TONE_STYLE[g.tone];
   const idx = FLOW.findIndex((f) => f.phase === view.phase);
   const urgent = left !== null && left <= 10 && view.phase !== 'game_over';
-  const highlights = g.lines ? [] : recentHighlights(view.log, nameOf, 3);
+  // ตอนต้องลงมือ (action) โฟกัสที่สิ่งที่ต้องทำ ไม่แสดงเหตุการณ์ล่าสุดให้รก — ดูได้ที่ปุ่ม 📜
+  const highlights = g.lines || g.tone === 'action' ? [] : recentHighlights(view.log, nameOf, 2);
+  const rs = game.me.roleState as { heal?: number; poison?: number };
 
   return (
     <section className="space-y-2.5" aria-label="สถานะเกม">
@@ -55,9 +57,8 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
           {FLOW.map((f, i) => {
             const cur = i === idx;
             return (
-              <li key={f.phase} aria-current={cur ? 'step' : undefined} className={`rounded-lg py-1 text-center transition-all ${cur ? 'bg-violet-700 ring-2 ring-violet-300 scale-105' : i < idx ? 'bg-slate-800/70 opacity-60' : 'bg-slate-900/60'}`}>
+              <li key={f.phase} aria-current={cur ? 'step' : undefined} aria-label={f.label} title={f.label} className={`rounded-lg py-1 text-center transition-all ${cur ? 'bg-violet-700 ring-2 ring-violet-300' : i < idx ? 'bg-slate-800/70 opacity-60' : 'bg-slate-900/60'}`}>
                 <div className="text-base leading-none">{f.icon}</div>
-                <div className={`mt-0.5 text-[9px] font-bold leading-tight ${cur ? 'text-white' : 'text-slate-400'}`}>{f.label}</div>
               </li>
             );
           })}
@@ -66,12 +67,12 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
       </div>
 
       {/* สิ่งที่ต้องรู้/ต้องทำตอนนี้ */}
-      <div role="status" aria-live="polite" className={`rounded-2xl border-2 p-4 ${style.box}`}>
+      <div role="status" aria-live="polite" className={`rounded-2xl border-2 p-3 ${style.box}`}>
         <div className="flex items-start gap-3">
           <div className="text-3xl leading-none shrink-0" aria-hidden>{g.icon}</div>
           <div className="min-w-0 flex-1 space-y-1">
-            <h2 className={`text-lg font-black leading-snug ${style.accent}`}>{g.title}</h2>
-            {g.body && <p className="text-sm text-slate-200/90 leading-relaxed">{g.body}</p>}
+            <h2 className={`text-base sm:text-lg font-black leading-snug ${style.accent}`}>{g.title}</h2>
+            {g.body && <p className="text-[13px] text-slate-200/90 leading-snug">{g.body}</p>}
           </div>
           {left !== null && view.phase !== 'game_over' && (
             <div className={`shrink-0 w-16 h-16 rounded-full flex flex-col items-center justify-center border-2 ${urgent ? 'border-red-400 bg-red-900/70 text-red-100 animate-pulse' : 'border-white/30 bg-black/35 text-slate-100'}`} aria-label={`เหลือเวลา ${left} วินาที`}>
@@ -98,9 +99,13 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
 
         {/* บทของฉัน */}
         {!view.spectator && (
-          <button type="button" onClick={onOpenRole} className="mt-3 min-h-11 px-3.5 rounded-xl bg-black/30 hover:bg-black/45 text-xs font-bold inline-flex items-center gap-2 cursor-pointer">
-            🎭 บทของคุณ: <b className="text-white">{game.me.roleNameTh}</b> <span className="text-slate-400">· แตะดูความสามารถ</span>
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <button type="button" onClick={onOpenRole} className="min-h-10 px-3 rounded-xl bg-black/30 hover:bg-black/45 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">
+              🎭 <b className="text-white">{game.me.roleNameTh}</b> <span className="text-slate-400">· แตะดูความสามารถ</span>
+            </button>
+            {game.me.role === 'witch' && <span className="text-[11px] font-bold text-amber-300">{GAME_UI.potions(Number(rs.heal ?? 0), Number(rs.poison ?? 0))}</span>}
+            {game.lover && <span className="text-[11px] font-bold text-pink-300">💘 {nameOf(game.lover)}</span>}
+          </div>
         )}
       </div>
 

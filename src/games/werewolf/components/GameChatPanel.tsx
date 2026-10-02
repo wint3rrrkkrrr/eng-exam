@@ -11,6 +11,8 @@ interface Props {
   view: MyViewResponse;
   session: Session;
   refresh: () => Promise<void>;
+  /** เต็มความสูงของที่ครอบ (ใช้ในลิ้นชักแชท) */
+  fill?: boolean;
 }
 
 interface FeedItem {
@@ -26,7 +28,7 @@ interface FeedItem {
 
 // ฟีดแชท: ประกาศของระบบ (สีชมพู) รวมกับข้อความผู้เล่น ("7 busay: 16ดี") เรียงตามเวลา — เหมือนหน้าจอเกมตัวอย่าง
 // แท็บช่องลับ (หมาป่า/คู่รัก/ผู้ตาย) แสดงเฉพาะข้อความของช่องนั้น · เซิร์ฟเวอร์ตัดสินสิทธิ์ทั้งอ่านและเขียน
-export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
+export const GameChatPanel: React.FC<Props> = ({ view, session, refresh, fill }) => {
   const channels = ['public', ...view.canWrite.channels];
   const [tab, setTab] = useState<string>('public');
   const [text, setText] = useState('');
@@ -89,7 +91,7 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
   };
 
   return (
-    <section className="rounded-2xl border border-slate-700/60 bg-slate-950/70 text-slate-100 overflow-hidden">
+    <section className={`rounded-2xl border border-slate-700/60 bg-slate-950/70 text-slate-100 overflow-hidden ${fill ? 'h-full flex flex-col' : ''}`}>
       <div className="flex gap-1.5 overflow-x-auto bg-black/30 px-2 py-1.5" role="tablist">
         {channels.map((c) => (
           <button
@@ -106,7 +108,7 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
         ))}
       </div>
 
-      <div className="h-52 overflow-y-auto px-3 py-2 space-y-1 text-[15px] leading-snug" aria-live="polite">
+      <div className={`${fill ? 'flex-1 min-h-0' : 'h-52'} overflow-y-auto px-3 py-2 space-y-1 text-[15px] leading-snug`} aria-live="polite">
         {feed.length === 0 && <p className="text-xs text-slate-500">{GAME_UI.chat.empty}</p>}
         {feed.map((l) => l.kind === 'system' ? (
           <p key={l.key} className="font-semibold text-pink-300 break-words">{l.text}</p>

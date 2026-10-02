@@ -91,7 +91,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   );
 };
 
-/** ตารางการ์ดผู้เล่น 4 คอลัมน์ (เหมือนภาพตัวอย่าง) */
-export const PlayerGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="grid grid-cols-4 gap-1.5">{children}</div>
+/** ตารางการ์ดผู้เล่น: คนน้อย 4 คอลัมน์ · คนเยอะเพิ่มคอลัมน์ให้การ์ดเล็กลง จะได้เห็นทุกคนโดยไม่ต้องเลื่อนยาว */
+export const PlayerGrid: React.FC<{ children: React.ReactNode; count?: number }> = ({ children, count = 0 }) => (
+  <div className={`grid gap-1.5 ${count > 24 ? 'grid-cols-6 sm:grid-cols-7' : count > 15 ? 'grid-cols-5 sm:grid-cols-6' : count > 8 ? 'grid-cols-5' : 'grid-cols-4'}`}>{children}</div>
 );

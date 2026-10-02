@@ -9,6 +9,7 @@ interface Props {
   view: MyViewResponse;
   nameOf: (id: string) => string;
   onClose: () => void;
+  initialTab?: Tab;
 }
 
 interface DayGroup { day: number; lines: string[] }
@@ -21,8 +22,8 @@ function groupByDay(items: { day: number; text: string }[]): DayGroup[] {
 }
 
 /** ประวัติเหตุการณ์ของเกมนี้: "สาธารณะ" = ทุกคนเห็นเหมือนกัน · "ของฉัน" = เฉพาะที่เกี่ยวกับบทของเรา (ผลส่อง คู่รัก ถูกเปลี่ยนฝ่าย ฯลฯ) */
-export const EventsPanel: React.FC<Props> = ({ view, nameOf, onClose }) => {
-  const [tab, setTab] = useState<Tab>('public');
+export const EventsPanel: React.FC<Props> = ({ view, nameOf, onClose, initialTab = 'public' }) => {
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
