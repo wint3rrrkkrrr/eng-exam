@@ -9,6 +9,8 @@ import { playGameSound } from '../shared/sound';
 import { buzz } from '../shared/notify';
 import { StatusPanel } from './StatusPanel';
 import { EventsPanel } from './EventsPanel';
+import { AvatarZoom } from './AvatarZoom';
+import { isNightPhase } from './avatar/TimeContext';
 import { GameChatPanel } from './GameChatPanel';
 import { PlayerCard, PlayerGrid } from './PlayerCard';
 import { RoleInfoModal } from './InfoModals';
@@ -44,6 +46,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   const gunnerTurn = game.me.role === 'gunner' && game.me.isAlive && view.phase === 'discussion' && (roleState.gunnerShots ?? 0) > 0;
   const [roleInfo, setRoleInfo] = useState<string | null>(null);
   // แท็บล่าง 3 อัน: เกม / แชท / เหตุการณ์ — แต่ละแท็บเต็มหน้า ไม่ต้องเลื่อนหาอะไร
+  const [zoomId, setZoomId] = useState<string | null>(null); // ดูตัวละครใหญ่ๆ
   const [tab, setTab] = useState<'game' | 'chat' | 'events'>('game');
   const [eventsTab, setEventsTab] = useState<'public' | 'mine'>('public');
   const chatTotal = view.chat.public.length + (Object.values(view.chat.private) as unknown[][]).reduce((n, l) => n + l.length, 0);
@@ -153,11 +156,15 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   return (
     <>
       {roleInfo && <RoleInfoModal roleId={roleInfo} onClose={() => setRoleInfo(null)} />}
+      {zoomId && (() => {
+        const zp = view.players.find((p) => p.playerId === zoomId);
+        return zp ? <AvatarZoom player={zp} isMe={zp.playerId === view.me.playerId} night={isNightPhase(view.phase)} onClose={() => setZoomId(null)} /> : null;
+      })()}
 
       {/* ===== แท็บ เกม ===== */}
       {tab === 'game' && (
         <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + navH + 16 }}>
-          <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} />
+          <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} onZoomMe={() => setZoomId(game.me.playerId)} />
 
           {/* เหตุการณ์สำคัญที่เกิดกับเรา (ตาย/ถูกเปลี่ยนฝ่าย) */}
           {game.privateResults.filter((r) => r.textTh.startsWith('💀') || r.textTh.startsWith('🔔')).slice(-2).map((r, i) => (
@@ -190,6 +197,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
                     chip={chipOf(p)}
                     offline={!p.isConnected && p.isAlive}
                     onRoleClick={setRoleInfo}
+                    onZoom={() => setZoomId(p.playerId)}
                   />
                 );
               })}

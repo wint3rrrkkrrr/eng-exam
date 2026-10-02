@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crown, WifiOff } from 'lucide-react';
+import { Crown, WifiOff, ZoomIn } from 'lucide-react';
 import type { LobbyPlayer } from '../shared/api';
 import { parseAvatar } from '../shared/avatar';
 import { RoleIcon } from './avatar/RoleIcon';
@@ -17,11 +17,12 @@ export interface PlayerCardProps {
   topRight?: React.ReactNode; // ปุ่ม/ไอคอนมุมขวาบน (เช่น เชิญออก)
   offline?: boolean; // หลุดการเชื่อมต่ออยู่
   onRoleClick?: (roleId: string) => void; // แตะไอคอนบทของคนตาย → ดูข้อมูลบท
+  onZoom?: () => void; // ดูตัวละครแบบใหญ่ (ปุ่มแว่นขยายมุมซ้ายล่าง · ถ้าการ์ดนี้ไม่ได้ใช้เลือกเป้าหมาย แตะที่การ์ดได้เลย)
 }
 
 /** การ์ดผู้เล่นแบบในเกมแววูฟ: อวตารเต็มการ์ด + เลขที่นั่ง/ชื่อด้านบน · ตายแล้วเป็นป้ายหลุมศพ + ไอคอนบท (แตะดูข้อมูลบทได้) */
 export const PlayerCard: React.FC<PlayerCardProps> = ({
-  player, isMe, selected, selectable, dimmed, onClick, chip, badge, topRight, offline, onRoleClick,
+  player, isMe, selected, selectable, dimmed, onClick, chip, badge, topRight, offline, onRoleClick, onZoom,
 }) => {
   const avatar = parseAvatar(player.avatar);
   const dead = !player.isAlive;
@@ -36,7 +37,17 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
         <span className="truncate max-w-[70%]">{player.displayName}</span>
       </div>
 
-      {offline && <span className="absolute bottom-1 left-1 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center" role="img" aria-label="หลุดการเชื่อมต่อ"><WifiOff className="w-3.5 h-3.5 text-amber-300" /></span>}
+      {onZoom && onClick && (
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`ดูตัวละครของ ${player.displayName} ใหญ่ๆ`}
+          onClick={(e) => { e.stopPropagation(); onZoom(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onZoom(); } }}
+          className="absolute bottom-1 left-1 w-7 h-7 rounded-full bg-black/55 text-white flex items-center justify-center cursor-pointer active:scale-90"
+        ><ZoomIn className="w-4 h-4" /></span>
+      )}
+      {offline && <span className="absolute bottom-1 left-9 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center" role="img" aria-label="หลุดการเชื่อมต่อ"><WifiOff className="w-3.5 h-3.5 text-amber-300" /></span>}
       {player.isHost && <Crown className="absolute top-4 left-0.5 w-3.5 h-3.5 text-amber-300 drop-shadow" aria-label="เจ้าของห้อง" />}
       {topRight && <div className="absolute top-3 right-0">{topRight}</div>}
 
@@ -75,6 +86,12 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
   const cls = `relative aspect-[4/5] w-full rounded-lg overflow-hidden bg-sky-300 border border-white/30 transition-opacity ${dimmed ? 'opacity-40' : dead ? 'opacity-90' : ''}`;
   const label = `${player.seat} ${player.displayName}${dead ? ' (ตายแล้ว)' : ''}`;
+  if (!onClick && onZoom) {
+    // ไม่ได้ใช้เลือกเป้าหมาย → แตะการ์ดเพื่อดูตัวละครใหญ่ๆ
+    return (
+      <div role="button" tabIndex={0} onClick={onZoom} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onZoom(); } }} aria-label={`${label} — แตะเพื่อดูใหญ่ๆ`} className={`${cls} cursor-zoom-in`}>{body}</div>
+    );
+  }
   if (!onClick) return <div className={cls} aria-label={label}>{body}</div>;
   return (
     <div
@@ -92,6 +109,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 };
 
 /** ตารางการ์ดผู้เล่น: คนน้อย 4 คอลัมน์ · คนเยอะเพิ่มคอลัมน์ให้การ์ดเล็กลง จะได้เห็นทุกคนโดยไม่ต้องเลื่อนยาว */
-export const PlayerGrid: React.FC<{ children: React.ReactNode; count?: number }> = ({ children, count = 0 }) => (
-  <div className={`grid gap-1.5 ${count > 24 ? 'grid-cols-6 sm:grid-cols-7' : count > 15 ? 'grid-cols-5 sm:grid-cols-6' : count > 8 ? 'grid-cols-5' : 'grid-cols-4'}`}>{children}</div>
+export const PlayerGrid: React.FC<{ children: React.ReactNode; count?: number }> = ({ children, count = 12 }) => (
+  // คนน้อย = การ์ดใหญ่ (3 คอลัมน์) ให้เห็นชุดแต่งตัวชัดๆ · คนเยอะค่อยเพิ่มคอลัมน์
+  <div className={`grid gap-2 ${count > 24 ? 'grid-cols-6' : count > 15 ? 'grid-cols-5' : count > 9 ? 'grid-cols-4' : 'grid-cols-3'}`}>{children}</div>
 );
