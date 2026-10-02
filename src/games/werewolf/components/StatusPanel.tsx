@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 import type { MyViewResponse } from '../shared/api';
-import { GAME_UI, UI } from '../text/th';
+import { UI } from '../text/th';
 import { FLOW, guidanceFor, phaseHelp } from './guidance';
 import type { Tone } from './guidance';
 
@@ -12,7 +12,6 @@ interface Props {
   gunnerTurn: boolean;
   /** วินาทีที่เหลือ (null = ไม่มีเวลา) */
   left: number | null;
-  onOpenRole: () => void;
 }
 
 const TONE_STYLE: Record<Tone, { box: string; accent: string }> = {
@@ -28,14 +27,13 @@ const TONE_STYLE: Record<Tone, { box: string; accent: string }> = {
  * การ์ดเดียวบอกทุกอย่าง: ไอคอน + "ตอนนี้ต้องทำอะไร" + เวลา (+ ความคืบหน้า/ผลลัพธ์ถ้ามี)
  * รายละเอียดอื่น (ขั้นตอนของวัน คำอธิบายช่วงนี้) ซ่อนไว้หลังปุ่ม ? — ประวัติเหตุการณ์อยู่ที่แท็บ "เหตุการณ์"
  */
-export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerTurn, left, onOpenRole }) => {
+export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerTurn, left }) => {
   const [showHelp, setShowHelp] = useState(false);
   const game = view.game!;
   const g = guidanceFor({ view, nameOf, hunterTurn, gunnerTurn });
   const style = TONE_STYLE[g.tone];
   const idx = FLOW.findIndex((f) => f.phase === view.phase);
   const urgent = left !== null && left <= 10 && view.phase !== 'game_over';
-  const rs = game.me.roleState as { heal?: number; poison?: number };
 
   return (
     <section aria-label="สถานะเกม" className={`rounded-2xl border-2 p-2.5 ${style.box}`}>
@@ -67,16 +65,9 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
         </ul>
       )}
 
-      {/* บทของฉัน + ปุ่มช่วยเหลือ */}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {!view.spectator && (
-          <button type="button" onClick={onOpenRole} className="min-h-9 px-2.5 rounded-xl bg-black/30 hover:bg-black/45 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">
-            🎭 <b className="text-white">{game.me.roleNameTh}</b>
-          </button>
-        )}
-        {game.me.role === 'witch' && <span className="text-[11px] font-bold text-amber-300">{GAME_UI.potions(Number(rs.heal ?? 0), Number(rs.poison ?? 0))}</span>}
-        {game.lover && <span className="text-[11px] font-bold text-pink-300">💘 {nameOf(game.lover)}</span>}
-        <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} aria-label="ช่วงนี้คืออะไร" className={`ml-auto min-w-9 min-h-9 rounded-full flex items-center justify-center cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-black/30 text-slate-300 hover:bg-black/45'}`}>
+      {/* ปุ่มช่วยเหลือ (ชื่อบทของฉันอยู่ที่แถบล่าง) */}
+      <div className="mt-1.5 flex justify-end">
+        <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} aria-label="ช่วงนี้คืออะไร" className={`min-w-9 min-h-9 rounded-full flex items-center justify-center cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-black/30 text-slate-300 hover:bg-black/45'}`}>
           <HelpCircle className="w-4 h-4" />
         </button>
       </div>

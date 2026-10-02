@@ -127,6 +127,19 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   // ผลส่วนตัวล่าสุด (เช่น ผลส่อง) — โชว์สั้นๆ ไม่ให้พลาด · ที่เหลืออยู่แท็บ เหตุการณ์ → ของฉัน
   const mineLatest = game.privateResults.filter((r) => !(r.textTh.startsWith('💀') || r.textTh.startsWith('🔔'))).slice(-2);
 
+  // แถบ "บทของคุณ" ติดเหนือแถบแท็บ (เป็นข้อความชื่อบท แตะดูความสามารถ)
+  const roleRef = useRef<HTMLDivElement>(null);
+  const [roleH, setRoleH] = useState(0);
+  const showRoleBar = tab === 'game' && !view.spectator;
+  useEffect(() => {
+    const el = roleRef.current;
+    if (!el) { setRoleH(0); return; }
+    setRoleH(el.offsetHeight);
+    const ro = new ResizeObserver(() => setRoleH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [showRoleBar]);
+
   // ความสูงจริงของแถบแท็บ (วัดเอง — รวมพื้นที่ปลอดภัยของเครื่อง ไม่เดาเป็น rem)
   const navRef = useRef<HTMLElement>(null);
   const [navH, setNavH] = useState(65);
@@ -141,7 +154,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   const TABBAR = `${navH}px`;
   // ตารางผู้เล่น: เลือกคอลัมน์ให้ทุกคนพอดีจอ (หักแถบแท็บ + ปุ่มลงมือที่ติดล่าง)
   const playerCount = view.players.filter((p) => !p.isSpectator).length;
-  const fit = useFitColumns<HTMLElement>(playerCount, navH + (showDock ? dockH : 0) + 12);
+  const fit = useFitColumns<HTMLElement>(playerCount, navH + roleH + (showDock ? dockH : 0) + 12);
   const tabBtn = (key: 'game' | 'chat' | 'events', icon: string, label: string, badge?: React.ReactNode) => (
     <button
       key={key}
@@ -167,8 +180,8 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
 
       {/* ===== แท็บ เกม ===== */}
       {tab === 'game' && (
-        <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + navH + 12 }}>
-          <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} />
+        <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + roleH + navH + 12 }}>
+          <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} />
 
           {/* เหตุการณ์สำคัญที่เกิดกับเรา (ตาย/ถูกเปลี่ยนฝ่าย) */}
           {game.privateResults.filter((r) => r.textTh.startsWith('💀') || r.textTh.startsWith('🔔')).slice(-2).map((r, i) => (
@@ -234,13 +247,26 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
 
       {/* ปุ่มลงมือ: ติดเหนือแถบแท็บ เห็นตลอดในแท็บเกม */}
       {showDock && (
-        <div ref={dockRef} className="fixed inset-x-0 z-30 border-t border-slate-600/70 bg-[#0b1020]/97 backdrop-blur shadow-[0_-8px_24px_rgba(0,0,0,.45)]" style={{ bottom: TABBAR }}>
+        <div ref={dockRef} className="fixed inset-x-0 z-30 border-t border-slate-600/70 bg-[#0b1020]/97 backdrop-blur shadow-[0_-8px_24px_rgba(0,0,0,.45)]" style={{ bottom: navH + roleH }}>
           <div className="max-w-xl mx-auto px-3 py-2 space-y-2 max-h-[42vh] overflow-y-auto">
             {hunterTurn && <HunterShot {...props} />}
             {timeLord && <TimeLordControls {...props} uses={Number(roleState.timeUses)} />}
             {gunnerTurn && <GunnerShot {...props} shots={roleState.gunnerShots ?? 0} />}
             {view.phase !== 'game_over' && ['night', 'discussion', 'nomination', 'vote'].includes(view.phase) && content}
           </div>
+        </div>
+      )}
+
+      {/* บทของคุณ: ข้อความชื่อบทอยู่เหนือแถบแท็บ */}
+      {showRoleBar && (
+        <div ref={roleRef} className="fixed inset-x-0 z-30 border-t border-slate-700/70 bg-[#0e1426]/97 backdrop-blur" style={{ bottom: navH }}>
+          <button type="button" onClick={() => setRoleInfo(game.me.role)} aria-label={`ดูข้อมูลบท ${game.me.roleNameTh}`} className="w-full max-w-xl mx-auto min-h-11 px-4 flex items-center gap-2 text-left cursor-pointer">
+            <span className="text-slate-400 text-sm">บทของคุณ:</span>
+            <b className="text-white text-base">{game.me.roleNameTh}</b>
+            {game.me.role === 'witch' && <span className="text-[11px] font-bold text-amber-300">{GAME_UI.potions(Number(roleState.heal ?? 0), Number(roleState.poison ?? 0))}</span>}
+            {game.lover && <span className="text-[11px] font-bold text-pink-300">💘 {nameOf(game.lover)}</span>}
+            <span className="ml-auto text-[11px] text-slate-500 underline">ดูความสามารถ</span>
+          </button>
         </div>
       )}
 
