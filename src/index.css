@@ -1,1 +1,10 @@
 @import "tailwindcss";
+
+/* มือถือ: กันหน้าเว็บ "ซูมเอง" — (1) แตะปุ่ม/แท็บรัวๆ แล้วเบราว์เซอร์ตีความเป็นดับเบิลแตะซูม (2) แตะช่องพิมพ์ที่ฟอนต์เล็กกว่า 16px แล้ว iOS ซูมเข้า */
+button, [role="button"], [role="tab"], a, label, summary, select, input, textarea {
+  touch-action: manipulation;
+}
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+@media (pointer: coarse) {
+  input, select, textarea { font-size: max(16px, 1em); }
+}
