@@ -8,12 +8,12 @@ import type { Ctx, Headers, HandlerResult } from './handlers';
 export type Route =
   | 'create-room' | 'join-room' | 'update-settings' | 'start-game' | 'my-view'
   | 'action' | 'nominate' | 'vote' | 'chat' | 'release-seat' | 'tick' | 'play-again'
-  | 'gacha-spin' | 'redeem-code' | 'auth-login' | 'auth-logout' | 'auth-password' | 'auth-admin-reset' | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
+  | 'gacha-spin' | 'redeem-code' | 'auth-login' | 'auth-logout' | 'auth-password' | 'auth-admin-reset' | 'progress-get' | 'leaderboard' | 'friends-list' | 'report-submit' | 'report-list' | 'report-resolve' | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
 
 export const ROUTES: Route[] = [
   'create-room', 'join-room', 'update-settings', 'start-game', 'my-view',
   'action', 'nominate', 'vote', 'chat', 'release-seat', 'tick', 'play-again',
-  'gacha-spin', 'redeem-code', 'auth-login', 'auth-logout', 'auth-password', 'auth-admin-reset', 'auth-admin-reset', 'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
+  'gacha-spin', 'redeem-code', 'auth-login', 'auth-logout', 'auth-password', 'auth-admin-reset', 'auth-admin-reset', 'progress-get', 'leaderboard', 'friends-list', 'report-submit', 'report-list', 'report-resolve', 'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
 ];
 
 let cachedStore: WwStore | null = null;
@@ -36,13 +36,13 @@ export const RATE_LIMITS: Record<Route, [number, number]> = {
   'create-room': [10, 60], 'join-room': [30, 60], 'update-settings': [60, 60], 'start-game': [10, 60],
   'my-view': [400, 60], 'action': [240, 60], 'nominate': [60, 60], 'vote': [60, 60], 'chat': [60, 60],
   'release-seat': [30, 60], 'tick': [120, 60], 'play-again': [10, 60],
-  'auth-login': [20, 60], 'auth-logout': [30, 60], 'auth-password': [10, 60], 'auth-admin-reset': [10, 60], 'wallet-create': [10, 60], 'wallet-login': [20, 60], 'wallet': [120, 60],
+  'auth-login': [20, 60], 'auth-logout': [30, 60], 'auth-password': [10, 60], 'auth-admin-reset': [10, 60], 'progress-get': [60, 60], 'leaderboard': [60, 60], 'friends-list': [60, 60], 'report-submit': [10, 60], 'report-list': [30, 60], 'report-resolve': [30, 60], 'wallet-create': [10, 60], 'wallet-login': [20, 60], 'wallet': [120, 60],
   'shop-buy': [30, 60], 'avatar-save': [30, 60], 'sync-avatar': [30, 60],
   'gacha-spin': [40, 60], 'redeem-code': [10, 60],
 };
 
 // ต้องมีตั๋วผู้เล่น/กระเป๋าถึงจะรู้ตัวตน — เส้นทางอื่นนับตาม IP
-const IP_ONLY: Route[] = ['create-room', 'join-room', 'auth-login', 'auth-logout', 'auth-password', 'wallet-create', 'wallet-login'];
+const IP_ONLY: Route[] = ['leaderboard', 'progress-get', 'friends-list', 'report-list', 'report-resolve', 'create-room', 'join-room', 'auth-login', 'auth-logout', 'auth-password', 'wallet-create', 'wallet-login'];
 
 export interface DispatchOptions {
   /** เปิดตัวจำกัดความถี่ (ค่าเริ่มต้น: เปิดเมื่อใช้ Supabase จริง · ที่เก็บในหน่วยความจำ/เทสต์ปิดไว้) */
@@ -93,6 +93,12 @@ export async function dispatch(
       case 'auth-logout': return await H.authLogout(ctx, body);
       case 'auth-password': return await H.authPassword(ctx, body);
       case 'auth-admin-reset': return await H.authAdminReset(ctx, body);
+      case 'progress-get': return await H.progressGet(ctx, body);
+      case 'leaderboard': return await H.leaderboard(ctx);
+      case 'friends-list': return await H.friendsList(ctx, body);
+      case 'report-submit': return await H.reportSubmit(ctx, headers, body);
+      case 'report-list': return await H.reportList(ctx, body);
+      case 'report-resolve': return await H.reportResolve(ctx, body);
       case 'wallet-create': return await H.walletCreate(ctx);
       case 'wallet-login': return await H.walletLogin(ctx, body);
       case 'wallet': return await H.walletGet(ctx, headers);

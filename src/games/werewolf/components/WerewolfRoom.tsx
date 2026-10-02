@@ -12,6 +12,8 @@ import { NightContext, isNightPhase } from './avatar/TimeContext';
 import { RoomInfoPanel } from './InfoModals';
 import { SpectatorScreen } from './SpectatorScreen';
 import { musicForPhase, playGameSound, setMusic } from '../shared/sound';
+import { buzz, notifyIfHidden } from '../shared/notify';
+import { EventBanner, useBanner } from './EventBanner';
 import { SoundControls } from './SoundControls';
 
 interface Props {
@@ -51,7 +53,7 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
       }
     }
     const alive = view.game?.me.isAlive ?? null;
-    if (wasAlive.current === true && alive === false) playGameSound('death');
+    if (wasAlive.current === true && alive === false) { playGameSound('death'); buzz([200, 80, 200]); notifyIfHidden('แววูฟ', '💀 คุณเสียชีวิตแล้ว', 'ww-death'); }
     if (alive !== null) wasAlive.current = alive;
   }, [view?.phase, view?.game?.me.isAlive]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -64,6 +66,16 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
     if (view?.phase === 'lobby' && n !== null && playerCount.current !== null && n > playerCount.current) playGameSound('join');
     playerCount.current = n;
   }, [view?.players.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ถึงตาคุณ (ใช้ความสามารถ/โหวต/ยิง) → สั่น + แจ้งเตือนถ้าสลับแท็บอยู่
+  const myTurn = view?.game?.myTurn.isMyTurn ?? false;
+  const wasMyTurn = useRef(false);
+  useEffect(() => {
+    if (myTurn && !wasMyTurn.current) { buzz(100); notifyIfHidden('แววูฟ', '⏰ ถึงตาคุณแล้ว', 'ww-turn'); }
+    wasMyTurn.current = myTurn;
+  }, [myTurn]);
+
+  const banner = useBanner(view, (id) => view?.players.find((p) => p.playerId === id)?.displayName ?? '?');
 
   const leave = useCallback((msg?: string) => {
     clearSession(session.roomCode);
@@ -142,6 +154,7 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
     <NightContext.Provider value={isNightPhase(view.phase)}>
     <div className="min-h-screen relative text-slate-100">
       <PhaseBackdrop phase={view.phase} />
+      <EventBanner banner={banner} />
       {showInfo && <RoomInfoPanel view={view} onClose={() => setShowInfo(false)} />}
       <div className="relative z-10 max-w-xl mx-auto px-4 py-4 space-y-4">
         <header className="flex items-center justify-between gap-3">

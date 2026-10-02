@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Lock, User, KeyRound, Trash2, X, RefreshCw, CheckCircle2, AlertCircle, LogOut, Users, Award, UserCheck, Laptop } from 'lucide-react';
 import { supabaseSim, UserAggregatedLeaderboard, adminResetPassword } from '../utils/supabaseSim';
+import { REPORT_REASON_TH, listReports, resolveReport } from '../games/werewolf/net/community';
+import type { ReportRow } from '../games/werewolf/net/community';
 
 interface AdminModalProps {
   theme: 'light' | 'dark';
@@ -82,6 +84,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  const [reports, setReports] = useState<ReportRow[] | null>(null);
+  const [reportsErr, setReportsErr] = useState<string | null>(null);
+  const loadReports = async () => {
+    const r = await listReports('open');
+    if (r.ok) { setReports(r.data.rows); setReportsErr(null); } else { setReports([]); setReportsErr(r.errorTh); }
+  };
+  const closeReport = async (id: string, status: 'resolved' | 'dismissed') => {
+    const note = status === 'resolved' ? (window.prompt('บันทึกสิ่งที่ทำ (ไม่บังคับ)') ?? '') : '';
+    await resolveReport(id, status, note);
+    await loadReports();
+  };
+
   const handleResetPassword = async (username: string) => {
     const pw = window.prompt(`ตั้งรหัสผ่านใหม่ให้ "${username}" (อย่างน้อย 8 ตัว)\n— ต้องล็อกอินเกมด้วยบัญชีแอดมิน และเซิร์ฟเวอร์ต้องตั้ง WW_ADMINS ไว้`);
     if (!pw) return;
@@ -100,7 +114,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   return (
     <>
       {/* Floating Admin Trigger Button at Bottom Right */}
-      <div className="fixed bottom-3 right-3 z-50">
+      <div className="fixed bottom-20 md:bottom-3 right-3 z-50">
         <button
           onClick={() => {
             onPlayTap?.();
@@ -294,6 +308,31 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       ))}
                     </div>
                   )}
+
+                  {/* รายงานผู้เล่นจากเกมแววูฟ */}
+                  <div className="pt-4 space-y-2 text-left">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-black text-sm text-rose-300">🚩 รายงานผู้เล่น (แววูฟ)</h4>
+                      <button onClick={loadReports} className="text-xs font-bold text-amber-300 underline">{reports === null ? 'โหลดรายงาน' : 'รีเฟรช'}</button>
+                    </div>
+                    {reportsErr && <p className="text-[11px] text-red-300">{reportsErr}</p>}
+                    {reports && reports.length === 0 && !reportsErr && <p className="text-[11px] text-zinc-400">ไม่มีรายงานที่รอตรวจสอบ ✅</p>}
+                    {reports && reports.length > 0 && (
+                      <div className="max-h-64 overflow-y-auto rounded-xl border border-zinc-800 divide-y divide-zinc-800 text-xs">
+                        {reports.map((r) => (
+                          <div key={r.id} className="p-3 space-y-1.5">
+                            <div><span className="font-black text-rose-300">{r.target_name}</span> <span className="text-zinc-400">ถูกรายงานโดย {r.reporter_name} · ห้อง {r.room_code}</span></div>
+                            <div className="text-zinc-200">{REPORT_REASON_TH[r.reason] ?? r.reason}{r.detail ? ` — ${r.detail}` : ''}</div>
+                            <div className="text-[10px] text-zinc-500">{new Date(r.created_at).toLocaleString('th-TH')}</div>
+                            <div className="flex gap-2">
+                              <button onClick={() => closeReport(r.id, 'resolved')} className="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 font-bold">ดำเนินการแล้ว</button>
+                              <button onClick={() => closeReport(r.id, 'dismissed')} className="px-3 py-1 rounded-lg bg-zinc-700/50 text-zinc-300 font-bold">ไม่รับเรื่อง</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </motion.div>

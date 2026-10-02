@@ -106,3 +106,38 @@ describe('ออกจากระบบ / เปลี่ยนรหัสผ�
     expect((await H.walletLogin(ctx, { username: 'forgetful', sessionToken: victim })).status).toBe(401);
   });
 });
+
+describe('เปลี่ยนเครื่อง: เงิน/ชุดต้องตามบัญชี', () => {
+  const login = async (ctx: Ctx, username: string) => tok(await H.authLogin(ctx, { username, password: 'secret99', mode: 'login' }));
+
+  it('★ เครื่อง A มีกระเป๋าเก่า (ซื้อของแล้ว ยังไม่ผูกบัญชี) → เครื่อง B เปิดก่อน → เครื่อง A ตามมา: ของ/เหรียญรวมกัน ไม่สูญ', async () => {
+    const { ctx, store } = make();
+    await H.authLogin(ctx, { username: 'mover', password: 'secret99', mode: 'register' });
+    // เครื่อง A: กระเป๋าเก่าแบบไม่ผูกบัญชี ซื้อของไว้
+    const a = (await H.walletCreate(ctx)).body as { walletId: string; token: string };
+    await H.shopBuy(ctx, { 'x-ww-wallet-id': a.walletId, 'x-ww-wallet-token': a.token }, { itemId: 'hw_cap' });
+    const aBefore = (await store.getWallet(a.walletId))!;
+    expect(aBefore.owned).toContain('hw_cap');
+    // เครื่อง B ล็อกอินก่อน (ไม่มีกระเป๋าเครื่อง) → ได้กระเป๋าใหม่ของบัญชี
+    const b = (await H.walletLogin(ctx, { username: 'mover', sessionToken: await login(ctx, 'mover') })).body as { walletId: string; wallet: { coins: number; owned: string[] } };
+    expect(b.wallet.owned).not.toContain('hw_cap');
+    // เครื่อง A ล็อกอินตามมา พร้อมกระเป๋าเก่า → รวมเข้าบัญชี
+    const merged = (await H.walletLogin(ctx, { username: 'mover', sessionToken: await login(ctx, 'mover'), walletId: a.walletId, walletToken: a.token })).body as { walletId: string; wallet: { coins: number; owned: string[] } };
+    expect(merged.walletId).toBe(b.walletId); // ใช้กระเป๋าของบัญชีเดียวกัน
+    expect(merged.wallet.owned).toContain('hw_cap');
+    expect(merged.wallet.coins).toBe(b.wallet.coins + aBefore.coins);
+    // กระเป๋าเก่าถูกปิด: ล็อกอินซ้ำพร้อมกระเป๋าเก่าไม่รวมซ้ำ (เหรียญไม่งอกเพิ่ม)
+    const again = (await H.walletLogin(ctx, { username: 'mover', sessionToken: await login(ctx, 'mover'), walletId: a.walletId, walletToken: a.token })).body as { wallet: { coins: number } };
+    expect(again.wallet.coins).toBe(merged.wallet.coins);
+  });
+
+  it('บัญชีที่ผูกกระเป๋าแล้ว ล็อกอินจากเครื่องใหม่ (ไม่มีกระเป๋าเครื่อง) → ได้กระเป๋า/ของเดิมครบ', async () => {
+    const { ctx } = make();
+    await H.authLogin(ctx, { username: 'phoenix', password: 'secret99', mode: 'register' });
+    const first = (await H.walletLogin(ctx, { username: 'phoenix', sessionToken: await login(ctx, 'phoenix') })).body as { walletId: string; token: string };
+    await H.shopBuy(ctx, { 'x-ww-wallet-id': first.walletId, 'x-ww-wallet-token': first.token }, { itemId: 'hw_cap' });
+    const second = (await H.walletLogin(ctx, { username: 'phoenix', sessionToken: await login(ctx, 'phoenix') })).body as { walletId: string; wallet: { owned: string[] } };
+    expect(second.walletId).toBe(first.walletId);
+    expect(second.wallet.owned).toContain('hw_cap');
+  });
+});

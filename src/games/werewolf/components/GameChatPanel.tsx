@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { Flag, Send, VolumeX } from 'lucide-react';
+import { ReportDialog } from './ReportDialog';
 import { GAME_UI, UI } from '../text/th';
 import { api } from '../net/werewolfClient';
 import type { Session } from '../net/werewolfClient';
@@ -17,6 +18,7 @@ interface FeedItem {
   at: number;
   kind: 'system' | 'chat';
   seat?: number;
+  playerId?: string;
   name?: string;
   text: string;
   mine?: boolean;
@@ -30,6 +32,17 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  // ปิดเสียงผู้เล่นที่รบกวน (เฉพาะฝั่งเรา ข้อความยังอยู่บนเซิร์ฟเวอร์) — จำไว้ตลอดแท็บนี้
+  const [muted, setMuted] = useState<string[]>(() => {
+    try { return JSON.parse(sessionStorage.getItem('ww_muted_players') ?? '[]') as string[]; } catch { return []; }
+  });
+  const [peek, setPeek] = useState<string[]>([]);
+  const [reporting, setReporting] = useState<{ id: string; name: string } | null>(null);
+  const toggleMute = (id: string) => {
+    const next = muted.includes(id) ? muted.filter((x) => x !== id) : [...muted, id];
+    setMuted(next);
+    try { sessionStorage.setItem('ww_muted_players', JSON.stringify(next)); } catch { /* ไม่เป็นไร */ }
+  };
 
   const active = channels.includes(tab) ? tab : 'public';
   const seatOf = (id: string) => view.players.find((p) => p.playerId === id)?.seat;
@@ -37,7 +50,7 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
 
   const feed: FeedItem[] = useMemo(() => {
     const chatLines = (active === 'public' ? view.chat.public : view.chat.private[active] ?? []).map((l): FeedItem => ({
-      key: `c${l.id}`, at: Date.parse(l.createdAt), kind: 'chat', seat: seatOf(l.playerId), name: l.displayName, text: l.text, mine: l.playerId === view.me.playerId,
+      key: `c${l.id}`, at: Date.parse(l.createdAt), kind: 'chat', playerId: l.playerId, seat: seatOf(l.playerId), name: l.displayName, text: l.text, mine: l.playerId === view.me.playerId,
     }));
     if (active !== 'public') return chatLines;
     const system = currentGameEvents(view.log).flatMap((e) =>
@@ -62,14 +75,17 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
     bottom.current?.scrollIntoView({ block: 'nearest' });
   }, [feed.length, active]);
 
+  const post = async (t: string) => {
+    const r = await api('chat', { channel: active, text: t }, session);
+    setError(r.ok ? null : r.errorTh);
+    await refresh();
+  };
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     const t = text.trim();
     if (!t || closedReason) return;
     setText('');
-    const r = await api('chat', { channel: active, text: t }, session);
-    setError(r.ok ? null : r.errorTh);
-    await refresh();
+    await post(t);
   };
 
   return (
@@ -94,10 +110,26 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
         {feed.length === 0 && <p className="text-xs text-slate-500">{GAME_UI.chat.empty}</p>}
         {feed.map((l) => l.kind === 'system' ? (
           <p key={l.key} className="font-semibold text-pink-300 break-words">{l.text}</p>
+        ) : l.playerId && muted.includes(l.playerId) && !peek.includes(l.key) ? (
+          <p key={l.key} className="text-xs text-slate-500">
+            🔇 ซ่อนข้อความของ {l.name}{' '}
+            <button type="button" onClick={() => setPeek((p) => [...p, l.key])} className="underline cursor-pointer">ดู</button>{' · '}
+            <button type="button" onClick={() => toggleMute(l.playerId!)} className="underline cursor-pointer">เลิกปิดเสียง</button>
+          </p>
         ) : (
           <p key={l.key} className="break-words">
             <span className={`font-black ${l.mine ? 'text-amber-300' : 'text-white'}`}>{l.seat ? `${l.seat} ` : ''}{l.name}</span>
             <span className="text-slate-200">: {l.text}</span>
+            {!l.mine && l.playerId && (
+              <button type="button" onClick={() => toggleMute(l.playerId!)} aria-label={`ปิดเสียง ${l.name}`} title="ปิดเสียงผู้เล่นนี้" className="ml-1.5 inline-flex align-middle p-1 text-slate-600 hover:text-slate-300 cursor-pointer">
+                <VolumeX className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {!l.mine && l.playerId && (
+              <button type="button" onClick={() => setReporting({ id: l.playerId!, name: l.name ?? '?' })} aria-label={`รายงาน ${l.name}`} title="รายงานผู้เล่นนี้" className="inline-flex align-middle p-1 text-slate-600 hover:text-red-300 cursor-pointer">
+                <Flag className="w-3.5 h-3.5" />
+              </button>
+            )}
           </p>
         ))}
         <div ref={bottom} />
@@ -106,6 +138,13 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
       {closedReason ? (
         <p className="bg-black/30 px-3 py-2.5 text-xs text-slate-400">{closedReason}</p>
       ) : (
+        <>
+        {/* ปุ่มตอบเร็ว: คนพิมพ์ช้าบนมือถือแตะส่งได้เลย */}
+        <div className="flex gap-1.5 overflow-x-auto bg-black/30 px-2 pt-2 border-t border-slate-800" aria-label="ตอบเร็ว">
+          {['👍', '😂', '🤔', '😡', '😱', '🙏', 'สงสัยคนนี้', 'เห็นด้วย', 'ไม่ใช่ฉัน!'].map((q) => (
+            <button key={q} type="button" onClick={() => void post(q)} className="shrink-0 min-h-10 px-3 rounded-full bg-slate-800 hover:bg-slate-700 text-sm font-bold text-slate-100 cursor-pointer">{q}</button>
+          ))}
+        </div>
         <form onSubmit={send} className="flex gap-2 bg-black/30 px-2 py-2 border-t border-slate-800">
           <input
             value={text}
@@ -118,8 +157,10 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
             <Send className="w-4 h-4" />
           </button>
         </form>
+        </>
       )}
       {error && <p className="bg-black/30 px-3 pb-2 text-xs text-red-300">{error}</p>}
+      {reporting && <ReportDialog session={session} targetPlayerId={reporting.id} targetName={reporting.name} onClose={() => setReporting(null)} />}
     </section>
   );
 };

@@ -86,6 +86,21 @@ export interface PublicEventRecord extends EventRow {
 }
 
 /** กระเป๋าเงินของผู้เล่น (ผูกกับอุปกรณ์ด้วยตั๋วกระเป๋า ไม่เกี่ยวกับห้อง) — เหรียญ/ของที่ซื้อ/อวตารที่ใส่ */
+export interface ReportInput {
+  reporter_name: string;
+  reporter_username: string | null;
+  target_name: string;
+  room_code: string;
+  reason: string;
+  detail: string;
+}
+export interface ReportRow extends ReportInput {
+  id: string;
+  created_at: string;
+  status: string;
+  note: string;
+}
+
 export interface WalletRow {
   wallet_id: string;
   coins: number;
@@ -140,6 +155,11 @@ export interface WwStore {
   getWalletTokenHash(walletId: string): Promise<string | null>;
   getWallet(walletId: string): Promise<WalletRow | null>;
   getWalletByUsername(username: string): Promise<WalletRow | null>;
+  /**
+   * รวมกระเป๋าเก่าของเครื่อง (ยังไม่ผูกบัญชี) เข้ากระเป๋าของบัญชี: เหรียญ/สถิติบวกกัน · ของรวมกัน · อวตารใช้ของบัญชี (ถ้าว่างใช้ของเครื่อง)
+   * กระเป๋าเก่าถูก "ปิด" (ศูนย์เหรียญ ไม่มีของ ติดป้าย merged:) กันรวมซ้ำ/ใช้ซ้ำ — คืน false ถ้ามีคนผูก/รวมกระเป๋านี้ไปก่อนแล้ว
+   */
+  walletAbsorb(intoId: string, fromId: string): Promise<boolean>;
   /** ผูกกระเป๋ากับบัญชี + ตั้งตั๋วของกระเป๋าให้ตรงกับบัญชี (ล็อกอินเครื่องไหนก็ใช้กระเป๋าเดียวกัน) */
   bindWalletToAccount(walletId: string, username: string, tokenHash: string): Promise<void>;
   // ---- บัญชีผู้ใช้ของเว็บ (ตาราง winter_credentials/winter_sessions — เบราว์เซอร์อ่าน/เขียนไม่ได้เลย)
@@ -158,6 +178,23 @@ export interface WwStore {
   deleteSessionsExcept(username: string, keepTokenHash: string): Promise<void>;
   /** มีบัญชีชื่อนี้อยู่แล้วหรือไม่ (ไม่สนตัวพิมพ์ใหญ่/เล็ก) */
   credentialExistsIgnoreCase(username: string): Promise<boolean>;
+  // ---- ความก้าวหน้า (ตาราง ww_progress ผูกกับชื่อบัญชี) · เพื่อน · รายงาน
+  /** ข้อมูลความก้าวหน้าดิบของบัญชี (null = ยังไม่เคยเล่น) — ให้ normalizeProgress แปลงก่อนใช้ */
+  getProgress(username: string): Promise<unknown | null>;
+  saveProgress(username: string, progress: { xp: number; stats: { games: number; wins: number } }): Promise<void>;
+  /** อันดับตาม XP (มากไปน้อย) */
+  listTopProgress(limit: number): Promise<{ username: string; xp: number; wins: number; games: number }[]>;
+  /** มีกี่คนที่ XP มากกว่าค่านี้ (ใช้หาอันดับ = ค่านี้ + 1) */
+  countProgressAbove(xp: number): Promise<number>;
+  /** เพิ่มเหรียญให้กระเป๋า (ไม่นับเป็นเกมที่เล่น) */
+  walletAddCoins(walletId: string, amount: number): Promise<void>;
+  /** รายชื่อเพื่อนของบัญชี (จากตาราง winter_friends ของเว็บหลัก) */
+  getFriendNames(username: string): Promise<string[]>;
+  /** เวลาใช้งานล่าสุดของแต่ละชื่อ (ISO) จาก winter_users */
+  getLastActive(usernames: string[]): Promise<Record<string, string>>;
+  insertReport(r: ReportInput): Promise<void>;
+  listReports(status: string, limit: number): Promise<ReportRow[]>;
+  resolveReport(id: string, status: string, note: string): Promise<boolean>;
   /** นับคำขอในหน้าต่างเวลา — คืน true ถ้ายังไม่เกินลิมิต (atomic) */
   rateHit(key: string, limit: number, windowSeconds: number): Promise<boolean>;
   walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult>;

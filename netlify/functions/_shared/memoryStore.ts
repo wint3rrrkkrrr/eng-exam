@@ -1,6 +1,6 @@
 // _shared/memoryStore.ts — ที่เก็บในหน่วยความจำ: ใช้ทดสอบ และรันเกมในเครื่องโดยไม่ต้องมี Supabase
 // (ข้อมูลหายเมื่อปิดโปรแกรม · ไม่มี Realtime — ไคลเอนต์ใช้การดึงซ้ำ (poll) แทน)
-import type {
+import type { ReportInput, ReportRow,
   BuyResult, SpinResult, ChatRecord, Commit, EventRow, PlayerRow, PublicEventRecord, RoomRow, RoomSecrets, WalletRow, WwStore,
 } from './store';
 
@@ -134,6 +134,21 @@ export class MemoryStore implements WwStore {
     if (w) { w.username = username; w.token_hash = tokenHash; }
   }
 
+  async walletAbsorb(intoId: string, fromId: string) {
+    const a = this.wallets.get(intoId);
+    const f = this.wallets.get(fromId);
+    if (!a || !f || f.username || intoId === fromId) return false;
+    a.coins += f.coins;
+    a.games_played += f.games_played;
+    a.wins += f.wins;
+    a.owned = [...a.owned, ...f.owned.filter((x) => !a.owned.includes(x))];
+    if (!a.avatar && f.avatar) a.avatar = clone(f.avatar);
+    f.username = `merged:${fromId}`;
+    f.coins = 0;
+    f.owned = [];
+    return true;
+  }
+
   async getCredential(username: string) {
     return this.credentials.get(username) ?? null;
   }
@@ -159,6 +174,62 @@ export class MemoryStore implements WwStore {
   async getSession(tokenHash: string) {
     const s = this.sessions.get(tokenHash);
     return s ? { ...s } : null;
+  }
+
+  progress = new Map<string, { xp: number; stats: { games: number; wins: number } }>();
+  friends = new Map<string, string[]>();
+  lastActive = new Map<string, string>();
+  reports: ReportRow[] = [];
+
+  async getProgress(username: string) {
+    const p = this.progress.get(username);
+    return p ? clone(p) : null;
+  }
+
+  async saveProgress(username: string, progress: { xp: number; stats: { games: number; wins: number } }) {
+    this.progress.set(username, clone(progress));
+  }
+
+  async listTopProgress(limit: number) {
+    return [...this.progress.entries()]
+      .map(([username, p]) => ({ username, xp: p.xp, wins: p.stats.wins, games: p.stats.games }))
+      .sort((a, b) => b.xp - a.xp || a.username.localeCompare(b.username))
+      .slice(0, limit);
+  }
+
+  async countProgressAbove(xp: number) {
+    return [...this.progress.values()].filter((p) => p.xp > xp).length;
+  }
+
+  async walletAddCoins(walletId: string, amount: number) {
+    const w = this.wallets.get(walletId);
+    if (w) w.coins += Math.max(0, Math.floor(amount));
+  }
+
+  async getFriendNames(username: string) {
+    return [...(this.friends.get(username) ?? [])];
+  }
+
+  async getLastActive(usernames: string[]) {
+    const out: Record<string, string> = {};
+    for (const u of usernames) { const t = this.lastActive.get(u); if (t) out[u] = t; }
+    return out;
+  }
+
+  async insertReport(r: ReportInput) {
+    this.reports.push({ ...r, id: `r${this.reports.length + 1}`, created_at: new Date().toISOString(), status: 'open', note: '' });
+  }
+
+  async listReports(status: string, limit: number) {
+    return this.reports.filter((r) => status === 'all' || r.status === status).slice(-limit).reverse().map((r) => ({ ...r }));
+  }
+
+  async resolveReport(id: string, status: string, note: string) {
+    const r = this.reports.find((x) => x.id === id);
+    if (!r) return false;
+    r.status = status;
+    r.note = note;
+    return true;
   }
 
   async deleteSession(tokenHash: string) {

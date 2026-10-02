@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  BuyResult, SpinResult, ChatRecord, Commit, EventRow, PlayerRow, PublicEventRecord, RoomRow, RoomSecrets, WalletRow, WwStore,
+  ReportInput, ReportRow, BuyResult, SpinResult, ChatRecord, Commit, EventRow, PlayerRow, PublicEventRecord, RoomRow, RoomSecrets, WalletRow, WwStore,
 } from './store';
 
 function must<T>(res: { data: T | null; error: { message: string; code?: string } | null }, what: string): T {
@@ -130,6 +130,23 @@ export class SupabaseStore implements WwStore {
     must(await this.db.from('ww_wallets').update({ username, token_hash: tokenHash }).eq('wallet_id', walletId) as never, 'bindWalletToAccount');
   }
 
+  async walletAbsorb(intoId: string, fromId: string): Promise<boolean> {
+    if (intoId === fromId) return false;
+    const [a, f] = await Promise.all([this.getWallet(intoId), this.getWallet(fromId)]);
+    if (!a || !f || f.username) return false;
+    // 1) "จอง" กระเป๋าเก่าก่อน (เงื่อนไข username ยังว่าง = ชนะได้ครั้งเดียว กันรวมซ้ำจากสองเครื่องพร้อมกัน) พร้อมศูนย์เหรียญ/ของ
+    const claim = await this.db.from('ww_wallets').update({ username: `merged:${fromId}`, coins: 0, owned: [] }).eq('wallet_id', fromId).is('username', null).select('wallet_id');
+    if (claim.error) throw new Error(`walletAbsorb claim: ${claim.error.message}`);
+    if (!claim.data || claim.data.length === 0) return false;
+    // 2) บวกเข้ากระเป๋าของบัญชี
+    const cur = (await this.getWallet(intoId)) ?? a;
+    const owned = [...cur.owned, ...f.owned.filter((x) => !cur.owned.includes(x))];
+    const patch: Record<string, unknown> = { coins: cur.coins + f.coins, owned, games_played: cur.games_played + f.games_played, wins: cur.wins + f.wins };
+    if (!cur.avatar && f.avatar) patch.avatar = f.avatar;
+    must(await this.db.from('ww_wallets').update(patch).eq('wallet_id', intoId) as never, 'walletAbsorb merge');
+    return true;
+  }
+
   async getCredential(username: string): Promise<string | null> {
     const res = await this.db.from('winter_credentials').select('password_hash').eq('username', username).maybeSingle();
     return (must(res, 'getCredential') as { password_hash: string } | null)?.password_hash ?? null;
@@ -159,6 +176,64 @@ export class SupabaseStore implements WwStore {
   async getSession(tokenHash: string): Promise<{ username: string; expires_at: string } | null> {
     const res = await this.db.from('winter_sessions').select('username,expires_at').eq('token_hash', tokenHash).maybeSingle();
     return must(res, 'getSession') as { username: string; expires_at: string } | null;
+  }
+
+  async getProgress(username: string): Promise<unknown | null> {
+    const res = await this.db.from('ww_progress').select('data').eq('username', username).maybeSingle();
+    return (must(res, 'getProgress') as { data: unknown } | null)?.data ?? null;
+  }
+
+  async saveProgress(username: string, progress: { xp: number; stats: { games: number; wins: number } }): Promise<void> {
+    must(await this.db.from('ww_progress').upsert(
+      { username, xp: progress.xp, wins: progress.stats.wins, games: progress.stats.games, data: progress, updated_at: new Date().toISOString() },
+      { onConflict: 'username' },
+    ) as never, 'saveProgress');
+  }
+
+  async listTopProgress(limit: number): Promise<{ username: string; xp: number; wins: number; games: number }[]> {
+    const res = await this.db.from('ww_progress').select('username,xp,wins,games').order('xp', { ascending: false }).order('username', { ascending: true }).limit(limit);
+    return (must(res, 'listTopProgress') as { username: string; xp: number; wins: number; games: number }[] | null) ?? [];
+  }
+
+  async countProgressAbove(xp: number): Promise<number> {
+    const res = await this.db.from('ww_progress').select('username', { count: 'exact', head: true }).gt('xp', xp);
+    if (res.error) throw new Error(`countProgressAbove: ${res.error.message}`);
+    return res.count ?? 0;
+  }
+
+  async walletAddCoins(walletId: string, amount: number): Promise<void> {
+    const w = await this.getWallet(walletId);
+    if (!w) return;
+    must(await this.db.from('ww_wallets').update({ coins: w.coins + Math.max(0, Math.floor(amount)) }).eq('wallet_id', walletId) as never, 'walletAddCoins');
+  }
+
+  async getFriendNames(username: string): Promise<string[]> {
+    const res = await this.db.from('winter_friends').select('friend_username').eq('username', username).limit(500);
+    return ((must(res, 'getFriendNames') as { friend_username: string }[] | null) ?? []).map((r) => r.friend_username);
+  }
+
+  async getLastActive(usernames: string[]): Promise<Record<string, string>> {
+    if (usernames.length === 0) return {};
+    const res = await this.db.from('winter_users').select('username,last_active').in('username', usernames);
+    const out: Record<string, string> = {};
+    for (const r of ((must(res, 'getLastActive') as { username: string; last_active: string }[] | null) ?? [])) if (r.last_active) out[r.username] = r.last_active;
+    return out;
+  }
+
+  async insertReport(r: ReportInput): Promise<void> {
+    must(await this.db.from('ww_reports').insert(r) as never, 'insertReport');
+  }
+
+  async listReports(status: string, limit: number): Promise<ReportRow[]> {
+    let q = this.db.from('ww_reports').select('*').order('created_at', { ascending: false }).limit(limit);
+    if (status !== 'all') q = q.eq('status', status);
+    return ((must(await q, 'listReports') as ReportRow[] | null) ?? []);
+  }
+
+  async resolveReport(id: string, status: string, note: string): Promise<boolean> {
+    const res = await this.db.from('ww_reports').update({ status, note }).eq('id', id).select('id');
+    if (res.error) throw new Error(`resolveReport: ${res.error.message}`);
+    return (res.data?.length ?? 0) > 0;
   }
 
   async deleteSession(tokenHash: string): Promise<void> {

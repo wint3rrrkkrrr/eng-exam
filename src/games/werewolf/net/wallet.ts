@@ -73,8 +73,11 @@ export async function ensureWallet(): Promise<ApiResult<{ creds: WalletCreds; wa
       setWalletOwner(account.username);
       return { ok: true, status: 200, data: { creds, wallet: r.data.wallet }, errorTh: '' };
     }
-    if (r.status !== 401 && r.status !== 400) return { ok: false, status: r.status, data: undefined as never, errorTh: r.errorTh, code: r.code };
-    // รหัสผ่านที่เก็บไว้ใช้ไม่ได้ (เช่น บัญชีเก่าที่ยังไม่ตั้งรหัส) → ใช้กระเป๋าของเครื่องนี้ตามเดิม
+    // เซสชันหมดอายุ/ถูกยกเลิก (401) หรือข้อมูลล็อกอินผิดรูปแบบ (400): ห้ามถอยไปสร้าง/ใช้กระเป๋าของเครื่อง — จะทำให้เหรียญกับชุดไม่ตามบัญชี
+    if (r.status === 401 || r.status === 400) {
+      return { ok: false, status: 401, data: undefined as never, errorTh: 'เซสชันหมดอายุ — กรุณากด "ออกจากระบบ" แล้วล็อกอินใหม่ เหรียญและชุดของคุณจะกลับมา', code: 'bad_session' };
+    }
+    return { ok: false, status: r.status, data: undefined as never, errorTh: r.errorTh, code: r.code };
   }
   const existing = account && walletOwner() === account.username ? loadWallet() : (account ? null : loadWallet());
   if (existing) {

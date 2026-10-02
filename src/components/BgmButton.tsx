@@ -28,7 +28,7 @@ export const BgmButton: React.FC = () => {
   const volPct = Math.round((muted ? 0 : volume) * 100);
 
   return (
-    <div ref={ref} className="fixed bottom-4 left-4 z-[90] flex flex-col items-start gap-1.5">
+    <div ref={ref} className="fixed bottom-20 md:bottom-4 left-4 z-[90] flex flex-col items-start gap-1.5">
       {/* Expanded panel */}
       {open && (
         <div className="bg-zinc-900/95 border border-zinc-700 rounded-2xl shadow-xl p-3 flex flex-col gap-2.5 w-44 backdrop-blur-sm">

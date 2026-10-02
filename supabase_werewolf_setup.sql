@@ -461,3 +461,22 @@ revoke all on function public.ww_rate_hit(text, int, int) from public, anon, aut
 -- M5: โหมดผู้ชม (เข้าห้องหลังเริ่มเกม) — รันซ้ำได้ปลอดภัย
 -- ============================================================
 alter table public.ww_players add column if not exists is_spectator boolean not null default false;
+
+-- ============================================================
+-- Winter Community: ความก้าวหน้า (เลเวล/XP) + รายงานผู้เล่น — รันซ้ำได้ปลอดภัย (เหมือน supabase_community_migration.sql)
+-- ============================================================
+create table if not exists public.ww_progress (
+  username text primary key, xp int not null default 0, wins int not null default 0, games int not null default 0,
+  data jsonb not null default '{}'::jsonb, updated_at timestamptz not null default now()
+);
+create index if not exists ww_progress_xp_idx on public.ww_progress (xp desc);
+alter table public.ww_progress enable row level security;
+revoke all on public.ww_progress from anon, authenticated;
+create table if not exists public.ww_reports (
+  id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now(),
+  reporter_name text not null, reporter_username text, target_name text not null, room_code text not null,
+  reason text not null, detail text not null default '', status text not null default 'open', note text not null default ''
+);
+create index if not exists ww_reports_status_idx on public.ww_reports (status, created_at desc);
+alter table public.ww_reports enable row level security;
+revoke all on public.ww_reports from anon, authenticated;

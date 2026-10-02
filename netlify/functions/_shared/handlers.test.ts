@@ -798,4 +798,26 @@ describe('รางวัลเหรียญตอนจบเกม', () => {
     for (let i = 0; i < 3; i++) await H.tick(env.ctx, hdr(host), { roomCode: host.roomCode });
     expect(env.store.wallets.get(w1.walletId)!.games_played).toBe(1);
   });
+
+  it('★ ผู้เล่นที่ผูกกระเป๋ากับบัญชีได้ XP/สถิติตอนจบเกม ครั้งเดียว · แขก/กระเป๋าไม่ผูกบัญชีไม่มี', async () => {
+    const env = makeEnv();
+    const w1 = await newWallet(env);
+    const w2 = await newWallet(env);
+    await env.store.bindWalletToAccount(w1.walletId, 'xpuser', (await import('./crypto')).hashToken(w1.token));
+    const host = bodyOf<AuthResponse>(await H.createRoom(env.ctx, { displayName: 'เจ้าของ', walletId: w1.walletId, walletToken: w1.token }));
+    const players = [host];
+    for (let i = 2; i <= 8; i++) {
+      const creds = i === 2 ? { walletId: w2.walletId, walletToken: w2.token } : {};
+      players.push(bodyOf<AuthResponse>(await H.joinRoom(env.ctx, { roomCode: host.roomCode, displayName: `ผู้เล่น${i}`, ...creds })));
+    }
+    await H.updateSettings(env.ctx, hdr(host), { roomCode: host.roomCode, settings: { roleCounts: countsFromRoles(presetRoles(8)) } });
+    await H.startGame(env.ctx, hdr(host), { roomCode: host.roomCode });
+    await playToEnd(env, { code: host.roomCode, players, host });
+    const p = (await env.store.getProgress('xpuser')) as { xp: number; stats: { games: number } } | null;
+    expect(p?.stats.games).toBe(1);
+    expect(p!.xp).toBeGreaterThanOrEqual(30);
+    for (let i = 0; i < 3; i++) await H.tick(env.ctx, hdr(host), { roomCode: host.roomCode });
+    expect(((await env.store.getProgress('xpuser')) as { stats: { games: number } }).stats.games).toBe(1); // ไม่นับซ้ำ
+    expect(env.store.progress.size).toBe(1); // กระเป๋าที่ไม่ผูกบัญชีไม่มีข้อมูล
+  });
 });

@@ -27,6 +27,7 @@ import type {
   ChatRecord, Commit, EventRow, PlayerPatch, PlayerRow, RoomRow, ServerState, WalletRow, WwStore,
 } from './store';
 import { computeTiming, signature } from './timers';
+import { applyGameResult, levelFromXp, normalizeProgress, progressView, titleForLevel } from '../../../src/games/werewolf/shared/progress';
 
 export interface Ctx {
   store: WwStore;
@@ -207,8 +208,12 @@ export async function walletLogin(ctx: Ctx, body: Record<string, unknown>): Prom
 
   const secret = ctx.secret ?? DEV_SECRET;
   let w = await ctx.store.getWalletByUsername(username);
+  const device = await checkWallet(ctx, body.walletId, body.walletToken);
+  if (w && device && !device.username && device.wallet_id !== w.wallet_id) {
+    // บัญชีมีกระเป๋าแล้ว (เช่น เปิดจากอีกเครื่องไปก่อน) แต่เครื่องนี้ยังมีกระเป๋าเก่าที่ยังไม่ผูก → รวมเข้าด้วยกัน ไม่ทิ้งของ/เหรียญเก่า
+    if (await ctx.store.walletAbsorb(w.wallet_id, device.wallet_id)) w = (await ctx.store.getWalletByUsername(username)) ?? w;
+  }
   if (!w) {
-    const device = await checkWallet(ctx, body.walletId, body.walletToken);
     if (device && !device.username) {
       // ย้ายกระเป๋าเดิมของเครื่องนี้มาเป็นของบัญชี (ตั๋วใหม่คำนวณจากความลับของเซิร์ฟเวอร์)
       await ctx.store.bindWalletToAccount(device.wallet_id, username, hashToken(walletTokenFor(secret, device.wallet_id)));
@@ -329,8 +334,7 @@ export async function authPassword(ctx: Ctx, body: Record<string, unknown>): Pro
 export async function authAdminReset(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
   const me = await sessionUser(ctx, body);
   if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
-  const admins = (process.env.WW_ADMINS ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
-  if (!admins.includes(me.username.toLowerCase())) return fail(403, 'เฉพาะแอดมินเท่านั้น (เซิร์ฟเวอร์ต้องตั้ง WW_ADMINS)', 'not_admin');
+  if (!isAdminName(me.username)) return fail(403, 'เฉพาะแอดมินเท่านั้น (เซิร์ฟเวอร์ต้องตั้ง WW_ADMINS)', 'not_admin');
   const target = typeof body.target === 'string' ? body.target.trim() : '';
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
   if (target.length < 2 || target.length > 20) return fail(400, 'ชื่อผู้ใช้ไม่ถูกต้อง', 'bad_name');
@@ -339,6 +343,86 @@ export async function authAdminReset(ctx: Ctx, body: Record<string, unknown>): P
   if ((await ctx.store.getCredential(target)) === null) return fail(404, 'ไม่พบบัญชีชื่อนี้', 'no_account');
   await ctx.store.updateCredential(target, hashPassword(newPassword));
   await ctx.store.deleteSessionsExcept(target, '');
+  return ok({ ok: true });
+}
+
+
+// ---------------------------------------------------------------- ความก้าวหน้า · อันดับ · เพื่อน · รายงาน
+const isAdminName = (username: string): boolean =>
+  (process.env.WW_ADMINS ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean).includes(username.toLowerCase());
+
+/** ความก้าวหน้าของฉัน (เลเวล/XP/สถิติ/อันดับ) */
+export async function progressGet(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const me = await sessionUser(ctx, body);
+  if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
+  const p = normalizeProgress(await ctx.store.getProgress(me.username));
+  const rank = p.stats.games > 0 ? (await ctx.store.countProgressAbove(p.xp)) + 1 : null;
+  return ok(progressView(me.username, p, rank));
+}
+
+export interface LeaderboardRow { rank: number; username: string; level: number; title: string; xp: number; wins: number; games: number }
+/** ตารางอันดับผู้เล่นตาม XP (เปิดดูได้ทุกคน ไม่ต้องล็อกอิน) */
+export async function leaderboard(ctx: Ctx): Promise<HandlerResult> {
+  const top = await ctx.store.listTopProgress(20);
+  const rows: LeaderboardRow[] = top.map((r, i) => {
+    const level = levelFromXp(r.xp);
+    return { rank: i + 1, username: r.username, level, title: titleForLevel(level), xp: r.xp, wins: r.wins, games: r.games };
+  });
+  return ok({ rows });
+}
+
+export interface FriendRow { username: string; level: number; title: string; lastActive: string | null; online: boolean }
+const ONLINE_WINDOW_MS = 5 * 60_000;
+/** เพื่อนของฉัน (จากระบบเพื่อนของเว็บหลัก) พร้อมเลเวลและสถานะออนไลน์คร่าวๆ (ใช้งานภายใน 5 นาที) */
+export async function friendsList(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const me = await sessionUser(ctx, body);
+  if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
+  const names = await ctx.store.getFriendNames(me.username);
+  const active = await ctx.store.getLastActive(names);
+  const rows: FriendRow[] = [];
+  for (const username of names) {
+    const p = normalizeProgress(await ctx.store.getProgress(username));
+    const level = levelFromXp(p.xp);
+    const last = active[username] ?? null;
+    rows.push({ username, level, title: titleForLevel(level), lastActive: last, online: last !== null && ctx.now() - Date.parse(last) < ONLINE_WINDOW_MS });
+  }
+  rows.sort((a, b) => Number(b.online) - Number(a.online) || b.level - a.level || a.username.localeCompare(b.username));
+  return ok({ rows });
+}
+
+export const REPORT_REASONS = ['abuse', 'spam', 'cheat', 'leak', 'afk', 'other'] as const;
+/** รายงานผู้เล่นในห้อง (ผู้รายงานต้องอยู่ในห้องเดียวกัน) — ผู้ดูแลเปิดอ่านได้ที่หน้า Admin */
+export async function reportSubmit(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {
+  const a = await authenticate(ctx, headers, body.roomCode);
+  if (isFail(a)) return a;
+  const targetId = typeof body.targetPlayerId === 'string' ? body.targetPlayerId : '';
+  const reason = typeof body.reason === 'string' ? body.reason : '';
+  const detail = typeof body.detail === 'string' ? body.detail.trim().slice(0, 200) : '';
+  if (!(REPORT_REASONS as readonly string[]).includes(reason)) return fail(400, 'เลือกเหตุผลที่รายงาน', 'bad_reason');
+  const target = a.players.find((p) => p.player_id === targetId);
+  if (!target) return fail(404, 'ไม่พบผู้เล่นที่ถูกรายงานในห้องนี้', 'no_target');
+  if (target.player_id === a.player.player_id) return fail(400, 'รายงานตัวเองไม่ได้', 'self_report');
+  if (ctx.rateLimit && !(await ctx.store.rateHit(`report:${a.player.player_id}`, 5, 600))) return fail(429, 'รายงานถี่เกินไป รอสักครู่', 'rate_limited');
+  await ctx.store.insertReport({ reporter_name: a.player.display_name, reporter_username: null, target_name: target.display_name, room_code: a.room.room_code, reason, detail });
+  return ok({ ok: true });
+}
+
+export async function reportList(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const me = await sessionUser(ctx, body);
+  if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
+  if (!isAdminName(me.username)) return fail(403, 'เฉพาะแอดมินเท่านั้น (เซิร์ฟเวอร์ต้องตั้ง WW_ADMINS)', 'not_admin');
+  const status = typeof body.status === 'string' && ['open', 'resolved', 'dismissed', 'all'].includes(body.status) ? body.status : 'open';
+  return ok({ rows: await ctx.store.listReports(status, 100) });
+}
+
+export async function reportResolve(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const me = await sessionUser(ctx, body);
+  if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
+  if (!isAdminName(me.username)) return fail(403, 'เฉพาะแอดมินเท่านั้น (เซิร์ฟเวอร์ต้องตั้ง WW_ADMINS)', 'not_admin');
+  const status = body.status === 'dismissed' ? 'dismissed' : 'resolved';
+  const note = typeof body.note === 'string' ? body.note.slice(0, 200) : '';
+  const id = typeof body.id === 'string' ? body.id : '';
+  if (!id || !(await ctx.store.resolveReport(id, status, note))) return fail(404, 'ไม่พบรายงานนี้', 'no_report');
   return ok({ ok: true });
 }
 
@@ -680,6 +764,24 @@ async function computeRewards(ctx: Ctx, code: string, g: GameState): Promise<Rec
   return out;
 }
 
+/** เกมจบ: บันทึก XP/สถิติให้ผู้เล่นที่ผูกกระเป๋ากับบัญชี (เลเวลอัปได้เหรียญโบนัส) — ความผิดพลาดตรงนี้ต้องไม่ทำให้เกมจบพัง */
+async function recordProgress(ctx: Ctx, g: GameState, wallets: Record<string, string>, winnerIds: Set<string>): Promise<void> {
+  for (const [playerId, walletId] of Object.entries(wallets)) {
+    try {
+      const w = await ctx.store.getWallet(walletId);
+      const username = w?.username;
+      const p = g.players.find((x) => x.id === playerId);
+      if (!username || username.startsWith('merged:') || !p) continue;
+      const prev = normalizeProgress(await ctx.store.getProgress(username));
+      const { progress, gain } = applyGameResult(prev, { won: winnerIds.has(playerId), survived: p.alive, role: p.roleId, team: p.team });
+      await ctx.store.saveProgress(username, progress);
+      if (gain.bonusCoins > 0) await ctx.store.walletAddCoins(walletId, gain.bonusCoins);
+    } catch (e) {
+      console.error('[ww:progress]', e);
+    }
+  }
+}
+
 async function saveState(
   ctx: Ctx, room: RoomRow, prev: ServerState, next: GameState, events: GameEvent[], lobby: LobbySettings,
 ): Promise<boolean> {
@@ -722,6 +824,7 @@ async function saveState(
     for (const [playerId, r] of Object.entries(rewards)) {
       if (wallets[playerId]) await ctx.store.walletCredit(wallets[playerId], r.total, winnerIds.has(playerId));
     }
+    await recordProgress(ctx, next, wallets, winnerIds);
   }
   return committed;
 }

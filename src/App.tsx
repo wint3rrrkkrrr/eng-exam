@@ -17,8 +17,9 @@ import { FloatingChatWidget } from './components/FloatingChatWidget';
 import { CheeseGameApp } from './components/cheese-game/CheeseGameApp';
 import { CheeseErrorBoundary } from './components/cheese-game/CheeseErrorBoundary';
 import { WerewolfApp } from './games/werewolf/components/WerewolfApp';
+import { WinterCommunity } from './components/community/WinterCommunity';
 import { WerewolfErrorBoundary } from './games/werewolf/components/WerewolfErrorBoundary';
-import { supabaseSim, syncWithServer, logoutAccount } from './utils/supabaseSim';
+import { supabaseSim, syncWithServer, logoutAccount, getSessionToken } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
 import { historyQuestions } from './data/historyQuestionsData';
@@ -185,7 +186,14 @@ export default function App() {
   // User details & Leaderboard landing tabs
   const [username, setUsername] = useState<string>(() => {
     try {
-      return localStorage.getItem('grammar_quiz_username_v1') || sessionStorage.getItem('grammar_quiz_username_v1') || '';
+      const saved = localStorage.getItem('grammar_quiz_username_v1') || sessionStorage.getItem('grammar_quiz_username_v1') || '';
+      // ล็อกอินแบบเก่าที่ไม่มี session token (ก่อนมีระบบบัญชีฝั่งเซิร์ฟเวอร์) → ให้ล็อกอินใหม่ 1 ครั้ง ไม่งั้นกระเป๋า/ชุดจะผูกกับเครื่องและไม่ตามบัญชีไปเครื่องอื่น
+      if (saved && !getSessionToken()) {
+        localStorage.removeItem('grammar_quiz_username_v1');
+        sessionStorage.removeItem('grammar_quiz_username_v1');
+        return '';
+      }
+      return saved;
     } catch {
       return '';
     }
@@ -1042,364 +1050,21 @@ export default function App() {
 
   if (showLandingPage) {
     return (
-      <div
-        className={`min-h-screen flex flex-col font-sans transition-colors duration-200 justify-between relative overflow-hidden ${
-          isDark ? 'bg-[#0b0c12] text-zinc-100' : 'bg-stone-50 text-stone-900'
-        }`}
-      >
-        {/* Decorative subtle background glows */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Floating Particles background (100 glowing particles) */}
-        <AmbientParticles isDark={isDark} />
-
-        {/* Landing Page Header / Quick settings */}
-        <header className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-y-2 relative z-10">
-          <div className="flex items-center gap-2.5">
-            <img src={logoImage} alt="WINTER Prep Hub Logo" className="w-8 h-8 rounded-xl object-cover border border-blue-500/20 shadow-xs" referrerPolicy="no-referrer" />
-            <span className="font-extrabold text-base sm:text-lg tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-amber-300">WINTER Prep Hub</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
-            {username && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className={`px-2 sm:px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 active:scale-95 cursor-pointer max-w-[130px] sm:max-w-none ${
-                    isDark
-                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 ring-1 ring-amber-400/20'
-                      : 'bg-amber-100 border-amber-300 text-amber-950 hover:bg-amber-200'
-                  }`}
-                  title="แก้ไขโปรไฟล์ส่วนตัว (อวตาร / เขียน Bio)"
-                >
-                  <img
-                    src={supabaseSim.getProfile(username).avatar}
-                    alt={username}
-                    className="w-5 h-5 rounded-full object-cover ring-2 ring-amber-400 shrink-0"
-                  />
-                  <span className="flex items-center gap-1 font-extrabold min-w-0">
-                    <span className="hidden sm:inline shrink-0">แก้ไขโปรไฟล์:</span>
-                    <span className="text-amber-400 underline decoration-amber-400/50 truncate">{username}</span>
-                    <Edit3 className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-0.5" />
-                  </span>
-                </button>
-
-                <button
-                  onClick={handleLogoutUser}
-                  className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
-                    isDark
-                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25'
-                      : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-2xs'
-                  }`}
-                  title="ออกจากระบบ"
-                  id="landing-logout-btn"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">ออกจากระบบ</span>
-                </button>
-              </div>
-            )}
-
-            {/* Sound Toggle */}
-            <button
-              onClick={handleToggleSound}
-              className={`p-2 rounded-xl border transition-all ${
-                isDark
-                  ? 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
-                  : 'bg-white border-stone-200 text-stone-600 hover:text-stone-900 hover:bg-stone-100 shadow-2xs'
-              }`}
-              title={soundEnabled ? 'ปิดเสียงเอฟเฟกต์' : 'เปิดเสียงเอฟเฟกต์'}
-            >
-              {soundEnabled ? (
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                  <span className="hidden sm:inline text-xs font-bold text-amber-400 whitespace-nowrap">เสียงเปิดอยู่</span>
-                </div>
-              ) : (
-                <span className="hidden sm:inline text-xs font-bold text-stone-400 whitespace-nowrap">เสียงปิดอยู่</span>
-              )}
-            </button>
-
-            {/* Theme Toggle */}
-            <button
-              onClick={handleToggleTheme}
-              className={`p-2 rounded-xl border transition-all ${
-                isDark
-                  ? 'bg-zinc-900/60 border-zinc-800 text-amber-400 hover:bg-zinc-800'
-                  : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100 shadow-2xs'
-              }`}
-              title={isDark ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด (ถนอมสายตา)'}
-            >
-              {isDark ? (
-                <span className="text-xs font-bold text-amber-400 whitespace-nowrap">🌙</span>
-              ) : (
-                <span className="text-xs font-bold text-stone-600 whitespace-nowrap">☀️</span>
-              )}
-            </button>
-          </div>
-        </header>
-
-        {/* Main Hero Panel */}
-        <main className="flex-1 flex flex-col justify-center items-center max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-12 relative z-10">
-          <div className="text-center space-y-6 max-w-3xl">
-            {/* Giant Custom Generated Logo */}
-            <div className="inline-flex items-center justify-center relative mb-4 group">
-              <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-3xl animate-pulse transition-all duration-300 group-hover:scale-110" />
-              <div className="relative p-2.5 rounded-full bg-gradient-to-br from-blue-500/20 to-amber-500/20 border border-blue-500/20 shadow-xl transition-all duration-500 hover:scale-105">
-                <img
-                  src={logoImage}
-                  alt="WINTER Prep Hub Giant Logo"
-                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-2 border-amber-400/50 shadow-inner"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-            </div>
-
-            {/* Site Title */}
-            <div className="space-y-2">
-              <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-zinc-100 to-amber-400">
-                WINTER Prep Hub
-              </h1>
-              
-              {/* Creator Credit Tag */}
-              <div className="pt-2">
-                <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-amber-500/10 text-amber-300 border border-amber-500/25 shadow-sm animate-pulse">
-                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>สร้างสรรค์โดย WINTER</span>
-                </span>
-              </div>
-            </div>
-
-            <p className={`text-sm sm:text-base max-w-2xl mx-auto leading-relaxed ${isDark ? 'text-zinc-400' : 'text-stone-600'}`}>
-              ยินดีต้อนรับสู่ระบบคลังข้อสอบและแบบฝึกหัดอัจฉริยะที่รวบรวมโจทย์สอบวัดระดับคุณภาพสูงไว้มากถึง <strong>1,200 ข้อ</strong> ครอบคลุมเนื้อหาสำคัญอย่างเจาะลึก พร้อมระบบสุ่มคลัง ตัดโจทย์ซ้ำ และเฉลยอธิบายละเอียดภาษาไทย
-            </p>
-
-            {/* Giant Action Button - Moved to top */}
-            <div className="pt-4 pb-2 flex flex-col items-center gap-3">
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  onClick={() => {
-                    setShowLandingPage(false);
-                    setShowSubjectSelector(true);
-                    if (soundEnabled) {
-                      try { soundFX.playTap(); } catch (e) {}
-                    }
-                  }}
-                  className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] cursor-pointer ${
-                    isDark
-                      ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black'
-                      : 'bg-stone-900 hover:bg-stone-800 text-white'
-                  }`}
-                >
-                  <span>เริ่มทำข้อสอบเลย</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowCheeseGame(true);
-                    if (soundEnabled) {
-                      try { soundFX.playTap(); } catch (e) {}
-                    }
-                  }}
-                  className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-rose-500/20 hover:scale-[1.03] cursor-pointer bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500 text-white"
-                >
-                  <span>🐭🧀 เล่นเกมหนูชีส</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowWerewolfGame(true);
-                    if (soundEnabled) {
-                      try { soundFX.playTap(); } catch (e) {}
-                    }
-                  }}
-                  className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-sm sm:text-base tracking-wide transition-all duration-300 transform active:scale-95 shadow-lg hover:shadow-red-500/20 hover:scale-[1.03] cursor-pointer bg-gradient-to-r from-slate-800 via-violet-800 to-red-700 text-white"
-                >
-                  <span>🐺🌕 เล่นเกมแววูฟ</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-
-              {/* Quick Profile & Chat Shortcuts on Landing Page */}
-              <div className="flex items-center justify-center gap-2 pt-1">
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ${
-                    isDark
-                      ? 'bg-zinc-900/80 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
-                      : 'bg-white border-stone-200 text-stone-800 hover:bg-stone-100 shadow-2xs'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>✏️ แก้ไขโปรไฟล์ส่วนตัว</span>
-                </button>
-              </div>
-
-              <p className={`text-[11px] mt-1 font-semibold ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
-                คลิกเพื่อไปที่หน้าต่างเลือกวิชาและเลือกจำนวนข้อสอบที่ต้องการสุ่มได้ตามต้องการ
-              </p>
-            </div>
-
-            {/* Elegant Tab Switcher Menu */}
-            <div className="flex justify-center pt-6 pb-2 px-4">
-              <div className={`p-1 rounded-2xl flex flex-wrap justify-center gap-1 max-w-full ${isDark ? 'bg-zinc-900/60 border border-zinc-800' : 'bg-stone-100/70 border border-stone-200'}`}>
-                <button
-                  onClick={() => {
-                    setLandingTab('subjects');
-                    if (soundEnabled) {
-                      try { soundFX.playTap(); } catch (e) {}
-                    }
-                  }}
-                  className={`px-3 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
-                    landingTab === 'subjects'
-                      ? isDark
-                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
-                        : 'bg-stone-900 text-white shadow-md'
-                      : isDark
-                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
-                  }`}
-                >
-                  <BookOpen className="w-4 h-4 shrink-0" />
-                  <span>รายวิชาทั้งหมด</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setLandingTab('leaderboard');
-                    if (soundEnabled) {
-                      try { soundFX.playTap(); } catch (e) {}
-                    }
-                  }}
-                  className={`px-3 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
-                    landingTab === 'leaderboard'
-                      ? isDark
-                        ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
-                        : 'bg-stone-900 text-white shadow-md'
-                      : isDark
-                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
-                  }`}
-                >
-                  <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>ทำเนียบคะแนนสะสม</span>
-                </button>
-              </div>
-            </div>
-
-            {landingTab === 'subjects' ? (
-              <div className="space-y-6 w-full">
-                {/* Subjects Showcase - Recommended */}
-                <div className="space-y-4 pt-4 max-w-4xl mx-auto">
-                  <div className="flex items-center gap-2 justify-center sm:justify-start">
-                    <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-                    <h2 className="text-xs font-black uppercase tracking-wider text-amber-400">
-                      วิชาเพิ่มใหม่แนะนำ 🔥
-                    </h2>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-                    {subjectsList.filter(s => s.isReady && ['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
-                      const colorClasses = getSubjectColorClasses(sub.id);
-                      return (
-                        <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 relative overflow-hidden ${
-                          isDark 
-                            ? 'bg-zinc-900/60 border-amber-500/20 shadow-[0_4px_12px_rgba(245,158,11,0.05)]' 
-                            : 'bg-white border-amber-200 shadow-2xs'
-                        }`}>
-                          {/* NEW Badge */}
-                          <span className="absolute top-0 right-0 px-2.5 py-0.5 text-[8px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-bl-lg shadow-xs">
-                            NEW
-                          </span>
-                          
-                          <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
-                            {getSubjectIcon(sub.icon, "w-5 h-5")}
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-2 pr-6">
-                              <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
-                                {sub.totalQuestions} ข้อ
-                              </span>
-                            </div>
-                            <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                              {sub.description}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Subjects Showcase - Others */}
-                <div className="space-y-4 pt-2 max-w-4xl mx-auto">
-                  <div className="flex items-center gap-2 justify-center sm:justify-start">
-                    <h2 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                      วิชามาตรฐานอื่นๆ 📚
-                    </h2>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-                    {subjectsList.filter(s => s.isReady && !['physics', 'music', 'english-speaking', 'c-programming'].includes(s.id)).map((sub) => {
-                      const colorClasses = getSubjectColorClasses(sub.id);
-                      return (
-                        <div key={sub.id} className={`p-4 rounded-2xl border transition-all hover:scale-[1.01] flex gap-3 ${
-                          isDark ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-stone-200 shadow-2xs'
-                        }`}>
-                          <div className={`p-2.5 h-fit rounded-xl border shrink-0 ${colorClasses}`}>
-                            {getSubjectIcon(sub.icon, "w-5 h-5")}
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="font-bold text-sm sm:text-base">{sub.name}</h3>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colorClasses}`}>
-                                {sub.totalQuestions} ข้อ
-                              </span>
-                            </div>
-                            <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                              {sub.description}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full max-w-4xl mx-auto">
-                <LeaderboardView
-                  currentUsername={username}
-                  theme={theme}
-                  onPlayTap={() => {
-                    try { soundFX.playTap(); } catch (e) {}
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Bottom spacer instead of button */}
-            <div className="pt-4" />
-          </div>
-        </main>
-
-        {/* Landing Page Footer */}
-        <footer className={`py-6 border-t text-center text-xs relative z-10 ${
-          isDark ? 'border-zinc-900/60 text-zinc-500 bg-[#08090d]' : 'border-stone-200/80 text-stone-500 bg-stone-100/30'
-        }`}>
-          <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-medium">
-            <span>คลังข้อสอบและแบบฝึกหัด 6 วิชา (1,200 ข้อ) • WINTER exam</span>
-            <span className="flex items-center gap-1 font-bold text-amber-500/95">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>สร้างสรรค์โดย WINTER ❄️</span>
-            </span>
-          </div>
-        </footer>
-
+      <>
+        <WinterCommunity
+          username={username}
+          theme={theme}
+          soundEnabled={soundEnabled}
+          subjects={subjectsList.filter((sub) => sub.isReady)}
+          onToggleTheme={handleToggleTheme}
+          onToggleSound={handleToggleSound}
+          onStartExam={() => { setShowLandingPage(false); setShowSubjectSelector(true); }}
+          onOpenCheese={() => setShowCheeseGame(true)}
+          onOpenWerewolf={() => setShowWerewolfGame(true)}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onLogout={handleLogoutUser}
+          onTap={() => { if (soundEnabled) { try { soundFX.playTap(); } catch (e) {} } }}
+        />
         <UserProfileModal
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
@@ -1407,22 +1072,13 @@ export default function App() {
           isDark={isDark}
           onProfileUpdated={() => setProfileRefresh((prev) => prev + 1)}
         />
-
-        <FloatingChatWidget
-          currentUsername={username}
-          isDark={isDark}
-          onOpenProfile={() => setShowProfileModal(true)}
-        />
-
         <AdminModal
           theme={theme}
           soundEnabled={soundEnabled}
-          onPlayTap={() => {
-            try { soundFX.playTap(); } catch (e) {}
-          }}
+          onPlayTap={() => { try { soundFX.playTap(); } catch (e) {} }}
         />
         <BgmButton />
-      </div>
+      </>
     );
   }
 

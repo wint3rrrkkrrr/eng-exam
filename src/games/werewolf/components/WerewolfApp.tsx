@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, DoorOpen, Gift, Loader2, PlusCircle, Shirt, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookOpen, DoorOpen, Gift, Loader2, Medal, PlusCircle, Shirt, Sparkles } from 'lucide-react';
 import { UI } from '../text/th';
 import { api, loadSession, saveSession } from '../net/werewolfClient';
 import type { Session } from '../net/werewolfClient';
@@ -13,7 +13,10 @@ import { AvatarArt } from './avatar/AvatarArt';
 import { HowToPlay } from './HowToPlay';
 import { AvatarLab } from './AvatarLab';
 import { SoundControls } from './SoundControls';
+import { ProfilePanel } from './ProfilePanel';
+import { getMyProgress } from '../net/community';
 import { setMusic } from '../shared/sound';
+import { applyFontScale, resetFontScale } from '../shared/notify';
 
 // ดาวบนท้องฟ้าหน้าเมนู [x%, y%, ขนาด px] — ตำแหน่งคงที่ (ไม่สุ่มทุกครั้งที่วาด)
 const STARS: [number, number, number][] = Array.from({ length: 56 }, (_, i) => [(i * 37 + 11) % 100, (i * 53 + 7) % 92, 1 + (i % 4) * 0.6]);
@@ -37,7 +40,10 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [summary, setSummary] = useState<{ coins: number; avatar: AvatarConfig } | null>(null);
   const [howTo, setHowTo] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [level, setLevel] = useState<number | null>(null);
   const [canSpectate, setCanSpectate] = useState(false);
+  useEffect(() => { applyFontScale(); return resetFontScale; }, []); // ขนาดตัวอักษรที่ผู้เล่นเลือก (คืนค่าเดิมเมื่อออกจากเกมแววูฟ ไม่กระทบเว็บส่วนอื่น)
   useEffect(() => { if (!session) setMusic('menu'); }, [session]); // เพลงหน้าแรก/ร้านค้า (ในห้องใช้เพลงตามเฟส)
 
   // ล็อกอินด้วยบัญชีเว็บแล้ว → ดึงกระเป๋า/ตู้เสื้อผ้าของ "บัญชี" มาไว้ในเครื่องนี้ก่อนเข้าห้อง (เปลี่ยนเครื่องก็ได้ของเดิม)
@@ -47,6 +53,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
   };
   useEffect(() => {
     void refreshSummary();
+    void getMyProgress().then((r) => { if (r.ok) setLevel(r.data.level); });
   }, []);
 
   const openShop = (tab: WardrobeTab) => {
@@ -106,6 +113,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
     { key: 'how', label: 'วิธีเล่น', icon: <BookOpen className="w-6 h-6" />, grad: 'from-sky-500/80 to-blue-700/80', onClick: () => setHowTo(true) },
     { key: 'wardrobe', label: 'ตู้เสื้อผ้า', icon: <Shirt className="w-6 h-6" />, grad: 'from-pink-500/80 to-fuchsia-700/80', onClick: () => openShop('wardrobe') },
     { key: 'gacha', label: 'กาชา', icon: <Sparkles className="w-6 h-6" />, grad: 'from-amber-400/80 to-orange-600/80', onClick: () => openShop('gacha') },
+    { key: 'profile', label: 'โปรไฟล์', icon: <Medal className="w-6 h-6" />, grad: 'from-violet-500/80 to-indigo-700/80', onClick: () => setProfileOpen(true) },
     { key: 'redeem', label: 'แลกโค้ด', icon: <Gift className="w-6 h-6" />, grad: 'from-emerald-400/80 to-teal-600/80', onClick: () => openShop('redeem') },
   ];
 
@@ -131,6 +139,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
 
       {wardrobe && <Wardrobe initialTab={shopTab} onClose={() => { setWardrobe(false); void refreshSummary(); }} />}
       {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
+      {profileOpen && <ProfilePanel username={name || username} onClose={() => { setProfileOpen(false); void getMyProgress().then((r) => { if (r.ok) setLevel(r.data.level); }); }} />}
 
       <div className="relative max-w-md mx-auto px-4 pt-4 pb-10 space-y-5">
         <div className="flex items-center justify-between gap-2">
@@ -141,14 +150,14 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
             <button onClick={() => openShop('wardrobe')} className="inline-flex items-center gap-2 min-h-12 pl-1 pr-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur cursor-pointer" aria-label="ร้านค้าและตู้เสื้อผ้า">
               <span className="w-9 h-9 rounded-full overflow-hidden border-2 border-amber-300/80 bg-sky-300 shrink-0"><AvatarArt config={summary.avatar} className="w-full h-full" still /></span>
               <span className="text-left leading-tight">
-                <span className="block text-[11px] font-bold text-slate-200 max-w-[7rem] truncate">{name || username}</span>
+                <span className="block text-[11px] font-bold text-slate-200 max-w-[7rem] truncate">{name || username}{level !== null && <span className="ml-1 text-violet-300">Lv.{level}</span>}</span>
                 <span className="block text-xs font-black text-amber-300 tabular-nums">🪙 {summary.coins.toLocaleString()}</span>
               </span>
             </button>
           )}
         </div>
 
-        <SoundControls className="justify-end -mt-2" />
+        <SoundControls className="flex justify-end -mt-2" />
 
         {/* พระจันทร์ + หมาป่าหอน */}
         <header className="relative text-center pt-2 ww-rise">
@@ -178,7 +187,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
         </header>
 
         {/* ปุ่มลัด */}
-        <div className="grid grid-cols-4 gap-2 ww-rise" style={{ animationDelay: '.1s' }}>
+        <div className="grid grid-cols-5 gap-1.5 ww-rise" style={{ animationDelay: '.1s' }}>
           {tiles.map((t) => (
             <button key={t.key} onClick={t.onClick} className={`min-h-20 rounded-2xl bg-gradient-to-b ${t.grad} border border-white/20 shadow-lg shadow-black/30 flex flex-col items-center justify-center gap-1 text-[11px] font-black hover:brightness-110 active:scale-95 transition cursor-pointer`}>
               {t.icon}{t.label}

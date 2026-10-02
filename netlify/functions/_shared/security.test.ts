@@ -36,7 +36,7 @@ describe('คำขอขยะ/ปลอมทุกเส้นทาง → �
     JSON.parse('{"__proto__": {"polluted": true}, "constructor": {"prototype": {"polluted": true}}, "roomCode": "ABCDE"}'),
   ];
   for (const route of ROUTES) {
-    if (route === 'create-room' || route === 'wallet-create') continue; // สร้างของใหม่ได้โดยไม่ต้องมีตั๋วตามออกแบบ
+    if (route === 'create-room' || route === 'wallet-create' || route === 'leaderboard') continue; // สร้างของใหม่/อันดับสาธารณะ เปิดดูได้โดยไม่ต้องมีตั๋วตามออกแบบ
     it(`${route}: ไม่มีตั๋ว + เนื้อหาขยะ`, async () => {
       const store = new MemoryStore();
       for (const body of junk) {

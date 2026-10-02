@@ -4,6 +4,8 @@ import { VEILED } from '../engine';
 import type { Session } from '../net/werewolfClient';
 import type { MyViewResponse } from '../shared/api';
 import { useCountdown } from './useCountdown';
+import { playGameSound } from '../shared/sound';
+import { buzz } from '../shared/notify';
 import { Narrator } from './Narrator';
 import { GameChatPanel } from './GameChatPanel';
 import { PlayerCard, PlayerGrid } from './PlayerCard';
@@ -28,6 +30,12 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   const game = view.game!;
   const turn = game.myTurn;
   const left = useCountdown(view.endsAt, serverNow);
+  // นับถอยหลัง 5 วินาทีสุดท้ายมีเสียงติ๊ก + สั่น (วินาทีที่ 10 สั่นเตือนครั้งเดียว)
+  useEffect(() => {
+    if (left === null || view.phase === 'game_over') return;
+    if (left > 0 && left <= 5) { playGameSound('timer_low'); buzz(40); }
+    else if (left === 10) buzz([60, 40, 60]);
+  }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
   const nameOf = (id: string) => view.players.find((p) => p.playerId === id)?.displayName ?? '?';
   const hunterTurn = turn.actionKind === 'hunter_shot';
   const roleState = game.me.roleState as { heal?: number; poison?: number; gunnerShots?: number; timeUses?: number };
