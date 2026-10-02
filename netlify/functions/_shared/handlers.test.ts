@@ -786,7 +786,7 @@ describe('รางวัลเหรียญตอนจบเกม', () => {
 
     for (const [wallet, pl] of [[w1, host], [w2, players[1]]] as const) {
       const alive = game.players.find((p) => p.id === pl.playerId)!.alive;
-      const expected = STARTING_COINS + 200 + (winners.has(pl.playerId) ? 300 : 0) + (alive ? 100 : 0);
+      const expected = STARTING_COINS + 60 + (winners.has(pl.playerId) ? 90 : 0) + (alive ? 30 : 0);
       expect(env.store.wallets.get(wallet.walletId)!.coins, `เหรียญของ ${pl.playerId}`).toBe(expected);
       expect(env.store.wallets.get(wallet.walletId)!.games_played).toBe(1);
       expect((await view(env, host.roomCode, pl)).reward!.total).toBe(expected - STARTING_COINS);
