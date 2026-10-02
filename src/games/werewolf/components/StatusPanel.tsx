@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 import type { MyViewResponse } from '../shared/api';
 import { GAME_UI, UI } from '../text/th';
-import { parseAvatar } from '../shared/avatar';
-import { AvatarArt, GraveArt } from './avatar/AvatarArt';
-import { isNightPhase } from './avatar/TimeContext';
 import { FLOW, guidanceFor, phaseHelp } from './guidance';
 import type { Tone } from './guidance';
 
@@ -16,8 +13,6 @@ interface Props {
   /** วินาทีที่เหลือ (null = ไม่มีเวลา) */
   left: number | null;
   onOpenRole: () => void;
-  /** แตะตัวละครของฉันเพื่อดูแบบใหญ่ */
-  onZoomMe: () => void;
 }
 
 const TONE_STYLE: Record<Tone, { box: string; accent: string }> = {
@@ -33,7 +28,7 @@ const TONE_STYLE: Record<Tone, { box: string; accent: string }> = {
  * การ์ดเดียวบอกทุกอย่าง: ไอคอน + "ตอนนี้ต้องทำอะไร" + เวลา (+ ความคืบหน้า/ผลลัพธ์ถ้ามี)
  * รายละเอียดอื่น (ขั้นตอนของวัน คำอธิบายช่วงนี้) ซ่อนไว้หลังปุ่ม ? — ประวัติเหตุการณ์อยู่ที่แท็บ "เหตุการณ์"
  */
-export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerTurn, left, onOpenRole, onZoomMe }) => {
+export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerTurn, left, onOpenRole }) => {
   const [showHelp, setShowHelp] = useState(false);
   const game = view.game!;
   const g = guidanceFor({ view, nameOf, hunterTurn, gunnerTurn });
@@ -41,22 +36,10 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
   const idx = FLOW.findIndex((f) => f.phase === view.phase);
   const urgent = left !== null && left <= 10 && view.phase !== 'game_over';
   const rs = game.me.roleState as { heal?: number; poison?: number };
-  const mePlayer = view.players.find((p) => p.playerId === game.me.playerId);
-  const meAvatar = mePlayer ? parseAvatar(mePlayer.avatar) : null;
 
   return (
     <section aria-label="สถานะเกม" className={`rounded-2xl border-2 p-2.5 ${style.box}`}>
       <div role="status" aria-live="polite" className="flex items-start gap-2.5">
-        {meAvatar && !view.spectator ? (
-          <button type="button" onClick={onZoomMe} aria-label="ดูตัวละครของฉันใหญ่ๆ" className="relative shrink-0 w-14 aspect-[4/5] rounded-lg overflow-hidden border-2 border-amber-300/80 bg-sky-300 shadow cursor-zoom-in">
-            {game.me.isAlive
-              ? <AvatarArt config={meAvatar} night={isNightPhase(view.phase)} className="w-full h-full" />
-              : <GraveArt backdrop={meAvatar.backdrop} grave={meAvatar.grave} role={mePlayer?.revealedRole ?? null} night={isNightPhase(view.phase)} className="w-full h-full" />}
-            
-          </button>
-        ) : (
-          <div className="text-3xl leading-none shrink-0" aria-hidden>{g.icon}</div>
-        )}
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="text-[11px] font-bold text-slate-400">{UI.phases[view.phase] ?? view.phase} · วันที่ {game.dayNumber}</div>
           <h2 className={`text-base font-black leading-snug ${style.accent}`}><span aria-hidden>{g.icon} </span>{g.title}</h2>

@@ -168,7 +168,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
       {/* ===== แท็บ เกม ===== */}
       {tab === 'game' && (
         <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + navH + 12 }}>
-          <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} onZoomMe={() => setZoomId(game.me.playerId)} />
+          <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} />
 
           {/* เหตุการณ์สำคัญที่เกิดกับเรา (ตาย/ถูกเปลี่ยนฝ่าย) */}
           {game.privateResults.filter((r) => r.textTh.startsWith('💀') || r.textTh.startsWith('🔔')).slice(-2).map((r, i) => (
