@@ -40,7 +40,8 @@ const Box: React.FC<{ title: string; hint?: string; children?: React.ReactNode }
     <div className="flex items-baseline justify-between gap-2">
       <h2 className="text-base font-black">{title}</h2>
     </div>
-    {hint && <p className="text-xs text-slate-400">{hint}</p>}
+    {/* hint เดิมย้ายไปอยู่ในแผงสถานะด้านบนแล้ว (กันข้อความซ้ำ) */}
+    {false && hint && <p className="text-xs text-slate-400">{hint}</p>}
     {children}
   </section>
 );

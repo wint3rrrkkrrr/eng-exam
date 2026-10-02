@@ -6,7 +6,7 @@ import type { MyViewResponse } from '../shared/api';
 import { useCountdown } from './useCountdown';
 import { playGameSound } from '../shared/sound';
 import { buzz } from '../shared/notify';
-import { Narrator } from './Narrator';
+import { StatusPanel } from './StatusPanel';
 import { GameChatPanel } from './GameChatPanel';
 import { PlayerCard, PlayerGrid } from './PlayerCard';
 import { RoleInfoModal } from './InfoModals';
@@ -89,20 +89,8 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
     <div className="space-y-3">
       {roleInfo && <RoleInfoModal roleId={roleInfo} onClose={() => setRoleInfo(null)} />}
 
-      {/* แถบเฟส + เวลา */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-lg font-black">{UI.phases[view.phase] ?? view.phase}</div>
-          <div className="text-xs text-slate-300">{GAME_UI.day(game.dayNumber)}</div>
-        </div>
-        {left !== null && view.phase !== 'game_over' && (
-          <div className={`rounded-full px-4 py-2 text-sm font-black tabular-nums ${left <= 10 ? 'bg-red-900/70 text-red-100' : 'bg-black/35 text-slate-100'}`} aria-label="เวลาที่เหลือ">
-            ⏳ {GAME_UI.secondsLeft(left)}
-          </div>
-        )}
-      </div>
-
-      <Narrator phase={view.phase} text={game.narrationTh} />
+      {/* แผงสถานะ: ช่วงไหน · ต้องทำอะไร · รออะไร · เมื่อกี้เกิดอะไรขึ้น */}
+      <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} />
 
       {/* ตารางการ์ดผู้เล่น 4 คอลัมน์ — แตะการ์ดเพื่อเลือกเป้าหมาย/โหวต · แตะไอคอนบทของคนตายเพื่อดูข้อมูลบท */}
       <section aria-label={UI.game.players}>
