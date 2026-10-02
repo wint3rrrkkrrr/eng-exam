@@ -1,0 +1,23 @@
+# Render Blueprint — เว็บ + API เกมแววูฟ ในเซิร์ฟเวอร์เดียว (ข้อมูลทั้งหมดอยู่ที่ Supabase ไม่ได้เก็บบน Render)
+services:
+  - type: web
+    name: winter-prep-hub
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20
+      # ใส่ค่าจริงในหน้า Render (Environment) — ห้ามใส่ลงไฟล์นี้
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
