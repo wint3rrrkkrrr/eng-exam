@@ -16,9 +16,10 @@ describe('การปฏิเสธแอคชันกลางคืน', (
     expect(JSON.stringify(g.s)).toBe(before);
   });
 
-  it('ส่งผิดตา: หมาป่าส่งตอนที่ยังเป็นช่องคิวปิด → not_your_turn', () => {
+  it('กลางคืนทำพร้อมกัน: หมาป่ากัดได้ทันที แต่กัดหมาป่าด้วยกันไม่ได้ → bad_target', () => {
     const g = makeGame(ROLES);
-    expect(act(g, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p6'] }).error?.code).toBe('not_your_turn');
+    expect(act(g, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p2'] }).error?.code).toBe('bad_target');
+    expect(act(g, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p6'] }).error).toBeUndefined();
   });
 
   it('ส่งแอคชันของบทอื่นในตาตัวเอง → not_your_role', () => {
@@ -55,19 +56,12 @@ describe('การปฏิเสธแอคชันกลางคืน', (
     expect(act(g, { type: 'night_action', actorId: 'p3', kind: 'protect_doctor', targets: [] }).error?.code).toBe('bad_target_count');
   });
 
-  it('แม่มดชุบเมื่อไม่มีเหยื่อ / ใช้ยาพิษกับตัวเอง → ปฏิเสธ', () => {
-    const g = makeGame(ROLES);
-    mustAct(g, { type: 'night_action', actorId: 'p9', kind: 'cupid_pair', targets: ['p6', 'p8'] });
-    mustAct(g, { type: 'advance' });
-    mustAct(g, { type: 'night_action', actorId: 'p3', kind: 'skip' });
-    mustAct(g, { type: 'advance' });
-    mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'skip' });
-    mustAct(g, { type: 'night_action', actorId: 'p2', kind: 'skip' });
-    mustAct(g, { type: 'advance' });
-    mustAct(g, { type: 'night_action', actorId: 'p4', kind: 'skip' });
-    mustAct(g, { type: 'advance' });
-    expect(act(g, { type: 'night_action', actorId: 'p5', kind: 'witch', meta: { heal: true } }).error?.code).toBe('no_heal');
+  it('แม่มดชุบตัวเองไม่ได้เมื่อปิดตั้งค่า / ยาชุบหมดแล้ว / วางยาพิษตัวเอง → ปฏิเสธ', () => {
+    const g = makeGame(ROLES, { witchSelfHeal: false });
+    expect(act(g, { type: 'night_action', actorId: 'p5', kind: 'witch', meta: { healId: 'p5' } }).error?.code).toBe('bad_heal');
     expect(act(g, { type: 'night_action', actorId: 'p5', kind: 'witch', meta: { poisonId: 'p5' } }).error?.code).toBe('bad_poison');
+    g.s.players[4].roleState.heal = 0;
+    expect(act(g, { type: 'night_action', actorId: 'p5', kind: 'witch', meta: { healId: 'p6' } }).error?.code).toBe('no_heal');
   });
 
   it('ยาพิษใช้ได้ครั้งเดียว: คืนถัดไปวางยาอีกไม่ได้', () => {
@@ -77,12 +71,6 @@ describe('การปฏิเสธแอคชันกลางคืน', (
     mustAct(g, { type: 'advance', timedOut: true });
     mustAct(g, { type: 'advance', timedOut: true });
     expect(g.s.phase).toBe('night');
-    let guard = 0;
-    while (g.s.night!.slots[g.s.night!.idx]?.roleIds[0] !== 'witch' && guard++ < 20) {
-      const slot = g.s.night!.slots[g.s.night!.idx];
-      for (const id of slot.actors) mustAct(g, { type: 'night_action', actorId: id, kind: 'skip' });
-      mustAct(g, { type: 'advance' });
-    }
     expect(act(g, { type: 'night_action', actorId: 'p5', kind: 'witch', meta: { poisonId: 'p8' } }).error?.code).toBe('bad_poison');
   });
 });

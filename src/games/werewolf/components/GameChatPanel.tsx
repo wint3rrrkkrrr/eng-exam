@@ -56,6 +56,7 @@ export const GameChatPanel: React.FC<Props> = ({ view, session, refresh }) => {
     else if (view.phase === 'night' || view.phase === 'role_reveal') closedReason = GAME_UI.chat.closedNight;
     else closedReason = GAME_UI.chat.closedPhase;
   }
+  if (active !== 'public' && !view.canWrite.activeChannels.includes(active)) closedReason = GAME_UI.chat.closedDaySecret;
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: 'nearest' });

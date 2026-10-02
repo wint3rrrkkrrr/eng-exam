@@ -18,9 +18,31 @@ export function canVeil(p: EnginePlayer): boolean {
   return p.roleId === 'veil_wolf' && Number(p.roleState.veilLeft) > 0;
 }
 
-export function currentSlot(s: GameState): NightSlot | null {
-  if (!s.night) return null;
-  return s.night.slots[s.night.idx] ?? null;
+/** ความสามารถของบทนี้ที่ตื่นในช่องนี้ */
+export function abilityForSlot(def: ReturnType<typeof getRole>, slotNum: number) {
+  return def.abilities.find((ab) => (ab.nightSlot ?? def.nightSlot) === slotNum);
+}
+
+/** กลางคืนทำพร้อมกันทุกบท — ช่องที่ผู้เล่นคนนี้ "ยังต้องทำ" ช่องแรก (เรียงตามเลขช่อง) · บทที่มี 2 ความสามารถจะเห็นทีละอัน */
+export function pendingSlotFor(s: GameState, playerId: string): NightSlot | null {
+  const n = s.night;
+  if (!n) return null;
+  const p = player(s, playerId);
+  if (!p || !p.alive) return null;
+  for (const slot of n.slots) {
+    if (slot.idle || slot.auto || !slot.actors.includes(playerId)) continue;
+    if (n.acted[actedKey(playerId, slot.slot)]) continue;
+    return slot;
+  }
+  return null;
+}
+
+/** ทุกคนที่ต้องทำคืนนี้ส่งแอคชันครบแล้วหรือยัง */
+export function nightDone(s: GameState): boolean {
+  const n = s.night;
+  if (!n) return true;
+  // คนที่ตายกลางคืน (เช่น หลุดการเชื่อมต่อแล้วถูกนับว่าตาย) ไม่ต้องรอ
+  return n.slots.every((slot) => slot.idle || slot.auto || slot.actors.every((id) => !player(s, id)?.alive || n.acted[actedKey(id, slot.slot)]));
 }
 
 // ---------------------------------------------------------------- เริ่มคืน
@@ -92,7 +114,7 @@ export function startNight(s: GameState, events: GameEvent[]): void {
     });
 
   s.voteVeiled = false;
-  s.night = { slots, idx: 0, intents: [], wolfVotes: {}, acted: {}, wolfTarget: null, veilBy: [] };
+  s.night = { slots, intents: [], wolfVotes: {}, acted: {}, wolfTarget: null, veilBy: [] };
   events.push(ev(s, 'night_start', true, { day: s.dayNumber }));
 }
 
@@ -123,14 +145,15 @@ export function legalTargets(s: GameState, actor: EnginePlayer, kind: IntentKind
 }
 
 /** ตัวเลือกยาของแม่มด (ใช้ทั้งตรวจแอคชันและทำปุ่มบนหน้าจอ) */
-export function witchOptions(s: GameState, w: EnginePlayer): { canHeal: boolean; victimId: string | null; poisonTargets: string[] } {
-  const victim = s.night?.wolfTarget ?? null;
-  const healLeft = Number(w.roleState.heal) > 0;
-  const canHeal = healLeft && victim !== null && (s.settings.witchSelfHeal || victim !== w.id);
+/** กลางคืนทำพร้อมกัน → แม่มดไม่รู้ว่าใครโดนกัด: ชุบได้ด้วยการ "เลือกคนที่จะช่วย" (ยาหมดไปทันทีที่ใช้) */
+export function witchOptions(s: GameState, w: EnginePlayer): { canHeal: boolean; healTargets: string[]; poisonTargets: string[] } {
+  const healTargets = Number(w.roleState.heal) > 0
+    ? s.players.filter((p) => p.alive && (s.settings.witchSelfHeal || p.id !== w.id)).map((p) => p.id)
+    : [];
   const poisonTargets = Number(w.roleState.poison) > 0
     ? s.players.filter((p) => p.alive && p.id !== w.id).map((p) => p.id)
     : [];
-  return { canHeal, victimId: victim, poisonTargets };
+  return { canHeal: healTargets.length > 0, healTargets, poisonTargets };
 }
 
 // ---------------------------------------------------------------- รับแอคชันกลางคืน
@@ -140,13 +163,22 @@ export function applyNightAction(s: GameState, a: NightAction, events: GameEvent
   const actor = player(s, a.actorId);
   if (!actor) return err('no_player', 'ไม่พบผู้เล่น');
   if (!actor.alive) return err('dead', 'ผู้ที่ตายแล้วใช้ความสามารถไม่ได้');
-  const slot = currentSlot(s);
-  if (!slot || !slot.actors.includes(actor.id)) return err('not_your_turn', 'ยังไม่ถึงตาของคุณ');
+  const def = getRole(actor.roleId);
+  // กลางคืนทำพร้อมกัน: ข้าม = ข้ามความสามารถที่ค้างอยู่อันแรก · อย่างอื่น = หาช่องจากชนิดความสามารถ
+  let slot: NightSlot | null | undefined;
+  if (a.kind === 'skip') {
+    slot = pendingSlotFor(s, actor.id);
+    if (!slot) return err('not_your_turn', 'คืนนี้คุณไม่มีอะไรต้องทำแล้ว');
+  } else {
+    const abx = def.abilities.find((x) => x.kind === a.kind);
+    if (!abx) return err('not_your_role', 'บทของคุณใช้ความสามารถนี้ไม่ได้');
+    const slotNum = abx.nightSlot ?? def.nightSlot;
+    slot = n.slots.find((sl) => sl.slot === slotNum);
+    if (!slot || !slot.actors.includes(actor.id)) return err('not_your_turn', 'คืนนี้คุณใช้ความสามารถนี้ไม่ได้');
+  }
   if (slot.auto) return err('no_action', 'ช่องนี้ไม่ต้องเลือกอะไร');
   const key = actedKey(actor.id, slot.slot);
   if (n.acted[key]) return err('already_acted', 'คุณส่งคำสั่งของช่องนี้ไปแล้ว');
-
-  const def = getRole(actor.roleId);
 
   if (a.kind === 'skip') {
     n.acted[key] = true;
@@ -161,21 +193,21 @@ export function applyNightAction(s: GameState, a: NightAction, events: GameEvent
   const ab = def.abilities.find((x) => x.kind === a.kind);
   if (!ab) return err('not_your_role', 'บทของคุณใช้ความสามารถนี้ไม่ได้');
   if (a.kind === 'vigilante_shot' && Number(actor.roleState.shots) <= 0) return err('no_ammo', 'คุณใช้กระสุนหมดแล้ว');
-  if ((ab.nightSlot ?? def.nightSlot) !== slot.slot) return err('wrong_slot', 'ความสามารถนี้ใช้ได้ตอนช่องของมันเท่านั้น');
 
   const targets = a.targets ?? [];
 
   // ---- แม่มด: ใช้ meta { heal, poisonId }
   if (a.kind === 'witch') {
     const opt = witchOptions(s, actor);
-    const heal = a.meta?.heal === true;
+    const healId = typeof a.meta?.healId === 'string' ? (a.meta.healId as string) : null;
     const poisonId = typeof a.meta?.poisonId === 'string' ? (a.meta.poisonId as string) : null;
-    if (heal && !opt.canHeal) return err('no_heal', 'ใช้ยาชุบชีวิตไม่ได้ในตอนนี้');
+    if (healId && !opt.canHeal) return err('no_heal', 'ใช้ยาชุบชีวิตไม่ได้ในตอนนี้');
+    if (healId && !opt.healTargets.includes(healId)) return err('bad_heal', 'ช่วยคนนี้ด้วยยาชุบชีวิตไม่ได้');
     if (poisonId && !opt.poisonTargets.includes(poisonId)) return err('bad_poison', 'วางยาพิษคนนี้ไม่ได้');
-    if (heal && poisonId && !s.settings.witchBothSameNight) return err('both_potions', 'ใช้ยาสองชนิดในคืนเดียวกันไม่ได้');
+    if (healId && poisonId && !s.settings.witchBothSameNight) return err('both_potions', 'ใช้ยาสองชนิดในคืนเดียวกันไม่ได้');
     n.acted[key] = true;
-    if (!heal && !poisonId) return undefined; // ไม่ใช้ยา = ข้าม
-    n.intents.push({ actorId: actor.id, roleId: actor.roleId, slot: slot.slot, kind: 'witch', targets: poisonId ? [poisonId] : [], meta: { heal, poisonId } });
+    if (!healId && !poisonId) return undefined; // ไม่ใช้ยา = ข้าม
+    n.intents.push({ actorId: actor.id, roleId: actor.roleId, slot: slot.slot, kind: 'witch', targets: poisonId ? [poisonId] : [], meta: { healId, poisonId } });
     return undefined;
   }
 
@@ -251,7 +283,7 @@ export function applyNightAction(s: GameState, a: NightAction, events: GameEvent
 }
 
 // ---------------------------------------------------------------- ปิดช่อง / เดินช่อง
-/** ช่องนี้เป็นช่อง "กัด" ของฝูงจริงหรือไม่ (ต่างจากช่องอื่นที่บทในฝูงอาจตื่นด้วย เช่น หมาป่าผู้หยุดความสามารถที่ช่อง 11) */
+/** ช่องนี้เป็นช่อง "กัด" ของฝูงจริงหรือไม่ (ต่างจากช่องอื่นที่บทในฝูงอาจตื่นด้วย เช่น หมาป่าผู้หยุดความสามารถ) */
 function isBiteSlot(slot: NightSlot): boolean {
   return slot.roleIds.some((r) => {
     if (!isPackRole(r)) return false;
@@ -261,17 +293,18 @@ function isBiteSlot(slot: NightSlot): boolean {
   });
 }
 
-function closeSlot(s: GameState, events: GameEvent[]): void {
+/** จบคืน: รวมเสียงโหวตของฝูงเป็นเหยื่อเดียว (ทุกคนส่งพร้อมกันแล้ว) ก่อนเข้าท่อประมวลผล */
+function finalizeWolves(s: GameState, events: GameEvent[]): void {
   const n = s.night!;
-  const slot = n.slots[n.idx];
-  if (!slot || !isBiteSlot(slot)) return;
+  const biteSlot = n.slots.find(isBiteSlot);
+  if (!biteSlot) return;
+  const slotNo = biteSlot.slot;
 
   // หมาป่าแพร่เชื้อเลือก "แพร่เชื้อแทนฆ่า" คืนนี้ → ฝูงไม่มีใครตายจากการกัดคืนนี้เลย
-  const infected = n.intents.some((i) => i.kind === 'infect' && i.slot === slot.slot);
+  const infected = n.intents.some((i) => i.kind === 'infect');
 
-  // รวมเสียงของฝูง
   const blockedNow = computeBlocked(n.intents); // หมาป่าที่ถูกขัดขวางไม่ได้ร่วมเลือกเหยื่อ
-  const votes = Object.entries(n.wolfVotes).filter(([voter, v]) => typeof v === 'string' && !blockedNow.has(voter)).map(([, v]) => v as string);
+  const votes = Object.entries(n.wolfVotes).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)).filter(([voter, v]) => typeof v === 'string' && !blockedNow.has(voter)).map(([, v]) => v as string);
   let target: string | null = null;
   if (!infected && votes.length > 0) {
     const uniq = Array.from(new Set(votes));
@@ -281,34 +314,24 @@ function closeSlot(s: GameState, events: GameEvent[]): void {
   if (s.dayNumber === 1 && !s.settings.firstNightKill) target = null;
   n.wolfTarget = target;
   if (target) {
-    n.intents.push({ actorId: 'wolves', roleId: 'werewolf', slot: slot.slot, kind: 'wolf_bite', targets: [target], meta: { votes: n.wolfVotes } });
+    n.intents.push({ actorId: 'wolves', roleId: 'werewolf', slot: slotNo, kind: 'wolf_bite', targets: [target], meta: { votes: n.wolfVotes } });
     // ลูกหมาป่าตายไปแล้ว → ฝูงฆ่าเพิ่มอีก 1 คน (🔸A27: คนถัดไปที่มีหมาป่าอย่างน้อย 1 ตัวเลือก)
     if (s.packExtraKill) {
       const alt = votes.find((v) => v !== target);
-      if (alt) n.intents.push({ actorId: 'wolves_cub', roleId: 'werewolf', slot: slot.slot, kind: 'wolf_bite_extra', targets: [alt], meta: {} });
+      if (alt) n.intents.push({ actorId: 'wolves_cub', roleId: 'werewolf', slot: slotNo, kind: 'wolf_bite_extra', targets: [alt], meta: {} });
       s.packExtraKill = false;
     }
   }
   events.push(ev(s, 'wolf_decision', false, { target, votes: n.wolfVotes, infected }));
 }
 
-export function slotDone(s: GameState): boolean {
-  const slot = currentSlot(s);
-  if (!slot) return true;
-  if (slot.idle || slot.auto) return true;
-  return slot.actors.every((id) => s.night!.acted[actedKey(id, slot.slot)]);
-}
-
-/** เดินหนึ่งช่อง (server เป็นคนหน่วงเวลาเอง) — ช่องสุดท้ายปิดแล้วประมวลผลทั้งคืน */
+/** จบคืนเมื่อทุกคนส่งแอคชันครบ (หรือหมดเวลา) → ประมวลผลทั้งคืนทีเดียว */
 export function advanceNight(s: GameState, timedOut: boolean, events: GameEvent[]): void {
   if (!s.night) return;
-  if (!slotDone(s) && !timedOut) return;
-  closeSlot(s, events);
-  s.night.idx += 1;
-  if (s.night.idx >= s.night.slots.length) {
-    resolveNight(s, events);
-    s.night = null;
-  }
+  if (!nightDone(s) && !timedOut) return;
+  finalizeWolves(s, events);
+  resolveNight(s, events);
+  s.night = null;
 }
 
 export function aliveCount(s: GameState): number {

@@ -64,6 +64,8 @@ export function settleDeaths(
       revealedIsWolf: p.revealedIsWolf,
     }));
     events.push(ev(s, 'death_detail', false, { playerId: p.id, roleId: p.roleId, cause: d.cause }));
+    // บอกผู้ตายเองเสมอว่า "คุณตายแล้ว" และตายเพราะอะไร (เฉพาะเจ้าตัว — คนอื่นเห็นแค่สาเหตุแบบกำกวมตามเดิม)
+    (s.privateLog[p.id] ??= []).push({ kind: 'you_died', day: s.dayNumber, cause: d.cause });
 
     // คู่รักตายตาม
     if (p.loverOf) {
@@ -84,6 +86,7 @@ export function settleDeaths(
         watcher.team = 'wolf';
         watcher.winWith = 'wolf';
         events.push(ev(s, 'converted', false, { playerId: watcher.id, to: 'werewolf', reason: 'model_died' }));
+        (s.privateLog[watcher.id] ??= []).push({ kind: 'converted', day: s.dayNumber, toRole: 'werewolf', byRole: null });
       }
     }
 

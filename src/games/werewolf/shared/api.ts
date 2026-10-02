@@ -75,7 +75,7 @@ export interface MyViewResponse {
   reward: RewardBreakdown | null; // เหรียญที่ได้จากเกมนี้ (เฉพาะคนที่มีกระเป๋า และเกมจบแล้ว)
   log: PublicLogEvent[];
   chat: { public: ChatLine[]; private: Record<string, ChatLine[]> };
-  canWrite: { public: boolean; channels: string[] };
+  canWrite: { public: boolean; channels: string[]; activeChannels: string[] };
 }
 
 export type ActionRequest =

@@ -2,7 +2,7 @@
 import type { GameAction, GameState } from './types';
 import { getRole } from './roles';
 import { nextRand, pick, shuffle } from './rng';
-import { abilityUsable, actedKey, currentSlot, legalTargets, witchOptions } from './night';
+import { abilityUsable, legalTargets, pendingSlotFor, witchOptions } from './night';
 import { advance } from './reducer';
 import { applyAction } from './reducer';
 import { player } from './state';
@@ -21,9 +21,9 @@ export function botNightAction(s: GameState, id: string, rng: Rng, slotNum?: num
 
   if (ab.kind === 'witch') {
     const o = witchOptions(s, me);
-    const heal = o.canHeal && nextRand(rng) < 0.5;
+    const healId = o.canHeal && nextRand(rng) < 0.4 ? pick(rng, o.healTargets) : undefined;
     const poisonId = o.poisonTargets.length > 0 && nextRand(rng) < 0.25 ? pick(rng, o.poisonTargets) : undefined;
-    return { type: 'night_action', actorId: id, kind: 'witch', meta: { heal, poisonId } };
+    return { type: 'night_action', actorId: id, kind: 'witch', meta: { healId, poisonId } };
   }
   if (ab.kind === 'predict') {
     const team = pick(rng, ['village', 'wolf', 'solo'] as const)!;
@@ -58,9 +58,8 @@ export function botActionFor(s: GameState, id: string, rng: Rng): GameAction | n
     case 'role_reveal':
       return me.ready ? null : { type: 'ready', actorId: id };
     case 'night': {
-      const slot = currentSlot(s);
-      if (!slot || slot.idle || slot.auto || !slot.actors.includes(id) || s.night!.acted[actedKey(id, slot.slot)]) return null;
-      return botNightAction(s, id, rng, slot.slot);
+      const slot = pendingSlotFor(s, id);
+      return slot ? botNightAction(s, id, rng, slot.slot) : null;
     }
     case 'nomination': {
       if (s.nominations[id]) return null;
@@ -105,10 +104,17 @@ export function playBotGame(initial: GameState, botSeed: number, maxSteps = 5000
         adv(false);
         break;
       case 'night': {
-        const slot = currentSlot(s);
-        if (slot && !slot.idle && !slot.auto) {
-          for (const id of slot.actors) {
-            if (!s.night!.acted[actedKey(id, slot.slot)]) apply(botNightAction(s, id, rng, slot.slot));
+        // กลางคืนทำพร้อมกัน: ทุกคนส่งแอคชันครบทุกความสามารถที่ค้างอยู่ แล้วจึงจบคืน
+        let guardN = 0;
+        let progressed = true;
+        while (progressed && s.phase === 'night' && guardN++ < 50) {
+          progressed = false;
+          for (const p of s.players) {
+            const slot = pendingSlotFor(s, p.id);
+            if (!slot) continue;
+            const before = s.night!.acted[`${p.id}@${slot.slot}`];
+            apply(botNightAction(s, p.id, rng, slot.slot));
+            if (s.night && s.night.acted[`${p.id}@${slot.slot}`] !== before) progressed = true;
           }
         }
         adv(false);

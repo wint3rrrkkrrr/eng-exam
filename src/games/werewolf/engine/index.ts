@@ -6,7 +6,7 @@ export type { SetupIssue } from './settings';
 export { createGame } from './state';
 export type { NewPlayer, CreateGameOptions } from './state';
 export { applyAction } from './reducer';
-export { currentSlot, legalTargets, witchOptions } from './night';
+export { legalTargets, nightDone, pendingSlotFor, witchOptions } from './night';
 export { buildView, VEILED } from './view';
 export type { MyView, MyTurn, PublicPlayerView } from './view';
 export { checkWinners } from './win';

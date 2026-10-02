@@ -38,7 +38,8 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   const [selected, setSelected] = useState<string[]>([]);
   const key = `${view.phase}|${game.nightSlot}|${game.dayNumber}|${turn.actionKind}|${turn.isMyTurn}|${gunnerTurn}`;
   useEffect(() => { setSelected([]); }, [key]);
-  const poisonTargets = (turn.extra as { poisonTargets?: string[] } | undefined)?.poisonTargets ?? [];
+  const witchExtra = turn.extra as { poisonTargets?: string[]; healTargets?: string[] } | undefined;
+  const poisonTargets = Array.from(new Set([...(witchExtra?.healTargets ?? []), ...(witchExtra?.poisonTargets ?? [])]));
   const gunnerTargets = view.players.filter((p) => p.isAlive && p.playerId !== game.me.playerId).map((p) => p.playerId);
   const selectable: string[] = gunnerTurn ? gunnerTargets : !turn.isMyTurn ? [] : turn.actionKind === 'witch' ? poisonTargets : turn.selectableTargets;
   const selection: Selection = { selected, setSelected, selectable, max: gunnerTurn ? 1 : Math.max(1, turn.targetCount || 1) };
@@ -121,6 +122,13 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
 
       {hunterTurn && <HunterShot {...props} />}
       {gunnerTurn && <GunnerShot {...props} shots={roleState.gunnerShots ?? 0} />}
+
+      {/* เหตุการณ์สำคัญที่เกิดกับเรา (ตาย/ถูกเปลี่ยนฝ่าย) — ขึ้นเด่นเหนือส่วนอื่น เห็นเฉพาะเจ้าตัว */}
+      {game.privateResults.filter((r) => r.textTh.startsWith('💀') || r.textTh.startsWith('🔔')).map((r, i) => (
+        <div key={`alert${i}`} role="alert" className={`rounded-2xl border-2 px-4 py-3 text-sm font-bold ${r.textTh.startsWith('💀') ? 'border-red-500 bg-red-950/60 text-red-100' : 'border-amber-400 bg-amber-950/50 text-amber-100'}`}>
+          {r.textTh}
+        </div>
+      ))}
 
       {content}
 

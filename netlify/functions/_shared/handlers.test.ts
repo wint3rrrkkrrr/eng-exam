@@ -230,20 +230,35 @@ describe('ตัวจับเวลา (tick)', () => {
     expect((await env.store.getRoom(lob.code))!.phase).toBe('night');
   });
 
-  it('★ กันเดาจากเวลา: แม้ทุกคนกดเสร็จเร็ว ช่องกลางคืนก็ไม่เดินก่อนเวลาขั้นต่ำ', async () => {
+  it('★ กลางคืนเฟสเดียว: ไม่จบก่อนเวลาขั้นต่ำ และไม่จบจนกว่าทุกคนกดครบ/หมดเวลา', async () => {
     const env = makeEnv();
     const lob = await startWith(env, 8);
     for (const a of lob.players) await H.action(env.ctx, hdr(a), { roomCode: lob.code, type: 'ready' });
-    const slotOf = async () => (await env.store.getRoomSecrets(lob.code))!.engine_state!.game.night!.idx;
-    const idx0 = await slotOf();
-    env.clock.t += 1000; // ยังไม่ถึง 4 วินาที
+    const phaseOf = async () => (await env.store.getRoom(lob.code))!.phase;
+    expect(await phaseOf()).toBe('night');
+    env.clock.t += 1000; // ยังไม่ถึงเวลาขั้นต่ำ
     expect((await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code })).body).toEqual({ advanced: false });
-    expect(await slotOf()).toBe(idx0);
-    env.clock.t += 4000; // เกินขั้นต่ำแล้ว — ช่องว่าง/ไม่มีคน เดินได้
-    // เดินจนผ่านช่องว่าง (ถ้ามี) — ต้องเดินได้ทีละช่อง ไม่ข้ามหลายช่องใน tick เดียว
-    const r = await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code });
-    const idx1 = await slotOf();
-    if ((r.body as { advanced: boolean }).advanced) expect(idx1).toBe(idx0 + 1);
+    expect(await phaseOf()).toBe('night');
+    env.clock.t += 13_000; // เกินเวลาขั้นต่ำแล้ว แต่ยังมีคนไม่กด + ยังไม่หมดเวลา → ยังไม่จบคืน
+    expect((await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code })).body).toEqual({ advanced: false });
+    expect(await phaseOf()).toBe('night');
+    env.clock.t += 300_000; // หมดเวลา → จบคืน
+    expect((await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code })).body).toEqual({ advanced: true });
+    expect(await phaseOf()).not.toBe('night');
+  });
+
+  it('★ กลางคืน: คนกดแอคชันไม่ต่อเวลา (phase_ends_at ไม่ขยับ) — กันคนยื้อเวลา', async () => {
+    const env = makeEnv();
+    const lob = await startWith(env, 8);
+    for (const a of lob.players) await H.action(env.ctx, hdr(a), { roomCode: lob.code, type: 'ready' });
+    const room0 = (await env.store.getRoom(lob.code))!;
+    expect(room0.phase).toBe('night');
+    const ends0 = room0.phase_ends_at;
+    env.clock.t += 2000;
+    for (const a of lob.players) await actFor(env, lob.code, a, await view(env, lob.code, a), 0, 0);
+    const room1 = (await env.store.getRoom(lob.code))!;
+    expect(room1.phase).toBe('night');
+    expect(room1.phase_ends_at).toBe(ends0);
   });
 
   it('★ tick พร้อมกันหลายเครื่อง → เดินจริงแค่รอบเดียว (idempotent)', async () => {
@@ -292,6 +307,29 @@ describe('แชท', () => {
     }
   });
 
+  it('★ แชทลับของพวกเดียวกัน: คุยได้เฉพาะตอนกลางคืน — กลางวันพิมพ์ไม่ได้ (แต่ยังอ่านย้อนหลังได้)', async () => {
+    const env = makeEnv();
+    const lob = await startWith(env, 8);
+    for (const a of lob.players) await H.action(env.ctx, hdr(a), { roomCode: lob.code, type: 'ready' });
+    const secrets = (await env.store.getRoomSecrets(lob.code))!;
+    const g = secrets.engine_state!.game;
+    const wolf = lob.players.find((a) => g.players.find((p) => p.id === a.playerId)!.team === 'wolf')!;
+    expect(g.phase).toBe('night');
+    expect((await H.chat(env.ctx, hdr(wolf), { roomCode: lob.code, channel: 'wolf', text: 'กลางคืนคุยได้' })).status).toBe(200);
+
+    env.clock.t += 300_000; // หมดเวลากลางคืน → เช้า
+    await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code });
+    env.clock.t += 9_000; // เช้า → อภิปราย (กลางวัน)
+    await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code });
+    expect((await env.store.getRoom(lob.code))!.phase).toBe('discussion');
+    const day = await H.chat(env.ctx, hdr(wolf), { roomCode: lob.code, channel: 'wolf', text: 'กลางวันห้ามคุย' });
+    expect(day.status).toBe(403);
+    const v = await view(env, lob.code, wolf);
+    expect(v.canWrite.channels).toContain('wolf'); // ยังอ่านได้
+    expect(v.canWrite.activeChannels).not.toContain('wolf'); // แต่พิมพ์ไม่ได้
+    expect(v.chat.private.wolf.map((c) => c.text)).toEqual(['กลางคืนคุยได้']);
+  });
+
   it('กลางคืนแชทสาธารณะปิด (เงียบ) · โหมด "เสียง" ปิดแชทสาธารณะ', async () => {
     const env = makeEnv();
     const lob = await startWith(env, 8);
@@ -336,16 +374,18 @@ async function actFor(env: Env, code: string, a: AuthResponse, v: MyViewResponse
   const t = v.game!.myTurn;
   if (!t.isMyTurn) return;
   const targets = t.selectableTargets;
-  const pick = (n = 0) => targets[(pickIdx + n) % targets.length];
+  // เกมที่ยื้อนานผิดปกติ (หมาป่าเลือกไม่ตรงกันซ้ำๆ) → ทุกคนโหวต/เสนอชื่อคนเดียวกัน ให้เกมเดินไปจนจบได้แน่นอน
+  const forced = step > 300;
+  const pick = (n = 0) => targets[(forced && (t.actionKind === 'vote' || t.actionKind === 'nominate') ? n : pickIdx + n) % targets.length];
   const h = hdr(a);
   switch (t.actionKind) {
     case 'hunter_shot': await H.action(env.ctx, h, { roomCode: code, type: 'hunter_shot', targetId: pick() }); break;
     case 'nominate': await H.action(env.ctx, h, { roomCode: code, type: 'nominate', targetId: pick() }); break;
-    case 'vote': await H.action(env.ctx, h, { roomCode: code, type: 'vote', targetId: pickIdx % 5 === 0 ? null : pick() }); break;
+    case 'vote': await H.action(env.ctx, h, { roomCode: code, type: 'vote', targetId: !forced && pickIdx % 5 === 0 ? null : pick() }); break;
     case 'witch': await H.action(env.ctx, h, { roomCode: code, type: 'night_action', kind: 'witch', meta: { heal: false } }); break;
     case 'cupid_pair': await H.action(env.ctx, h, { roomCode: code, type: 'night_action', kind: 'cupid_pair', targets: [pick(), pick(1)] }); break;
     case 'wolf_bite': // หมาป่าทุกตัวเลือกคนเดียวกัน (ฝูงต้องเห็นตรงกันจึงจะกัดสำเร็จ)
-      await H.action(env.ctx, h, { roomCode: code, type: 'night_action', kind: 'wolf_bite', targets: [targets[step % targets.length]] });
+      await H.action(env.ctx, h, { roomCode: code, type: 'night_action', kind: 'wolf_bite', targets: [targets[v.game!.dayNumber % targets.length]] }); // ตามวัน ไม่ใช่ตามก้าว: หมาป่าที่มี 2 ความสามารถกดคนละก้าวก็ยังเลือกคนเดียวกัน
       break;
     default:
       if (targets.length === 0) await H.action(env.ctx, h, { roomCode: code, type: 'night_action', kind: 'skip' });
@@ -454,6 +494,60 @@ import { AVATAR_ITEMS, DEFAULT_AVATAR, STARTING_COINS, parseAvatar } from '../..
 const wh = (w: { walletId: string; token: string }): Headers => ({ 'x-ww-wallet-id': w.walletId, 'x-ww-wallet-token': w.token });
 const newWallet = async (env: Env) => bodyOf<WalletCreated>(await H.walletCreate(env.ctx));
 const priceOf = (id: string) => AVATAR_ITEMS.find((i) => i.id === id)!.price;
+
+const PW_A = 'a'.repeat(64);
+const PW_B = 'b'.repeat(64);
+const login = async (env: Env, username: string, passwordHash: string, device?: WalletCreated) =>
+  H.walletLogin(env.ctx, { username, passwordHash, ...(device ? { walletId: device.walletId, walletToken: device.token } : {}) });
+
+describe('กระเป๋าเงินตามบัญชี (ข้ามเครื่อง)', () => {
+  it('ล็อกอินคนละเครื่องด้วยบัญชีเดียวกัน → ได้กระเป๋า/ของที่ซื้อ/เหรียญเดียวกัน', async () => {
+    const env = makeEnv();
+    env.store.accounts.set('WIN', PW_A);
+    const d1 = bodyOf<WalletCreated>(await login(env, 'WIN', PW_A));
+    expect((await H.shopBuy(env.ctx, wh(d1), { itemId: 'hw_cap' })).status).toBe(200);
+
+    const d2 = bodyOf<WalletCreated>(await login(env, 'WIN', PW_A)); // เครื่องที่ 2 (ไม่มีตั๋วเดิมในเครื่อง)
+    expect(d2.walletId).toBe(d1.walletId);
+    expect(d2.wallet.owned).toEqual(['hw_cap']);
+    expect(d2.wallet.coins).toBe(STARTING_COINS - priceOf('hw_cap'));
+    expect((await H.walletGet(env.ctx, wh(d2))).status).toBe(200); // ตั๋วที่ได้ใช้งานได้จริง
+  });
+
+  it('รหัสผ่านผิด / ไม่มีบัญชี / แฮชรูปแบบแปลก → ปฏิเสธ ไม่ได้กระเป๋า', async () => {
+    const env = makeEnv();
+    env.store.accounts.set('WIN', PW_A);
+    expect((await login(env, 'WIN', PW_B)).status).toBe(401);
+    expect((await login(env, 'คนอื่น', PW_A)).status).toBe(401);
+    expect((await login(env, 'WIN', 'x')).status).toBe(400);
+    env.store.accounts.set('OLD', null); // บัญชีเก่าที่ยังไม่เคยตั้งรหัสผ่าน
+    expect((await login(env, 'OLD', PW_A)).status).toBe(401);
+    expect(env.store.wallets.size).toBe(0);
+  });
+
+  it('กระเป๋าเดิมของเครื่อง (ยังไม่ผูกบัญชี) ถูกย้ายมาผูกให้ครั้งแรก — เหรียญ/ของไม่หาย', async () => {
+    const env = makeEnv();
+    env.store.accounts.set('WIN', PW_A);
+    const old = await newWallet(env);
+    await H.shopBuy(env.ctx, wh(old), { itemId: 'hw_cap' });
+    const r = bodyOf<WalletCreated>(await login(env, 'WIN', PW_A, old));
+    expect(r.walletId).toBe(old.walletId);
+    expect(r.wallet.owned).toEqual(['hw_cap']);
+    expect((await H.walletGet(env.ctx, wh(old))).status).toBe(401); // ตั๋วเดิมใช้ไม่ได้แล้ว (ตั๋วใหม่ = ของบัญชี)
+  });
+
+  it('★ แย่งกระเป๋าไม่ได้: บัญชี B ถือตั๋วกระเป๋าของบัญชี A มาก็ไม่ได้ของ A · ได้กระเป๋าใหม่ของตัวเอง', async () => {
+    const env = makeEnv();
+    env.store.accounts.set('A', PW_A);
+    env.store.accounts.set('B', PW_B);
+    const a = bodyOf<WalletCreated>(await login(env, 'A', PW_A));
+    await H.shopBuy(env.ctx, wh(a), { itemId: 'hw_cap' });
+    const b = bodyOf<WalletCreated>(await login(env, 'B', PW_B, { ...a, token: PW_A }));
+    expect(b.walletId).not.toBe(a.walletId);
+    expect(b.wallet.owned).toEqual([]);
+    expect(env.store.wallets.get(a.walletId)!.username).toBe('A');
+  });
+});
 
 describe('กระเป๋าเงิน', () => {
   it('สร้างกระเป๋า: ได้เหรียญเริ่มต้น · ดูได้ด้วยตั๋วที่ถูกต้องเท่านั้น · เก็บเฉพาะแฮชของตั๋ว', async () => {

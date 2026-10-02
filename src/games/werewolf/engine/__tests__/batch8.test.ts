@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { alive, makeGame, playDay, playNight } from './testUtils';
 import { applyAction } from '../reducer';
-import { currentSlot } from '../night';
+import { pendingSlotFor } from '../night';
 import { buildView } from '../view';
 
 const act = (g: ReturnType<typeof makeGame>, a: Parameters<typeof applyAction>[1]) => {
@@ -18,20 +18,16 @@ describe('ผู้ลอกเลียนแบบ', () => {
 
   it('ลอกแม่มด → กลายเป็นแม่มดทันที ได้ยาครบชุดของตัวเอง และใช้ได้คืนนี้เลย', () => {
     const g = makeGame(ROLES);
-    expect(currentSlot(g.s)!.slot).toBe(1);
+    expect(pendingSlotFor(g.s, 'p1')!.slot).toBe(1);
     act(g, { type: 'night_action', actorId: 'p1', kind: 'copy_role', targets: ['p2'] });
     expect(g.s.players[0].roleId).toBe('witch');
     expect(g.s.players[0].team).toBe('village');
     expect(g.s.players[0].roleState.heal).toBe(1);
     expect(g.s.players[0].roleState.poison).toBe(1);
-    act(g, { type: 'advance' });
-    expect(currentSlot(g.s)!.slot).toBe(30); // หมาป่า (p3) — มาก่อนช่องแม่มด
+    expect(pendingSlotFor(g.s, 'p1')!.slot).toBe(50); // ได้ช่องแม่มดทันทีในคืนเดียวกัน
     act(g, { type: 'night_action', actorId: 'p3', kind: 'skip' });
-    act(g, { type: 'advance' });
-    expect(currentSlot(g.s)!.slot).toBe(50); // ช่องแม่มด
-    expect(currentSlot(g.s)!.actors).toEqual(expect.arrayContaining(['p1', 'p2']));
-    act(g, { type: 'night_action', actorId: 'p1', kind: 'witch', meta: { heal: false, poisonId: 'p4' } });
-    act(g, { type: 'night_action', actorId: 'p2', kind: 'witch', meta: { heal: false } }); // แม่มดตัวจริงก็ยังอยู่ในช่องเดียวกัน
+    act(g, { type: 'night_action', actorId: 'p1', kind: 'witch', meta: { poisonId: 'p4' } });
+    act(g, { type: 'night_action', actorId: 'p2', kind: 'witch', meta: {} }); // แม่มดตัวจริงก็ยังอยู่ในช่องเดียวกัน
     act(g, { type: 'advance' });
     expect(g.s.phase).toBe('morning');
     expect(alive(g, 'p4')).toBe(false); // p1 วางยาพิษสำเร็จในคืนเดียวกับที่ลอกบท
@@ -41,8 +37,7 @@ describe('ผู้ลอกเลียนแบบ', () => {
     const g = makeGame(['doppelganger', 'werewolf', 'villager', 'villager', 'villager', 'villager']);
     act(g, { type: 'night_action', actorId: 'p1', kind: 'copy_role', targets: ['p2'] });
     expect(g.s.players[0].team).toBe('wolf');
-    act(g, { type: 'advance' });
-    expect(currentSlot(g.s)!.slot).toBe(30);
+    expect(pendingSlotFor(g.s, 'p1')!.slot).toBe(30);
     act(g, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p3'] });
     act(g, { type: 'night_action', actorId: 'p2', kind: 'wolf_bite', targets: ['p3'] });
     act(g, { type: 'advance' });
@@ -54,12 +49,10 @@ describe('ผู้ลอกเลียนแบบ', () => {
     const g = makeGame(['doppelganger', 'wild_child', 'werewolf', 'villager', 'villager', 'villager']);
     act(g, { type: 'night_action', actorId: 'p1', kind: 'copy_role', targets: ['p2'] });
     expect(g.s.players[0].roleId).toBe('wild_child');
-    act(g, { type: 'advance' });
-    expect(currentSlot(g.s)!.slot).toBe(3);
-    expect(currentSlot(g.s)!.actors).toEqual(expect.arrayContaining(['p1', 'p2']));
+    expect(pendingSlotFor(g.s, 'p1')!.slot).toBe(3);
+    expect(g.s.night!.slots.find((sl) => sl.slot === 3)!.actors).toEqual(expect.arrayContaining(['p1', 'p2']));
     act(g, { type: 'night_action', actorId: 'p1', kind: 'pick_model', targets: ['p4'] });
     act(g, { type: 'night_action', actorId: 'p2', kind: 'pick_model', targets: ['p5'] });
-    act(g, { type: 'advance' }); // → ช่อง 30 (หมาป่า)
     act(g, { type: 'night_action', actorId: 'p3', kind: 'skip' });
     act(g, { type: 'advance' }); // จบคืน — ประมวลผล pick_model แล้ว
     expect(g.s.players[0].roleState.modelId).toBe('p4');

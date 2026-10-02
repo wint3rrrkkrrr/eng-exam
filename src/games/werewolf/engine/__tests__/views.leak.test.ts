@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { act, makeGame, mustAct, playNight, type Game } from './testUtils';
 import { buildView, type MyView } from '../view';
-import { currentSlot } from '../night';
+import { pendingSlotFor } from '../night';
 
 // 14 คน: หมาป่า 3 · ช่างก่อสร้าง 2 · บทพิเศษหลากหลาย
 const ROLES = [
@@ -57,25 +57,25 @@ describe('มุมมองผู้เล่น (views.leak)', () => {
     const g = makeGame(ROLES);
     checkAllViews(g); // ต้นคืนที่ 1
 
-    // เดินทีละช่อง ตรวจทุกช่อง
+    // กลางคืนทำพร้อมกัน: ทุกคนส่งแอคชันของตัวเองทีละคน ตรวจมุมมองทุกคนทุกก้าว
     let guard = 0;
-    while (g.s.phase === 'night' && guard++ < 50) {
+    while (g.s.phase === 'night' && guard++ < 80) {
       checkAllViews(g);
-      const slot = currentSlot(g.s)!;
-      if (!slot.idle && !slot.auto) {
-        for (const id of slot.actors) {
-          const me = g.s.players.find((p) => p.id === id)!;
-          const v = buildView(g.s, id)!;
-          if (v.myTurn.isMyTurn && v.myTurn.actionKind === 'cupid_pair') {
-            mustAct(g, { type: 'night_action', actorId: id, kind: 'cupid_pair', targets: v.myTurn.selectableTargets.slice(0, 2) });
-          } else if (v.myTurn.isMyTurn && v.myTurn.actionKind && me.roleId !== 'witch') {
-            mustAct(g, { type: 'night_action', actorId: id, kind: v.myTurn.actionKind as never, targets: v.myTurn.selectableTargets.slice(0, 1) });
-          } else {
-            mustAct(g, { type: 'night_action', actorId: id, kind: 'skip' });
-          }
+      let acted = false;
+      for (const p of g.s.players) {
+        if (!pendingSlotFor(g.s, p.id)) continue;
+        const v = buildView(g.s, p.id)!;
+        if (v.myTurn.isMyTurn && v.myTurn.actionKind === 'cupid_pair') {
+          mustAct(g, { type: 'night_action', actorId: p.id, kind: 'cupid_pair', targets: v.myTurn.selectableTargets.slice(0, 2) });
+        } else if (v.myTurn.isMyTurn && v.myTurn.actionKind && p.roleId !== 'witch') {
+          mustAct(g, { type: 'night_action', actorId: p.id, kind: v.myTurn.actionKind as never, targets: v.myTurn.selectableTargets.slice(0, 1) });
+        } else {
+          mustAct(g, { type: 'night_action', actorId: p.id, kind: 'skip' });
         }
+        acted = true;
+        checkAllViews(g);
       }
-      mustAct(g, { type: 'advance' });
+      mustAct(g, { type: 'advance', timedOut: !acted });
     }
     checkAllViews(g); // เช้า
 

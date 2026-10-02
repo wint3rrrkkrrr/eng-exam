@@ -1,7 +1,7 @@
 // ตัวช่วยเขียนเทสต์: สร้างเกมที่กำหนดบทตายตัว + เดินคืน/วัน
 import { applyAction } from '../reducer';
 import { createGame } from '../state';
-import { currentSlot } from '../night';
+import { pendingSlotFor } from '../night';
 import type { GameAction, GameEvent, GameState, WerewolfSettings } from '../types';
 
 export interface Game {
@@ -45,19 +45,20 @@ export function playNight(
   plan: Record<string, { kind: Extract<GameAction, { type: 'night_action' }>['kind']; targets?: string[]; meta?: Record<string, unknown> }>,
 ): void {
   if (g.s.phase !== 'night') throw new Error('ไม่ได้อยู่ในช่วงกลางคืน: ' + g.s.phase);
+  // กลางคืนทำพร้อมกัน: ทุกคนที่มีอะไรต้องทำส่งแอคชันของตัวเอง (ไม่อยู่ในแผน = ข้าม) แล้วจบคืน
   let guard = 0;
   while (g.s.phase === 'night' && guard++ < 100) {
-    const slot = currentSlot(g.s);
-    if (slot && !slot.idle && !slot.auto) {
-      for (const id of slot.actors) {
-        if (g.s.night!.acted[id]) continue;
-        const p = plan[id];
-        mustAct(g, p
-          ? { type: 'night_action', actorId: id, kind: p.kind, targets: p.targets, meta: p.meta }
-          : { type: 'night_action', actorId: id, kind: 'skip' });
-      }
+    let acted = false;
+    for (const p of g.s.players) {
+      const slot = pendingSlotFor(g.s, p.id);
+      if (!slot) continue;
+      const plan1 = plan[p.id];
+      mustAct(g, plan1
+        ? { type: 'night_action', actorId: p.id, kind: plan1.kind, targets: plan1.targets, meta: plan1.meta }
+        : { type: 'night_action', actorId: p.id, kind: 'skip' });
+      acted = true;
     }
-    mustAct(g, { type: 'advance' });
+    mustAct(g, { type: 'advance', timedOut: !acted });
   }
 }
 

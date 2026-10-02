@@ -93,6 +93,7 @@ export interface WalletRow {
   avatar: Record<string, string> | null;
   games_played: number;
   wins: number;
+  username?: string | null; // ผูกกับบัญชีผู้ใช้ของเว็บ (ใช้ข้ามเครื่อง) · null = กระเป๋าของเครื่องนี้เท่านั้น
 }
 
 // (โปรเจกต์ไม่เปิด strict จึงใช้รูปแบบเดียว: ตรวจ ok ก่อนแล้วค่อยอ่าน wallet/reason)
@@ -132,6 +133,11 @@ export interface WwStore {
   createWallet(walletId: string, tokenHash: string, coins: number): Promise<void>;
   getWalletTokenHash(walletId: string): Promise<string | null>;
   getWallet(walletId: string): Promise<WalletRow | null>;
+  getWalletByUsername(username: string): Promise<WalletRow | null>;
+  /** ผูกกระเป๋ากับบัญชี + ตั้งตั๋วของกระเป๋าให้ตรงกับบัญชี (ล็อกอินเครื่องไหนก็ใช้กระเป๋าเดียวกัน) */
+  bindWalletToAccount(walletId: string, username: string, tokenHash: string): Promise<void>;
+  /** แฮชรหัสผ่านของบัญชีเว็บ (ตาราง winter_users) — exists=false ถ้าไม่มีบัญชีนี้ */
+  getAccountPasswordHash(username: string): Promise<{ exists: boolean; hash: string | null }>;
   walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult>;
   walletCredit(walletId: string, amount: number, won: boolean): Promise<WalletRow | null>;
   walletSetAvatar(walletId: string, avatar: Record<string, string>): Promise<void>;

@@ -2,88 +2,69 @@
 import { describe, expect, it } from 'vitest';
 import { alive, makeGame, mustAct, playNight } from './testUtils';
 import { applyAction } from '../reducer';
-import { currentSlot } from '../night';
+import { pendingSlotFor } from '../night';
 import { buildView } from '../view';
 
 // p1 หมาป่าผู้หยุดความสามารถ · p2 หมาป่า · p3 ผู้หยั่งรู้ · p4 แม่มด · p5-p7 ชาวบ้าน (ช่อง 11 → 30 → 40 → 50 ติดกันไม่มีบทอื่นคั่น)
 const WB = ['wolf_blocker', 'werewolf', 'seer', 'witch', 'villager', 'villager', 'villager'];
 
 describe('หมาป่าผู้หยุดความสามารถ', () => {
-  it('ตื่น 2 ช่อง: ช่อง 11 (block) มาก่อนช่อง 30 (กัด) เสมอ', () => {
+  it('มี 2 ความสามารถ: ช่อง 11 (block) ค้างอันแรกก่อน แล้วจึงถึงช่อง 30 (กัด) — แต่ส่งพร้อมคนอื่นได้เลย', () => {
     const g = makeGame(WB);
-    expect(currentSlot(g.s)!.slot).toBe(11);
-    expect(currentSlot(g.s)!.actors).toContain('p1');
+    expect(pendingSlotFor(g.s, 'p1')!.slot).toBe(11);
+    expect(pendingSlotFor(g.s, 'p2')!.slot).toBe(30); // หมาป่าธรรมดาไม่ต้องรอใคร
     mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'block', targets: ['p3'] });
+    expect(pendingSlotFor(g.s, 'p1')!.slot).toBe(30);
+  });
+
+  it('กลางคืนทำพร้อมกัน: ส่งกัดก่อนขัดก็ได้ และ skip ข้ามความสามารถที่ค้างอยู่อันแรก', () => {
+    const g = makeGame(WB);
+    expect(applyAction(g.s, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p6'] }).error).toBeUndefined();
+    mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'skip' }); // ข้าม block (อันแรกที่ค้าง)
+    expect(pendingSlotFor(g.s, 'p1')!.slot).toBe(30);
+  });
+
+  it('ขัดขวางผู้หยั่งรู้ + ร่วมกัด p5 → ผู้หยั่งรู้ไม่ได้ผล และ p5 ตาย', () => {
+    const g = makeGame(WB);
+    mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'block', targets: ['p3'] });
+    mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p5'] });
+    mustAct(g, { type: 'night_action', actorId: 'p2', kind: 'wolf_bite', targets: ['p5'] });
+    mustAct(g, { type: 'night_action', actorId: 'p3', kind: 'investigate_seer', targets: ['p2'] });
+    mustAct(g, { type: 'night_action', actorId: 'p4', kind: 'witch' });
     mustAct(g, { type: 'advance' });
-    expect(currentSlot(g.s)!.slot).toBe(30);
-    expect(currentSlot(g.s)!.actors).toEqual(expect.arrayContaining(['p1', 'p2']));
-  });
-
-  it('ส่ง kind ที่ไม่ตรงกับช่องปัจจุบันถูกปฏิเสธ (wrong_slot)', () => {
-    const g = makeGame(WB);
-    expect(currentSlot(g.s)!.slot).toBe(11);
-    const r = applyAction(g.s, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p6'] });
-    expect(r.error?.code).toBe('wrong_slot');
-  });
-
-  it('ขัดขวางผู้หยั่งรู้ที่ช่อง 11 + ร่วมกัด p5 ที่ช่อง 30 → ผู้หยั่งรู้ไม่ได้ผล และ p5 ตาย', () => {
-    const g = makeGame(WB);
-    let s = g.s;
-    const act = (a: Parameters<typeof applyAction>[1]) => { const r = applyAction(s, a); if (r.error) throw new Error(r.error.code); s = r.state; };
-    act({ type: 'night_action', actorId: 'p1', kind: 'block', targets: ['p3'] });
-    act({ type: 'advance' });
-    expect(currentSlot(s)!.slot).toBe(30);
-    act({ type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p5'] });
-    act({ type: 'night_action', actorId: 'p2', kind: 'wolf_bite', targets: ['p5'] });
-    act({ type: 'advance' });
-    expect(currentSlot(s)!.slot).toBe(40); // ผู้หยั่งรู้
-    act({ type: 'night_action', actorId: 'p3', kind: 'investigate_seer', targets: ['p2'] });
-    act({ type: 'advance' });
-    expect(currentSlot(s)!.slot).toBe(50); // แม่มด
-    act({ type: 'night_action', actorId: 'p4', kind: 'witch' });
-    act({ type: 'advance' });
-    expect(s.phase).toBe('morning');
-    expect(s.players.find((p) => p.id === 'p5')!.alive).toBe(false);
-    const v = buildView(s, 'p3')!;
+    expect(g.s.phase).toBe('morning');
+    expect(alive(g, 'p5')).toBe(false);
+    const v = buildView(g.s, 'p3')!;
     expect(v.privateResults.some((r) => r.textTh.includes('ขัดขวาง'))).toBe(true);
     expect(v.privateResults.some((r) => r.textTh.includes('เป็นหมาป่า'))).toBe(false);
   });
 
-  it('ไม่กดขัดใคร แต่ร่วมกัดฝูง → เหยื่อตายตามปกติ (ตื่นสองช่องไม่พังอะไร)', () => {
+  it('ไม่กดขัดใคร แต่ร่วมกัดฝูง → เหยื่อตายตามปกติ (ตื่นสองความสามารถไม่พังอะไร)', () => {
     const g = makeGame(WB);
-    let s = g.s;
-    const act = (a: Parameters<typeof applyAction>[1]) => { const r = applyAction(s, a); if (r.error) throw new Error(r.error.code); s = r.state; };
-    act({ type: 'night_action', actorId: 'p1', kind: 'skip' });
-    act({ type: 'advance' });
-    expect(currentSlot(s)!.slot).toBe(30);
-    act({ type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p7'] });
-    act({ type: 'night_action', actorId: 'p2', kind: 'wolf_bite', targets: ['p7'] });
-    act({ type: 'advance' });
-    while (s.phase === 'night') act({ type: 'advance', timedOut: true });
-    expect(s.players.find((p) => p.id === 'p7')!.alive).toBe(false);
+    mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'skip' });
+    mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p7'] });
+    mustAct(g, { type: 'night_action', actorId: 'p2', kind: 'wolf_bite', targets: ['p7'] });
+    mustAct(g, { type: 'night_action', actorId: 'p3', kind: 'skip' });
+    mustAct(g, { type: 'night_action', actorId: 'p4', kind: 'skip' });
+    mustAct(g, { type: 'advance' });
+    expect(g.s.phase).toBe('morning');
+    expect(alive(g, 'p7')).toBe(false);
   });
 
-  it('p1 ถูกขัดขวางเองที่ช่อง 10 (โดยผู้หยุดความสามารถธรรมดา) → ขัดใครไม่ได้ และเสียงกัดของตัวเองไม่นับ', () => {
+  it('p1 ถูกขัดขวางเอง (โดยผู้หยุดความสามารถธรรมดา) → ขัดใครไม่ได้ และเสียงกัดของตัวเองไม่นับ', () => {
     const g = makeGame(['roleblocker', 'wolf_blocker', 'werewolf', 'villager', 'villager', 'villager']);
-    let s = g.s;
-    const act = (a: Parameters<typeof applyAction>[1]) => { const r = applyAction(s, a); if (r.error) throw new Error(r.error.code); s = r.state; };
-    expect(currentSlot(s)!.slot).toBe(10);
-    act({ type: 'night_action', actorId: 'p1', kind: 'block', targets: ['p2'] }); // roleblocker บล็อก wolf_blocker
-    act({ type: 'advance' });
-    expect(currentSlot(s)!.slot).toBe(11);
-    act({ type: 'night_action', actorId: 'p2', kind: 'block', targets: ['p4'] }); // ถูกบล็อกแล้ว ส่งได้แต่ไม่มีผล
-    act({ type: 'advance' });
-    expect(currentSlot(s)!.slot).toBe(30);
-    act({ type: 'night_action', actorId: 'p2', kind: 'wolf_bite', targets: ['p4'] });
-    act({ type: 'night_action', actorId: 'p3', kind: 'wolf_bite', targets: ['p5'] });
-    act({ type: 'advance' });
-    expect(s.phase).toBe('morning');
+    mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'block', targets: ['p2'] }); // roleblocker บล็อก wolf_blocker
+    mustAct(g, { type: 'night_action', actorId: 'p2', kind: 'block', targets: ['p4'] }); // ถูกบล็อกแล้ว ส่งได้แต่ไม่มีผล
+    mustAct(g, { type: 'night_action', actorId: 'p2', kind: 'wolf_bite', targets: ['p4'] });
+    mustAct(g, { type: 'night_action', actorId: 'p3', kind: 'wolf_bite', targets: ['p5'] });
+    mustAct(g, { type: 'advance' });
+    expect(g.s.phase).toBe('morning');
     // p2 ถูกขัด → เสียงของ p2 ไม่นับ เหลือ p3 เสียงเดียว → p5 ตาย ไม่ใช่ p4
-    expect(s.players.find((p) => p.id === 'p5')!.alive).toBe(false);
-    expect(s.players.find((p) => p.id === 'p4')!.alive).toBe(true);
+    expect(alive(g, 'p5')).toBe(false);
+    expect(alive(g, 'p4')).toBe(true);
   });
 
-  it('เลือกตัวเอง/2 คน/คนตายในความสามารถ block → ถูกปฏิเสธ', () => {
+  it('เลือกตัวเอง/2 คน ในความสามารถ block → ถูกปฏิเสธ', () => {
     const g = makeGame(WB);
     expect(applyAction(g.s, { type: 'night_action', actorId: 'p1', kind: 'block', targets: ['p1'] }).error).toBeTruthy();
     expect(applyAction(g.s, { type: 'night_action', actorId: 'p1', kind: 'block', targets: ['p3', 'p4'] }).error).toBeTruthy();
@@ -92,22 +73,6 @@ describe('หมาป่าผู้หยุดความสามารถ'
 
 // p1 ผู้สลับชะตา · p2 หมาป่า · p3 หมอ · p4-p5 ชาวบ้าน · p6 ผู้หยั่งรู้
 const SW = ['swapper', 'werewolf', 'doctor', 'villager', 'villager', 'seer'];
-
-/** เดินช่องกลางคืนโดยทุกคน "ข้าม" จนถึงช่องของผู้สลับชะตา (60) — ใช้ทดสอบช่องกติกาของ swap เพียวๆ */
-function toSwapSlot(g: ReturnType<typeof makeGame>): void {
-  let s = g.s;
-  let guard = 0;
-  while (currentSlot(s)!.slot !== 60 && guard++ < 20) {
-    const slot = currentSlot(s)!;
-    for (const id of slot.actors) {
-      const r = applyAction(s, { type: 'night_action', actorId: id, kind: 'skip' });
-      if (!r.error) s = r.state;
-    }
-    const r = applyAction(s, { type: 'advance' });
-    if (!r.error) s = r.state;
-  }
-  g.s = s;
-}
 
 describe('ผู้สลับชะตา', () => {
   it('หมาป่าเลือกฆ่า A + หมอกัน B + สลับ A,B → A รอด (ไม่ถูกโจมตีแล้ว) · B ถูกกัด', () => {
@@ -165,11 +130,9 @@ describe('ผู้สลับชะตา', () => {
 
   it('เลือกตัวเองได้ (canTargetSelf) · เลือกคนตาย/ซ้ำ/คนเดียวไม่ได้', () => {
     const g = makeGame(SW);
-    toSwapSlot(g);
     expect(applyAction(g.s, { type: 'night_action', actorId: 'p1', kind: 'swap', targets: ['p1', 'p4'] }).error).toBeFalsy();
 
     const g2 = makeGame(SW);
-    toSwapSlot(g2);
     expect(applyAction(g2.s, { type: 'night_action', actorId: 'p1', kind: 'swap', targets: ['p4', 'p4'] }).error).toBeTruthy();
     expect(applyAction(g2.s, { type: 'night_action', actorId: 'p1', kind: 'swap', targets: ['p4'] }).error).toBeTruthy();
   });

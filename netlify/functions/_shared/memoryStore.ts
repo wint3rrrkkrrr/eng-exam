@@ -14,6 +14,7 @@ export class MemoryStore implements WwStore {
   players = new Map<string, PlayerRow>();
   auth = new Map<string, { token_hash: string; room_code: string }>();
   wallets = new Map<string, WalletRow & { token_hash: string }>();
+  accounts = new Map<string, string | null>(); // username → แฮชรหัสผ่าน (จำลองตาราง winter_users ตอนทดสอบ)
   playerWallet = new Map<string, string>();
   eventsPublic = new Map<string, PublicEventRecord[]>();
   eventsPrivate = new Map<string, EventRow[]>();
@@ -118,6 +119,20 @@ export class MemoryStore implements WwStore {
   // ---------------------------------------------------------------- กระเป๋าเงิน
   async createWallet(walletId: string, tokenHash: string, coins: number) {
     this.wallets.set(walletId, { wallet_id: walletId, token_hash: tokenHash, coins, owned: [], avatar: null, games_played: 0, wins: 0 });
+  }
+
+  async getWalletByUsername(username: string) {
+    for (const w of this.wallets.values()) if (w.username === username) return this.view(w);
+    return null;
+  }
+
+  async bindWalletToAccount(walletId: string, username: string, tokenHash: string) {
+    const w = this.wallets.get(walletId);
+    if (w) { w.username = username; w.token_hash = tokenHash; }
+  }
+
+  async getAccountPasswordHash(username: string) {
+    return this.accounts.has(username) ? { exists: true, hash: this.accounts.get(username) ?? null } : { exists: false, hash: null };
   }
 
   async getWalletTokenHash(walletId: string) {

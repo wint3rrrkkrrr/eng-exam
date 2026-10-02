@@ -5,7 +5,7 @@ import { ROLES } from './roles';
 // ค่าเริ่มต้นตาม RULES.md ข้อ 13 (เอกสารเจ้าของเว็บ + Q16 + Q21)
 export const DEFAULT_SETTINGS: WerewolfSettings = {
   firstNightKill: true,
-  wolfDisagree: 'none',
+  wolfDisagree: 'random',
   doctorSelfProtect: true,
   doctorNoRepeat: true,
   witchBothSameNight: true,

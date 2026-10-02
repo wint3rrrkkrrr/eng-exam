@@ -47,12 +47,17 @@ describe('แวมไพร์', () => {
     expect(alive(g, 'p3')).toBe(true);
   });
 
-  it('แม่มดชุบไม่ได้ — ไม่มีเหยื่อฝูงหมาป่าให้ชุบคืนที่แวมไพร์กัด (ถูกปฏิเสธ no_heal)', () => {
+  it('ยาชุบของแม่มดกันการกัดของแวมไพร์ไม่ได้ (ไม่ใช่เหยื่อฝูงหมาป่า)', () => {
     const g = makeGame(['vampire', 'witch', 'villager', 'villager', 'villager']);
+    // กลางคืนทำพร้อมกัน: แม่มดเลือกช่วย p3 ได้ แต่ยาพิษ/ชุบไม่เกี่ยวกับการกัดของแวมไพร์ — p3 ยังถูกแปลงอยู่ดี
     act(g, { type: 'night_action', actorId: 'p1', kind: 'vampire_bite', targets: ['p3'] });
-    act(g, { type: 'advance' }); // ไปช่องแม่มด
-    const r = applyAction(g.s, { type: 'night_action', actorId: 'p2', kind: 'witch', meta: { heal: true } });
-    expect(r.error?.code).toBe('no_heal');
+    act(g, { type: 'night_action', actorId: 'p2', kind: 'witch', meta: { healId: 'p3' } });
+    act(g, { type: 'advance' });
+    expect(g.s.phase).toBe('morning');
+    expect(alive(g, 'p3')).toBe(true);
+    skipDay(g);
+    flushNight(g);
+    expect(g.s.players.find((p) => p.id === 'p3')!.team).toBe('vampire'); // ยาชุบกันการแปลงของแวมไพร์ไม่ได้
   });
 
   it('ผู้ที่ถูกแปลงแล้วกัดต่อได้ทันที (ขยายฝูงเอง) และชนะได้เมื่อแวมไพร์ ≥ ผู้เล่นอื่นที่รอด', () => {

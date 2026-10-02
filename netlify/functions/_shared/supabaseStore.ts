@@ -117,8 +117,23 @@ export class SupabaseStore implements WwStore {
   }
 
   async getWallet(walletId: string): Promise<WalletRow | null> {
-    const res = await this.db.from('ww_wallets').select('wallet_id,coins,owned,avatar,games_played,wins').eq('wallet_id', walletId).maybeSingle();
+    const res = await this.db.from('ww_wallets').select('wallet_id,coins,owned,avatar,games_played,wins,username').eq('wallet_id', walletId).maybeSingle();
     return must(res, 'getWallet') as WalletRow | null;
+  }
+
+  async getWalletByUsername(username: string): Promise<WalletRow | null> {
+    const res = await this.db.from('ww_wallets').select('wallet_id,coins,owned,avatar,games_played,wins,username').eq('username', username).maybeSingle();
+    return must(res, 'getWalletByUsername') as WalletRow | null;
+  }
+
+  async bindWalletToAccount(walletId: string, username: string, tokenHash: string): Promise<void> {
+    must(await this.db.from('ww_wallets').update({ username, token_hash: tokenHash }).eq('wallet_id', walletId) as never, 'bindWalletToAccount');
+  }
+
+  async getAccountPasswordHash(username: string): Promise<{ exists: boolean; hash: string | null }> {
+    const res = await this.db.from('winter_users').select('password_hash').eq('username', username).maybeSingle();
+    const row = must(res, 'getAccountPasswordHash') as { password_hash: string | null } | null;
+    return { exists: row !== null, hash: row?.password_hash ?? null };
   }
 
   async walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult> {

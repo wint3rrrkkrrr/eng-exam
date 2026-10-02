@@ -157,11 +157,10 @@ export interface NightSlot {
 
 export interface NightState {
   slots: NightSlot[];
-  idx: number;
   intents: Intent[];
   wolfVotes: Record<string, string | null>;
   acted: Record<string, boolean>;
-  wolfTarget: string | null; // เหยื่อที่ฝูงเลือก (แม่มดเห็น)
+  wolfTarget: string | null; // เหยื่อที่ฝูงตัดสินตอนจบคืน (ไม่มีใครเห็นระหว่างคืน)
   veilBy: string[]; // หมาป่าผู้บดบังที่สั่งบดบังโหวตวันถัดไปคืนนี้
 }
 
@@ -178,7 +177,9 @@ export type PrivateResult =
   | { kind: 'infected'; day: number }
   | { kind: 'mirrored'; day: number }
   | { kind: 'vampire_bitten'; day: number }
-  | { kind: 'cult_recruited'; day: number }
+  | { kind: 'cult_recruited'; day: number; byRole: RoleId }
+  | { kind: 'converted'; day: number; toRole: RoleId; byRole: RoleId | null }
+  | { kind: 'you_died'; day: number; cause: DeathCause }
   | { kind: 'copied'; day: number; roleId: RoleId }
   | { kind: 'aura'; day: number; targetId: string; aura: 'good' | 'evil' | 'neutral' }
   | { kind: 'mystic'; day: number; targetId: string; category: AbilityCategory }
@@ -201,6 +202,7 @@ export interface DelayedEffect {
   targetId: string;
   onDay: number; // จะเกิดผลตอนจบคืนของวันที่นี้
   cause?: DeathCause;
+  byRole?: RoleId; // บทที่ทำให้เกิดการเปลี่ยนฝ่าย (บอกผู้ถูกเปลี่ยนเท่านั้น)
 }
 
 export interface GameState {

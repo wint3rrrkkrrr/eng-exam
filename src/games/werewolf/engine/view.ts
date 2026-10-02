@@ -2,7 +2,7 @@
 // ใช้โดย netlify/functions/ww-my-view ตอน M3 · มีเทสต์ views.leak.test.ts คุมไม่ให้ความลับรั่ว
 import type { GameState, IntentKind, PrivateResult, RoleId, Team } from './types';
 import { getRole } from './roles';
-import { actedKey, canVeil, currentSlot, legalTargets, witchOptions } from './night';
+import { abilityForSlot, canVeil, isPackRole, legalTargets, pendingSlotFor, witchOptions } from './night';
 import { publicCause } from './deaths';
 import { player } from './state';
 import { TH } from '../text/th';
@@ -47,6 +47,8 @@ export interface MyView {
     roleState: Record<string, unknown>;
   };
   allies: { playerId: string; role: RoleId }[];
+  /** เฉพาะสมาชิกฝูงหมาป่าตอนกลางคืน: เพื่อนในฝูง (รวมตัวเอง) เลือกกัดใครอยู่ — ช่วยให้ตกลงเหยื่อตรงกัน (คนนอกฝูงไม่เห็น) */
+  packVotes: Record<string, string> | null;
   lover: string | null;
   myTurn: MyTurn;
   privateResults: { day: number; textTh: string }[];
@@ -92,7 +94,11 @@ function formatResult(s: GameState, r: PrivateResult): { day: number; textTh: st
     case 'vampire_bitten':
       return { day: r.day, textTh: TH.result.vampireBitten };
     case 'cult_recruited':
-      return { day: r.day, textTh: TH.result.cultRecruited };
+      return { day: r.day, textTh: TH.result.cultRecruited(getRole(r.byRole).nameTh) };
+    case 'converted':
+      return { day: r.day, textTh: TH.result.converted(getRole(r.toRole).nameTh, r.byRole ? getRole(r.byRole).nameTh : null) };
+    case 'you_died':
+      return { day: r.day, textTh: TH.result.youDied(TH.deathCauseSelf[r.cause] ?? TH.deathCauseSelf.default) };
     case 'copied':
       return { day: r.day, textTh: TH.result.copied(getRole(r.roleId).nameTh) };
     case 'sorcerer_check':
@@ -136,6 +142,15 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
     }
   }
 
+  // ---- เสียงของฝูงหมาป่า (เห็นเฉพาะสมาชิกฝูงที่ยังรอด)
+  let packVotes: Record<string, string> | null = null;
+  if (me.alive && s.phase === 'night' && s.night && isPackRole(me.roleId)) {
+    packVotes = {};
+    for (const [voter, target] of Object.entries(s.night.wolfVotes)) {
+      if (typeof target === 'string' && player(s, voter) && isPackRole(player(s, voter)!.roleId)) packVotes[voter] = target;
+    }
+  }
+
   // ---- ตาของฉัน
   let myTurn: MyTurn = NO_TURN;
   if (s.pendingHunters[0] === me.id) {
@@ -145,9 +160,9 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
       selectableTargets: s.players.filter((p) => p.alive && p.id !== me.id).map((p) => p.id),
     };
   } else if (me.alive && s.phase === 'night' && s.night) {
-    const slot = currentSlot(s);
-    if (slot && slot.actors.includes(me.id) && !slot.auto && !s.night.acted[actedKey(me.id, slot.slot)]) {
-      const ab = def.abilities.find((x) => (x.nightSlot ?? def.nightSlot) === slot.slot);
+    const slot = pendingSlotFor(s, me.id);
+    if (slot) {
+      const ab = abilityForSlot(def, slot.slot);
       if (ab) {
         myTurn = {
           isMyTurn: true,
@@ -158,8 +173,8 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
         };
         if (ab.kind === 'witch') {
           const o = witchOptions(s, me);
-          // แม่มดเห็นเหยื่อของฝูง (กติกาอนุญาตเฉพาะแม่มด)
-          myTurn.extra = { victimId: o.victimId, canHeal: o.canHeal, poisonTargets: o.poisonTargets };
+          // กลางคืนทำพร้อมกัน: แม่มดไม่เห็นเหยื่อของฝูง — เลือกคนที่จะช่วยเอง
+          myTurn.extra = { canHeal: o.canHeal, healTargets: o.healTargets, poisonTargets: o.poisonTargets };
         }
         if (ab.kind === 'wolf_bite' && canVeil(me)) myTurn.extra = { canVeil: true };
         if (ab.kind === 'oil_mark') myTurn.extra = { marked: Array.isArray(me.roleState.marked) ? me.roleState.marked : [] };
@@ -177,8 +192,7 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
   // ---- บรรยาย (เหมือนกันทุกคน — ไม่เผยว่าช่องนี้ว่างหรือมีคน)
   let narrationTh = '';
   if (s.phase === 'night' && s.night) {
-    const slot = currentSlot(s);
-    narrationTh = slot ? TH.narration.wake(getRole(slot.roleIds[0]).nameTh) : TH.narration.nightStart;
+    narrationTh = TH.narration.nightStart;
   } else if (s.phase === 'morning') narrationTh = TH.narration.morning;
   else if (s.phase === 'discussion') narrationTh = TH.narration.discussion;
   else if (s.phase === 'nomination') narrationTh = TH.narration.nomination;
@@ -202,7 +216,7 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
   return {
     phase: s.phase,
     dayNumber: s.dayNumber,
-    nightSlot: s.phase === 'night' ? currentSlot(s)?.slot ?? null : null,
+    nightSlot: s.phase === 'night' ? pendingSlotFor(s, me.id)?.slot ?? null : null,
     narrationTh,
     me: {
       playerId: me.id,
@@ -215,6 +229,7 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
       roleState: { ...me.roleState },
     },
     allies,
+    packVotes,
     lover: me.loverOf,
     myTurn,
     privateResults: (s.privateLog[me.id] ?? []).map((r) => formatResult(s, r)),

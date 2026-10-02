@@ -8,12 +8,12 @@ import type { Ctx, Headers, HandlerResult } from './handlers';
 export type Route =
   | 'create-room' | 'join-room' | 'update-settings' | 'start-game' | 'my-view'
   | 'action' | 'nominate' | 'vote' | 'chat' | 'release-seat' | 'tick' | 'play-again'
-  | 'wallet-create' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
+  | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
 
 export const ROUTES: Route[] = [
   'create-room', 'join-room', 'update-settings', 'start-game', 'my-view',
   'action', 'nominate', 'vote', 'chat', 'release-seat', 'tick', 'play-again',
-  'wallet-create', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
+  'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
 ];
 
 let cachedStore: WwStore | null = null;
@@ -48,6 +48,7 @@ export async function dispatch(route: Route, headers: Headers, body: Record<stri
       case 'tick': return await H.tick(ctx, headers, body);
       case 'play-again': return await H.playAgain(ctx, headers, body);
       case 'wallet-create': return await H.walletCreate(ctx);
+      case 'wallet-login': return await H.walletLogin(ctx, body);
       case 'wallet': return await H.walletGet(ctx, headers);
       case 'shop-buy': return await H.shopBuy(ctx, headers, body);
       case 'avatar-save': return await H.avatarSave(ctx, headers, body);

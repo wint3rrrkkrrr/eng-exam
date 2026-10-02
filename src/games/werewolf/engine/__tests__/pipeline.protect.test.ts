@@ -32,7 +32,7 @@ describe('หมอ × หมาป่า', () => {
     playNight(g, {
       p1: { kind: 'wolf_bite', targets: ['p4'] },
       p2: { kind: 'protect_doctor', targets: ['p4'] },
-      p3: { kind: 'witch', meta: { heal: true } },
+      p3: { kind: 'witch', meta: { healId: 'p4' } },
     });
     expect(alive(g, 'p4')).toBe(true);
     expect(g.s.players[2].roleState.heal).toBe(1);
@@ -43,7 +43,7 @@ describe('หมอ × หมาป่า', () => {
     playNight(g, {
       p1: { kind: 'wolf_bite', targets: ['p4'] },
       p2: { kind: 'protect_doctor', targets: ['p4'] },
-      p3: { kind: 'witch', meta: { heal: true } },
+      p3: { kind: 'witch', meta: { healId: 'p4' } },
     });
     expect(g.s.players[2].roleState.heal).toBe(0);
   });
@@ -52,7 +52,7 @@ describe('หมอ × หมาป่า', () => {
     const g = makeGame(ROLES);
     playNight(g, {
       p1: { kind: 'wolf_bite', targets: ['p4'] },
-      p3: { kind: 'witch', meta: { heal: true } },
+      p3: { kind: 'witch', meta: { healId: 'p4' } },
     });
     expect(alive(g, 'p4')).toBe(true);
     expect(g.s.players[2].roleState.heal).toBe(0);
@@ -84,7 +84,7 @@ describe('หมอ × หมาป่า', () => {
     const on = makeGame(ROLES);
     playNight(on, {
       p1: { kind: 'wolf_bite', targets: ['p4'] },
-      p3: { kind: 'witch', meta: { heal: true, poisonId: 'p5' } },
+      p3: { kind: 'witch', meta: { healId: 'p4', poisonId: 'p5' } },
     });
     expect(alive(on, 'p4')).toBe(true);
     expect(alive(on, 'p5')).toBe(false);
@@ -93,28 +93,33 @@ describe('หมอ × หมาป่า', () => {
     expect(() =>
       playNight(off, {
         p1: { kind: 'wolf_bite', targets: ['p4'] },
-        p3: { kind: 'witch', meta: { heal: true, poisonId: 'p5' } },
+        p3: { kind: 'witch', meta: { healId: 'p4', poisonId: 'p5' } },
       }),
     ).toThrow(/both_potions/);
   });
 
-  it('แม่มดเห็นเหยื่อของฝูง แต่คนอื่นไม่เห็น', () => {
+  it('แม่มดชุบผิดคน (ไม่ได้ถูกกัด) → ยายังอยู่ และคนที่ถูกกัดยังตาย', () => {
     const g = makeGame(ROLES);
-    // เดินถึงช่องแม่มด (50): ช่อง 20 หมอ, 30 หมาป่า, 40 ผู้หยั่งรู้
-    mustAct(g, { type: 'advance' }); // ช่อง 2? ไม่มีคิวปิด — ช่องแรกคือหมอ
-    const roleSlot = (id: string) => buildView(g.s, id)!.myTurn;
-    expect(roleSlot('p2').isMyTurn).toBe(true); // หมอ
-    mustAct(g, { type: 'night_action', actorId: 'p2', kind: 'skip' });
-    mustAct(g, { type: 'advance' });
+    playNight(g, {
+      p1: { kind: 'wolf_bite', targets: ['p4'] },
+      p3: { kind: 'witch', meta: { healId: 'p5' } },
+    });
+    expect(alive(g, 'p4')).toBe(false);
+    expect(alive(g, 'p5')).toBe(true);
+    expect(g.s.players[2].roleState.heal).toBe(1);
+  });
+
+  it('กลางคืนทำพร้อมกัน: แม่มดไม่เห็นเหยื่อของฝูง (ไม่มี victimId ในมุมมองของใครเลย)', () => {
+    const g = makeGame(ROLES);
     mustAct(g, { type: 'night_action', actorId: 'p1', kind: 'wolf_bite', targets: ['p4'] });
-    mustAct(g, { type: 'advance' }); // ปิดช่องหมาป่า
-    mustAct(g, { type: 'night_action', actorId: 'p6', kind: 'investigate_seer', targets: ['p1'] });
-    mustAct(g, { type: 'advance' });
-    const witchTurn = roleSlot('p3');
-    expect(witchTurn.isMyTurn).toBe(true);
-    expect(witchTurn.extra?.victimId).toBe('p4');
-    expect(JSON.stringify(buildView(g.s, 'p5'))).not.toContain('"victimId"');
-    expect(JSON.stringify(buildView(g.s, 'p6'))).not.toContain('"victimId"');
+    const witchTurn = buildView(g.s, 'p3')!.myTurn;
+    expect(witchTurn.isMyTurn).toBe(true); // ทำได้ทันทีพร้อมคนอื่น
+    expect(witchTurn.extra?.victimId).toBeUndefined();
+    expect(witchTurn.extra?.healTargets).toContain('p4');
+    for (const id of ['p1', 'p2', 'p3', 'p5', 'p6']) {
+      expect(JSON.stringify(buildView(g.s, id))).not.toContain('"victimId"');
+    }
+    expect(buildView(g.s, 'p5')!.myTurn.extra?.healTargets).toBeUndefined();
   });
 });
 
@@ -186,13 +191,13 @@ describe('คืนแรก', () => {
     expect(alive(g, 'p4')).toBe(true);
   });
 
-  it('ฝูงเลือกไม่ตรงกัน → ไม่มีใครตาย (ค่าเริ่มต้น) / สุ่ม (ตั้งค่า)', () => {
+  it('ฝูงเลือกไม่ตรงกัน → สุ่มจากที่เลือก (ค่าเริ่มต้น) / ไม่มีใครตาย (ตั้งค่า)', () => {
     const W = ['werewolf', 'werewolf', 'villager', 'villager', 'villager', 'villager', 'villager', 'villager'];
-    const none = makeGame(W);
+    const none = makeGame(W, { wolfDisagree: 'none' });
     playNight(none, { p1: { kind: 'wolf_bite', targets: ['p3'] }, p2: { kind: 'wolf_bite', targets: ['p4'] } });
     expect(none.s.players.filter((p) => !p.alive)).toHaveLength(0);
 
-    const rnd = makeGame(W, { wolfDisagree: 'random' });
+    const rnd = makeGame(W, {});
     playNight(rnd, { p1: { kind: 'wolf_bite', targets: ['p3'] }, p2: { kind: 'wolf_bite', targets: ['p4'] } });
     expect(rnd.s.players.filter((p) => !p.alive)).toHaveLength(1);
   });

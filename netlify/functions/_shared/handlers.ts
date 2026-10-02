@@ -184,6 +184,34 @@ export async function walletCreate(ctx: Ctx): Promise<HandlerResult> {
   return ok(res);
 }
 
+/**
+ * ล็อกอินกระเป๋าด้วยบัญชีเว็บ (ชื่อ + แฮชรหัสผ่าน) → กระเป๋า/ของที่ซื้อ/อวตารเดียวกันทุกเครื่อง
+ * ตั๋วกระเป๋าของบัญชี = แฮชรหัสผ่าน (เซิร์ฟเวอร์เก็บแฮชซ้อนอีกชั้น) · กระเป๋าของเครื่องที่ยังไม่ผูกบัญชีจะถูกย้ายมาผูกให้ครั้งแรก
+ */
+export async function walletLogin(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
+  const pw = typeof body.passwordHash === 'string' ? body.passwordHash : '';
+  if (!username || username.length > 40 || !/^[0-9a-f]{64}$/.test(pw)) return fail(400, 'ข้อมูลล็อกอินไม่ถูกต้อง', 'bad_login');
+  const acc = await ctx.store.getAccountPasswordHash(username);
+  if (!acc.exists || !acc.hash || !safeEqual(pw, acc.hash)) return fail(401, 'ชื่อหรือรหัสผ่านไม่ถูกต้อง', 'bad_account');
+
+  const tokenHash = hashToken(pw);
+  let w = await ctx.store.getWalletByUsername(username);
+  if (!w) {
+    const device = await checkWallet(ctx, body.walletId, body.walletToken);
+    if (device && !device.username) {
+      await ctx.store.bindWalletToAccount(device.wallet_id, username, tokenHash); // ย้ายกระเป๋าเดิมของเครื่องนี้มาเป็นของบัญชี
+    } else {
+      const id = newId();
+      await ctx.store.createWallet(id, tokenHash, STARTING_COINS);
+      await ctx.store.bindWalletToAccount(id, username, tokenHash);
+    }
+    w = (await ctx.store.getWalletByUsername(username))!;
+  }
+  const res: WalletCreated = { walletId: w.wallet_id, token: pw, wallet: walletView(w) };
+  return ok(res);
+}
+
 export async function walletGet(ctx: Ctx, headers: Headers): Promise<HandlerResult> {
   const w = await walletFromHeaders(ctx, headers);
   if (isWalletFail(w)) return w;
@@ -477,7 +505,7 @@ async function saveState(
     room: {
       phase: next.phase,
       day_number: next.dayNumber,
-      night_slot: next.night ? next.night.slots[next.night.idx]?.slot ?? 0 : 0,
+      night_slot: 0,
       phase_ends_at: endsAt ? new Date(endsAt).toISOString() : null,
       winners: next.winners,
       is_locked: true,
@@ -623,7 +651,9 @@ export async function tick(ctx: Ctx, headers: Headers, body: Record<string, unkn
 }
 
 // ---------------------------------------------------------------- แชท
-const PRIVATE_CHANNELS = ['wolf', 'lovers', 'dead'] as const;
+const PRIVATE_CHANNELS = ['wolf', 'vampire', 'cult', 'lovers', 'dead'] as const;
+// ช่องลับของ "พวกเดียวกัน" คุยได้เฉพาะตอนกลางคืน — กลางวันห้ามวางแผนกัน (ช่องผู้ตายคุยได้ตลอด)
+const NIGHT_ONLY_CHANNELS = ['wolf', 'vampire', 'cult', 'lovers'];
 
 function channelsReadable(g: GameState | null, playerId: string): string[] {
   if (!g) return [];
@@ -632,8 +662,15 @@ function channelsReadable(g: GameState | null, playerId: string): string[] {
   const out: string[] = [];
   if (!me.alive) out.push('dead');
   if (me.alive && me.team === 'wolf') out.push('wolf');
+  if (me.alive && me.team === 'vampire') out.push('vampire');
+  if (me.alive && me.team === 'cult') out.push('cult');
   if (me.alive && me.loverOf) out.push('lovers');
   return out;
+}
+
+/** ช่องลับที่ "พิมพ์ได้ตอนนี้" (อ่านย้อนหลังได้เสมอ) */
+function channelsWritable(g: GameState | null, playerId: string): string[] {
+  return channelsReadable(g, playerId).filter((c) => !NIGHT_ONLY_CHANNELS.includes(c) || g?.phase === 'night');
 }
 
 function canWritePublic(room: RoomRow, g: GameState | null, playerId: string, lobby: LobbySettings): boolean {
@@ -664,6 +701,7 @@ export async function chat(ctx: Ctx, headers: Headers, body: Record<string, unkn
   }
   // ช่องลับ: เซิร์ฟเวอร์ตรวจว่าผู้ส่งอยู่ช่องนั้นจริง (กันชาวบ้านพิมพ์เข้าแชทหมาป่า)
   if (!channelsReadable(g, a.player.player_id).includes(channel)) return fail(403, 'คุณไม่มีสิทธิ์ใช้ช่องแชทนี้', 'forbidden_channel');
+  if (!channelsWritable(g, a.player.player_id).includes(channel)) return fail(403, 'แชทลับของพวกเดียวกันใช้ได้เฉพาะตอนกลางคืน', 'secret_chat_day');
   await ctx.store.insertChatPrivate(a.room.room_code, channel, row);
   return ok({ ok: true });
 }
@@ -701,7 +739,7 @@ export async function myView(ctx: Ctx, headers: Headers, body: Record<string, un
     reward: secrets?.engine_state?.rewards?.[a.player.player_id] ?? null,
     log: events.map((e) => ({ id: e.id, at: e.created_at, day: e.day_number, phase: e.phase, kind: e.kind, data: e.payload })),
     chat: { public: (await ctx.store.listChatPublic(code, 60)).map(toChatLine), private: priv },
-    canWrite: { public: canWritePublic(a.room, game, a.player.player_id, lobby), channels: readable },
+    canWrite: { public: canWritePublic(a.room, game, a.player.player_id, lobby), channels: readable, activeChannels: channelsWritable(game, a.player.player_id) },
   };
   return ok(resp);
 }

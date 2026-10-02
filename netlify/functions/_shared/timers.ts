@@ -1,5 +1,4 @@
 // _shared/timers.ts — เวลาของแต่ละเฟส (ฝั่งเซิร์ฟเวอร์เท่านั้น — เอนจินไม่รู้จักเวลา)
-import { currentSlot } from '../../../src/games/werewolf/engine';
 import type { GameState } from '../../../src/games/werewolf/engine';
 import type { LobbyTimers } from '../../../src/games/werewolf/shared/lobby';
 
@@ -7,7 +6,7 @@ export const HUNTER_SECONDS = 30;
 export const MORNING_SECONDS = 8;
 export const EXECUTION_SECONDS = 8;
 // ช่องกลางคืน "ทุกช่อง" (มีคนเล่นหรือว่าง) ต้องกินเวลาขั้นต่ำช่วงเดียวกัน → กันเดาจากเวลา (GAME_SPEC 4.1)
-export const SLOT_MIN_MS: [number, number] = [4000, 7000];
+export const NIGHT_MIN_MS: [number, number] = [8000, 12000];
 
 export interface Timing {
   endsAt: number | null;
@@ -23,9 +22,8 @@ export function computeTiming(g: GameState, t: LobbyTimers, now: number, rand: (
     case 'role_reveal':
       return { endsAt: now + t.roleRevealSeconds * 1000, minUntil: null };
     case 'night': {
-      const slot = currentSlot(g);
-      const min = now + rand(SLOT_MIN_MS[0], SLOT_MIN_MS[1]);
-      if (!slot || slot.idle || slot.auto) return { endsAt: min, minUntil: min };
+      // กลางคืนเฟสเดียว ทุกบททำพร้อมกัน: ต้องกินเวลาขั้นต่ำเสมอ (กันเดาจากความเร็วว่ามีใครมีบทกลางคืนบ้าง)
+      const min = now + rand(NIGHT_MIN_MS[0], NIGHT_MIN_MS[1]);
       return { endsAt: now + t.nightActionSeconds * 1000, minUntil: min };
     }
     case 'morning':
@@ -48,7 +46,7 @@ export function computeTiming(g: GameState, t: LobbyTimers, now: number, rand: (
 /** ลายเซ็นสถานะ — ใช้ดูว่า advance เดินจริงไหม */
 export function signature(g: GameState): string {
   return [
-    g.phase, g.dayNumber, g.night?.idx ?? '-', g.pendingHunters.length, g.voteRound, g.winners ? 'W' : '-',
+    g.phase, g.dayNumber, g.night ? 'N' : '-', g.pendingHunters.length, g.voteRound, g.winners ? 'W' : '-',
     g.candidates.length,
   ].join('|');
 }

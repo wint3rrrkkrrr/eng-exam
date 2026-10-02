@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, DoorOpen, Loader2, PlusCircle, Shirt } from 'lucide-react';
 import { UI } from '../text/th';
 import { api, loadSession, saveSession } from '../net/werewolfClient';
 import type { Session } from '../net/werewolfClient';
 import type { AuthResponse } from '../shared/api';
-import { loadWallet, walletBody } from '../net/wallet';
+import { ensureWallet, loadWallet, savedAccount, walletBody } from '../net/wallet';
 import { WerewolfRoom } from './WerewolfRoom';
 import { Wardrobe } from './Wardrobe';
 import { HowToPlay } from './HowToPlay';
@@ -26,6 +26,11 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
   const [wardrobe, setWardrobe] = useState(false);
   const [howTo, setHowTo] = useState(false);
   const [canSpectate, setCanSpectate] = useState(false);
+
+  // ล็อกอินด้วยบัญชีเว็บแล้ว → ดึงกระเป๋า/ตู้เสื้อผ้าของ "บัญชี" มาไว้ในเครื่องนี้ก่อนเข้าห้อง (เปลี่ยนเครื่องก็ได้ของเดิม)
+  useEffect(() => {
+    if (savedAccount()) void ensureWallet();
+  }, []);
 
   if (session) {
     return (
@@ -49,6 +54,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
     if (!name.trim()) return setError(UI.errors.needName);
     setBusy('create');
     setError(null);
+    if (savedAccount()) await ensureWallet();
     const r = await api<AuthResponse>('create-room', { displayName: name, password: password || undefined, ...walletBody(loadWallet()) });
     setBusy(null);
     if (!r.ok) return setError(r.errorTh);
@@ -61,6 +67,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
     setBusy('join');
     setError(null);
     setCanSpectate(false);
+    if (savedAccount()) await ensureWallet();
     const r = await api<AuthResponse>('join-room', { roomCode: code, displayName: name, password: joinPassword || undefined, spectate: spectate || undefined, ...walletBody(loadWallet()) });
     setBusy(null);
     if (!r.ok) {

@@ -979,6 +979,8 @@ export default function App() {
       setUsername('');
       localStorage.removeItem('grammar_quiz_username_v1');
       sessionStorage.removeItem('grammar_quiz_username_v1');
+      localStorage.removeItem('grammar_quiz_pwhash_v1');
+      sessionStorage.removeItem('grammar_quiz_pwhash_v1');
       setShowLandingPage(true);
       try { soundFX.playTap(); } catch (e) {}
     }

@@ -9,13 +9,19 @@ import { ev, mustPlayer, player } from './state';
 
 type Log = (step: string, data?: Record<string, unknown>) => void;
 
+/** ลำดับตัดสินคงที่ของเจตนา: ช่อง → รหัสผู้เล่น (กลางคืนทำพร้อมกัน จึงห้ามใช้ลำดับเวลาที่กดส่งตัดสินผล) */
+export function byIntentOrder(a: Intent, b: Intent): number {
+  return a.slot - b.slot || (a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0);
+}
+
 /**
  * ผู้ที่ถูกขัดขวางคืนนี้ — ประมวลตามเลขช่อง (ผู้ขัดขวางช่องน้อยกว่าทำก่อน · ผู้ขัดขวางที่ถูกขัดแล้วขัดใครไม่ได้)
  * ใช้ทั้งตอนปิดช่องหมาป่า (กรองเสียงของหมาป่าที่ถูกขัด) และขั้น 1 ของท่อ
  */
 export function computeBlocked(intents: Intent[]): Set<string> {
   const blocked = new Set<string>();
-  const blocks = intents.filter((i) => i.kind === 'block').sort((a, b) => a.slot - b.slot);
+  // เลขช่องน้อยกว่าก่อน · เลขช่องเท่ากันตัดสินด้วยรหัสผู้เล่น (ไม่ใช่ลำดับที่กดส่ง — ใครกดก่อนต้องไม่ได้เปรียบ)
+  const blocks = intents.filter((i) => i.kind === 'block').sort(byIntentOrder);
   for (const b of blocks) {
     if (blocked.has(b.actorId)) continue;
     for (const t of b.targets) blocked.add(t);
@@ -128,7 +134,7 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
     events.push(ev(s, 'veil_set', false, { actorId: id }));
   }
 
-  let intents = n.intents.filter((i) => !i.cancelled);
+  let intents = n.intents.filter((i) => !i.cancelled).sort(byIntentOrder);
   intents = step01Blocks(s, intents, log);
   intents = step02Swap(s, intents, log);
   intents = step03Mirror(s, intents, log);
@@ -224,15 +230,20 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
   for (const it of intents.filter((i) => i.kind === 'witch')) {
     const w = mustPlayer(s, it.actorId);
     // ใช้การโจมตีจริงหลังขัดขวาง/สลับชะตา แทนเป้าหมายดิบที่ฝูงประกาศ — แม่มดชุบ "คนที่ถูกโจมตีจริง" เสมอ
-    if (it.meta.heal === true && Number(w.roleState.heal) > 0 && wolfAttack) {
-      if (wolfAttack.negatedBy) {
+    // กลางคืนทำพร้อมกัน: แม่มดเลือก "คนที่จะช่วย" เอง — ยาหมดเฉพาะเมื่อช่วยสำเร็จ (เดาผิดคน = ยายังอยู่)
+    const healId = typeof it.meta.healId === 'string' ? it.meta.healId : null;
+    if (healId && Number(w.roleState.heal) > 0) {
+      const atk = attacks.find((a) => a.fromWolves && a.targetId === healId);
+      if (atk && atk.negatedBy) {
         // หมอ/นักบวช/ผู้คุ้มกันกันไว้แล้ว: ได้ยาคืน (ตั้งค่าได้) หรือเสียไปเลย
         if (!s.settings.witchRefundOnProtected) w.roleState.heal = 0;
         log('06heal', { refunded: s.settings.witchRefundOnProtected });
-      } else {
-        wolfAttack.healed = true;
+      } else if (atk) {
+        atk.healed = true;
         w.roleState.heal = 0;
-        log('06heal', { saved: wolfAttack.targetId });
+        log('06heal', { saved: atk.targetId });
+      } else {
+        log('06heal', { wasted: healId }); // คนที่เลือกไม่ได้ถูกฝูงโจมตี → ไม่เสียยา
       }
     }
     const pid = it.meta.poisonId;
@@ -250,7 +261,7 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
     if (!target || !target.alive) continue;
     if (target.roleId === 'cursed_villager') {
       atk.negatedBy = 'doctor'; // ไม่ตายคืนนี้ (ใช้ช่องเดิมเพื่อบอกว่า "ไม่เกิดการตาย")
-      s.delayed.push({ kind: 'convert_wolf', targetId: target.id, onDay: s.dayNumber + 1 });
+      s.delayed.push({ kind: 'convert_wolf', targetId: target.id, onDay: s.dayNumber + 1, byRole: 'cursed_villager' });
       (s.privateLog[target.id] ??= []).push({ kind: 'cursed', day: s.dayNumber });
       log('05cursed', { target: target.id });
     } else if (target.roleId === 'tough_guy') {
@@ -290,12 +301,14 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
       target.team = 'vampire';
       target.winWith = 'vampire';
       events.push(ev(s, 'converted', false, { playerId: target.id, to: 'vampire' }));
+      (s.privateLog[target.id] ??= []).push({ kind: 'converted', day: s.dayNumber, toRole: 'vampire', byRole: d.byRole ?? null });
       log('09convert', { target: target.id, to: 'vampire' });
     } else {
       target.roleId = 'werewolf';
       target.team = 'wolf';
       target.winWith = 'wolf';
       events.push(ev(s, 'converted', false, { playerId: target.id, to: 'werewolf' }));
+      (s.privateLog[target.id] ??= []).push({ kind: 'converted', day: s.dayNumber, toRole: 'werewolf', byRole: d.byRole ?? null });
       log('09convert', { target: target.id, to: 'werewolf' });
     }
   }
@@ -371,7 +384,7 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
     actor.roleState.alphaUsed = true;
     const target = player(s, t);
     if (target && target.alive && target.team === 'village') {
-      s.delayed.push({ kind: 'convert_wolf', targetId: t, onDay: s.dayNumber + 1 });
+      s.delayed.push({ kind: 'convert_wolf', targetId: t, onDay: s.dayNumber + 1, byRole: actor.roleId });
       log('alpha_convert', { target: t });
     }
   }
@@ -384,7 +397,7 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
     actor.roleState.infectUsed = true;
     const target = player(s, t);
     if (target && target.alive) {
-      s.delayed.push({ kind: 'convert_wolf', targetId: t, onDay: s.dayNumber + 2 });
+      s.delayed.push({ kind: 'convert_wolf', targetId: t, onDay: s.dayNumber + 2, byRole: actor.roleId });
       (s.privateLog[t] ??= []).push({ kind: 'infected', day: s.dayNumber });
       log('infect', { target: t });
     }
@@ -398,7 +411,7 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
     if (!target || !target.alive || target.team === 'vampire') continue;
     const saved = intents.some((i) => (i.kind === 'protect_doctor' || i.kind === 'protect_bodyguard' || i.kind === 'protect_priest') && i.targets[0] === t);
     if (saved) { log('vampire_blocked', { target: t }); continue; }
-    s.delayed.push({ kind: 'convert_vampire', targetId: t, onDay: s.dayNumber + 1 });
+    s.delayed.push({ kind: 'convert_vampire', targetId: t, onDay: s.dayNumber + 1, byRole: it.roleId });
     (s.privateLog[t] ??= []).push({ kind: 'vampire_bitten', day: s.dayNumber });
     log('vampire_bite', { target: t });
   }
@@ -412,7 +425,7 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
     target.roleId = 'cult_member';
     target.team = 'cult';
     target.winWith = 'cult';
-    (s.privateLog[t] ??= []).push({ kind: 'cult_recruited', day: s.dayNumber });
+    (s.privateLog[t] ??= []).push({ kind: 'cult_recruited', day: s.dayNumber, byRole: it.roleId });
     events.push(ev(s, 'converted', false, { playerId: t, to: 'cult_member' }));
     log('cult_recruit', { target: t });
   }

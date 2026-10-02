@@ -174,6 +174,10 @@ create table if not exists public.ww_wallets (
   created_at    timestamptz not null default now()
 );
 
+-- ผูกกระเป๋ากับบัญชีผู้ใช้ของเว็บ (ล็อกอินเครื่องไหนก็ได้กระเป๋าเดียวกัน) — รันซ้ำได้ปลอดภัย
+alter table public.ww_wallets add column if not exists username text;
+create unique index if not exists ww_wallets_username_key on public.ww_wallets (username) where username is not null;
+
 -- ผูกที่นั่งในห้องกับกระเป๋า (ไว้จ่ายเหรียญตอนจบเกม)
 alter table public.ww_player_auth add column if not exists wallet_id uuid;
 

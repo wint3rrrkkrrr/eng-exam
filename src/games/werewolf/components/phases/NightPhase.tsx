@@ -17,13 +17,15 @@ interface Props {
 export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection }) => {
   const game = view.game!;
   const turn = game.myTurn;
-  const [heal, setHeal] = useState(false);
+  const [healId, setHealId] = useState<string | null>(null);
+  const [poisonId, setPoisonId] = useState<string | null>(null);
   const [veil, setVeil] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setHeal(false);
+    setHealId(null);
+    setPoisonId(null);
     setVeil(false);
     setError(null);
   }, [turn.actionKind, game.nightSlot, game.dayNumber]);
@@ -41,6 +43,13 @@ export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection 
   };
 
   const wolves = game.allies.map((a) => nameOf(a.playerId));
+  const packVoteLines = game.packVotes ? (Object.entries(game.packVotes) as [string, string][]).map(([v, t]) => `${nameOf(v)} → ${nameOf(t)}`) : [];
+  const packVotesBox = packVoteLines.length > 0 ? (
+    <div className="rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-3 text-sm">
+      <div className="text-xs text-red-300 mb-1">{GAME_UI.night.packVotesTitle}</div>
+      {packVoteLines.map((l) => <div key={l} className="font-bold">{l}</div>)}
+    </div>
+  ) : null;
 
   if (!game.me.isAlive) {
     return <p className="rounded-xl border border-slate-700/60 bg-slate-950/50 px-4 py-4 text-sm text-slate-400">{GAME_UI.spectator}</p>;
@@ -53,6 +62,7 @@ export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection 
           <div className="text-4xl">😴</div>
           <p className="text-sm text-slate-400">{GAME_UI.night.asleep}</p>
         </div>
+        {packVotesBox}
         {(game.me.team === 'wolf' || game.me.team === 'vampire' || game.me.team === 'cult') && wolves.length > 0 && (
           <div className="rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-3 text-sm">
             <div className="text-xs text-red-300 mb-1">{GAME_UI.night.wolvesTitle}</div>
@@ -98,28 +108,39 @@ export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection 
     );
   }
 
-  // ---- แม่มด: ปุ่มชุบ + เลือกคนที่จะวางยาพิษบนตารางการ์ด (ไม่เลือก = ไม่วางยา)
+  // ---- แม่มด: แตะการ์ดแล้วกด "ชุบ" หรือ "วางยาพิษ" (ทุกคนลงมือพร้อมกัน — ไม่รู้ว่าใครโดนกัด)
   if (kind === 'witch') {
-    const extra = (turn.extra ?? {}) as { victimId: string | null; canHeal: boolean; poisonTargets: string[] };
-    const poisonId = selection.selected[0];
+    const extra = (turn.extra ?? {}) as { canHeal: boolean; healTargets: string[]; poisonTargets: string[] };
+    const picked = selection.selected[0] ?? null;
+    const btn = (on: boolean, tone: string) => `w-full min-h-12 rounded-xl border text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${on ? tone : 'border-slate-700 bg-slate-900/60'}`;
     return (
       <div className="space-y-2.5">
         <p className="text-sm font-bold">{turn.promptTh}</p>
-        <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm">
-          {extra.victimId ? GAME_UI.night.witchVictim(nameOf(extra.victimId)) : GAME_UI.night.witchNoVictim}
-        </div>
-        {extra.canHeal && extra.victimId && (
-          <button onClick={() => setHeal((h) => !h)} aria-pressed={heal} className={`w-full min-h-12 rounded-xl border text-sm font-bold cursor-pointer ${heal ? 'border-emerald-400 bg-emerald-950/50' : 'border-slate-700 bg-slate-900/60'}`}>
-            🧪 {GAME_UI.night.witchHeal(nameOf(extra.victimId))}{heal ? ' ✓' : ''}
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">{GAME_UI.night.witchHint}</p>
+        {extra.canHeal && (
+          <button
+            disabled={!picked || !extra.healTargets.includes(picked)}
+            onClick={() => setHealId(healId === picked ? null : picked)}
+            aria-pressed={healId !== null}
+            className={btn(healId !== null, 'border-emerald-400 bg-emerald-950/50')}
+          >
+            🧪 {healId ? `${GAME_UI.night.witchHealOn(nameOf(healId))} ✓ (แตะอีกครั้งเพื่อยกเลิก)` : GAME_UI.night.witchHealPick}
           </button>
         )}
         {extra.poisonTargets.length > 0 && (
-          <p className="text-xs text-slate-400">☠️ {GAME_UI.night.witchPoison} — แตะการ์ดด้านบน{poisonId ? ` (เลือก: ${nameOf(poisonId)})` : ''}</p>
+          <button
+            disabled={!picked || !extra.poisonTargets.includes(picked)}
+            onClick={() => setPoisonId(poisonId === picked ? null : picked)}
+            aria-pressed={poisonId !== null}
+            className={btn(poisonId !== null, 'border-red-400 bg-red-950/50')}
+          >
+            ☠️ {poisonId ? `วางยาพิษ ${nameOf(poisonId)} ✓ (แตะอีกครั้งเพื่อยกเลิก)` : GAME_UI.night.witchPickPoison}
+          </button>
         )}
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
-        <button disabled={busy} onClick={() => send({ kind: 'witch', meta: { heal, poisonId } })} className={confirmBtn}>
+        <button disabled={busy} onClick={() => send({ kind: 'witch', meta: { healId, poisonId } })} className={confirmBtn}>
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-          {heal || poisonId ? GAME_UI.confirm : GAME_UI.night.witchDone}
+          {healId || poisonId ? GAME_UI.confirm : GAME_UI.night.witchDone}
         </button>
       </div>
     );
@@ -136,6 +157,7 @@ export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection 
           <p className="text-[11px] text-slate-400 mt-0.5">{GAME_UI.night.wolfHint}</p>
         </div>
       )}
+      {packVotesBox}
       {(turn.extra as { canVeil?: boolean } | undefined)?.canVeil && (
         <div className="space-y-1">
           <button onClick={() => setVeil((v) => !v)} aria-pressed={veil} className={`w-full min-h-12 rounded-xl border text-sm font-bold cursor-pointer ${veil ? 'border-red-400 bg-red-950/50' : 'border-slate-700 bg-slate-900/60'}`}>
