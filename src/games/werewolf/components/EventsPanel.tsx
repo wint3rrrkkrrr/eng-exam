@@ -10,6 +10,8 @@ interface Props {
   nameOf: (id: string) => string;
   onClose: () => void;
   initialTab?: Tab;
+  /** ฝังเป็นหน้าเต็ม (แท็บเหตุการณ์) แทนหน้าต่างทับ */
+  inline?: boolean;
 }
 
 interface DayGroup { day: number; lines: string[] }
@@ -22,10 +24,11 @@ function groupByDay(items: { day: number; text: string }[]): DayGroup[] {
 }
 
 /** ประวัติเหตุการณ์ของเกมนี้: "สาธารณะ" = ทุกคนเห็นเหมือนกัน · "ของฉัน" = เฉพาะที่เกี่ยวกับบทของเรา (ผลส่อง คู่รัก ถูกเปลี่ยนฝ่าย ฯลฯ) */
-export const EventsPanel: React.FC<Props> = ({ view, nameOf, onClose, initialTab = 'public' }) => {
+export const EventsPanel: React.FC<Props> = ({ view, nameOf, onClose, initialTab = 'public', inline }) => {
   const [tab, setTab] = useState<Tab>(initialTab);
 
   useEffect(() => {
+    if (inline) return;
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', esc);
     return () => document.removeEventListener('keydown', esc);
@@ -46,11 +49,11 @@ export const EventsPanel: React.FC<Props> = ({ view, nameOf, onClose, initialTab
   );
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center" role="dialog" aria-label="เหตุการณ์ในเกม" onClick={onClose}>
-      <div className="w-full max-w-md max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-slate-950 border border-slate-700 text-slate-100" onClick={(e) => e.stopPropagation()}>
+    <div className={inline ? 'h-full' : 'fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center'} role={inline ? undefined : 'dialog'} aria-label="เหตุการณ์ในเกม" onClick={inline ? undefined : onClose}>
+      <div className={inline ? 'h-full flex flex-col bg-slate-950 text-slate-100' : 'w-full max-w-md max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-slate-950 border border-slate-700 text-slate-100'} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h2 className="text-lg font-black">📜 เหตุการณ์ในเกม</h2>
-          <button onClick={onClose} aria-label="ปิด" className="min-w-11 min-h-11 rounded-xl hover:bg-white/10 flex items-center justify-center cursor-pointer"><X className="w-5 h-5" /></button>
+          {!inline && <button onClick={onClose} aria-label="ปิด" className="min-w-11 min-h-11 rounded-xl hover:bg-white/10 flex items-center justify-center cursor-pointer"><X className="w-5 h-5" /></button>}
         </div>
 
         <div className="px-4 grid grid-cols-2 gap-2" role="tablist" aria-label="ประเภทเหตุการณ์">
