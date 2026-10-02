@@ -2,7 +2,7 @@
 import React from 'react';
 import { COLLECTION_BY_ID } from '../../shared/collections';
 import type { Collection, MotifKind } from '../../shared/collections';
-import { Blink, Move, Pulse, starPath } from './anim';
+import { Blink, Move, Pulse, heartPath, starPath } from './anim';
 import type { Ctx } from './layersHead';
 
 export const isColId = (id: string): boolean => id.startsWith('col_');
@@ -39,6 +39,16 @@ const Motif: React.FC<{ kind: MotifKind; fill: string; line: string; accent: str
       return <g><path d="M-1 -5.6 A5.6 5.6 0 1 0 4.6 3 A4.4 4.4 0 0 1 -1 -5.6 Z" fill={fill} stroke={line} strokeWidth=".6" /><g transform="translate(3.4 -3)"><path d={starPath(2.6)} fill={accent} /></g></g>;
     case 'bolt':
       return <path d="M1.4 -6.6 L-3.4 .8 H-.4 L-1.8 6.6 L3.6 -1.4 H.4 Z" fill={fill} stroke={line} strokeWidth=".7" strokeLinejoin="round" />;
+    case 'heart':
+      return <g><path d={heartPath(3.6)} fill={fill} stroke={line} strokeWidth=".7" strokeLinejoin="round" /><path d="M-3 -2 Q-2 -3.4 -0.6 -2.6" stroke="#fff" strokeWidth=".9" fill="none" strokeLinecap="round" opacity=".8" /></g>;
+    case 'rose':
+      return (
+        <g>
+          <path d="M0 3.6 V8" stroke="#2f8f4a" strokeWidth="1.2" strokeLinecap="round" /><path d="M0 6 Q3.4 4.4 4.6 6.4 Q2.2 7.6 0 6Z" fill="#43b05d" />
+          <circle r="4.4" fill={fill} stroke={line} strokeWidth=".6" />
+          <path d="M-2.6 .4 a2.6 2.6 0 0 1 5.2 0 a1.7 1.7 0 0 1 -3.4 0 a.9 .9 0 0 1 1.8 0" stroke={line} strokeWidth=".7" fill="none" strokeLinecap="round" />
+        </g>
+      );
     default: // sheriff
       return <g><path d={starPath(6.2).replace(/L/g, 'L')} fill={fill} stroke={line} strokeWidth=".6" /><path d="M0 -6 L1.2 -1.6 L5.6 -1.6 L2 1 L3.4 5.4 L0 2.8 L-3.4 5.4 L-2 1 L-5.6 -1.6 L-1.2 -1.6 Z" fill={fill} stroke={line} strokeWidth=".6" strokeLinejoin="round" /><circle r="1.4" fill={accent} /></g>;
   }
@@ -233,6 +243,20 @@ export const ColBackdrop: React.FC<{ id: string; uid: string; anim: boolean; nig
           {col.id === 'egy'
             ? <g><path d="M14 100 L38 62 L62 100 Z" fill={night ? '#6b4a14' : p.b} stroke={p.d} strokeWidth="1" /><path d="M54 100 L72 74 L90 100 Z" fill={night ? '#5a3a10' : p.a} stroke={p.d} strokeWidth="1" /></g>
             : <g><path d="M70 106 V74 M70 90 H60 V80 M70 84 H80 V76" stroke={night ? '#1f4d2a' : '#3f8f4a'} strokeWidth="4" strokeLinecap="round" fill="none" /><path d="M14 104 V86 M14 94 H8" stroke={night ? '#1f4d2a' : '#3f8f4a'} strokeWidth="3" strokeLinecap="round" fill="none" /></g>}
+        </g>
+      )}
+      {col.scene === 'love' && (
+        <g>
+          <path d="M-4 102 Q26 82 54 100 Q80 86 104 100 V125 H-4 Z" fill={night ? p.c : p.a} opacity=".95" />
+          <path d="M-4 112 Q30 98 60 112 Q84 102 104 112 V125 H-4 Z" fill={night ? '#1d0620' : p.b} opacity={night ? 0.7 : 0.55} />
+          {[[16, 108], [48, 112], [84, 110]].map(([x, y], i) => <g key={i} transform={`translate(${x} ${y})`}><Motif kind="rose" fill={p.b} line={p.c} accent={p.d} /></g>)}
+          {[[18, 96, 0], [40, 90, 1.1], [62, 98, 2.2], [82, 88, 0.6], [30, 104, 1.7]].map(([x, y, b], i) => (
+            <g key={i} transform={`translate(${x} ${y})`}>
+              <Move on={anim} type="translate" values="0 4;3 -26;0 4" dur={4.5 + (i % 3)} begin={b as number} fade>
+                <path d={heartPath(2.6 + (i % 2))} fill={i % 2 ? p.b : '#fff'} opacity=".9" />
+              </Move>
+            </g>
+          ))}
         </g>
       )}
       {col.scene === 'candy' && (

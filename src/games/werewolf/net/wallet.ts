@@ -94,5 +94,6 @@ export async function ensureWallet(): Promise<ApiResult<{ creds: WalletCreds; wa
 
 export const spinGacha = (c: WalletCreds, wheel: string, count: number) => api<GachaResponse>('gacha-spin', { wheel, count }, null, headers(c));
 export const redeemCode = (c: WalletCreds, code: string) => api<RedeemResponse>('redeem-code', { code }, null, headers(c));
+export const buyCollection = (c: WalletCreds, collectionId: string) => api<WalletView>('shop-buy-collection', { collectionId }, null, headers(c));
 export const buyItem = (c: WalletCreds, itemId: string) => api<WalletView>('shop-buy', { itemId }, null, headers(c));
 export const saveAvatar = (c: WalletCreds, avatar: AvatarConfig) => api<WalletView>('avatar-save', { avatar }, null, headers(c));

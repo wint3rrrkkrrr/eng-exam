@@ -268,6 +268,24 @@ export class SupabaseStore implements WwStore {
     return wallet ? { ok: true, wallet } : { ok: false, reason: 'none' };
   }
 
+  async walletBuyMany(walletId: string, itemIds: string[], price: number): Promise<BuyResult> {
+    // หักเหรียญแบบ compare-and-swap (เงื่อนไข coins ต้องเท่าค่าที่อ่านมา) แล้วลองใหม่สูงสุด 3 ครั้งถ้ามีการซื้อ/หมุนแทรก — ไม่ต้องเพิ่มฟังก์ชัน SQL
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const w = await this.getWallet(walletId);
+      if (!w) return { ok: false, reason: 'none' };
+      const missing = itemIds.filter((id) => !w.owned.includes(id));
+      if (missing.length === 0) return { ok: false, reason: 'owned' };
+      if (w.coins < price) return { ok: false, reason: 'poor' };
+      const res = await this.db.from('ww_wallets')
+        .update({ coins: w.coins - price, owned: [...w.owned, ...missing] })
+        .eq('wallet_id', walletId).eq('coins', w.coins)
+        .select('wallet_id,coins,owned,avatar,games_played,wins,username');
+      if (res.error) throw new Error(`walletBuyMany: ${res.error.message}`);
+      if (res.data && res.data.length > 0) return { ok: true, wallet: res.data[0] as WalletRow };
+    }
+    throw new Error('walletBuyMany: ชนกับการเปลี่ยนแปลงอื่นหลายครั้ง');
+  }
+
   async walletCredit(walletId: string, amount: number, won: boolean): Promise<WalletRow | null> {
     const res = await this.db.rpc('ww_wallet_credit', { p_wallet: walletId, p_amount: amount, p_won: won });
     if (res.error) throw new Error(`walletCredit: ${res.error.message}`);

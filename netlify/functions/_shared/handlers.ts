@@ -14,7 +14,7 @@ import type {
   ActionRequest, AuthResponse, ChatLine, ChatRequest, GachaResponse, GachaResult, LobbyPlayer, MyViewResponse, RedeemResponse, WalletCreated, WalletView,
 } from '../../../src/games/werewolf/shared/api';
 import {
-  ITEM_BY_ID, STARTING_COINS, gachaPool, itemRarity, computeReward, randomFreeAvatar, sanitizeAvatar, serializeAvatar,
+  ITEM_BY_ID, STARTING_COINS, bundleQuote, gachaPool, itemRarity, computeReward, randomFreeAvatar, sanitizeAvatar, serializeAvatar,
 } from '../../../src/games/werewolf/shared/avatar';
 import type { AvatarConfig, AvatarItem, Rarity, RewardBreakdown } from '../../../src/games/werewolf/shared/avatar';
 import { DUPLICATE_REFUND_PCT, SPIN_COUNTS, WHEEL_BY_ID, setItemIds } from '../../../src/games/werewolf/shared/avatarExtra';
@@ -27,6 +27,7 @@ import type {
   ChatRecord, Commit, EventRow, PlayerPatch, PlayerRow, RoomRow, ServerState, WalletRow, WwStore,
 } from './store';
 import { computeTiming, signature } from './timers';
+import { COLLECTION_BY_ID } from '../../../src/games/werewolf/shared/collections';
 import { applyGameResult, levelFromXp, normalizeProgress, progressView, titleForLevel } from '../../../src/games/werewolf/shared/progress';
 
 export interface Ctx {
@@ -443,6 +444,23 @@ export async function shopBuy(ctx: Ctx, headers: Headers, body: Record<string, u
   if (!r.ok) {
     if (r.reason === 'poor') return fail(402, 'เหรียญไม่พอ', 'poor');
     if (r.reason === 'owned') return fail(409, 'คุณมีของชิ้นนี้แล้ว', 'owned');
+    return fail(404, 'ไม่พบกระเป๋า', 'bad_wallet');
+  }
+  return ok(walletView(r.wallet));
+}
+
+/** ซื้อทั้งคอลเลกชันในราคาแพ็กเกจ (ลดเฉพาะชิ้นที่ยังไม่มี) — ราคามาจากแคตตาล็อกฝั่งเซิร์ฟเวอร์เสมอ */
+export async function shopBuyCollection(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {
+  const w = await walletFromHeaders(ctx, headers);
+  if (isWalletFail(w)) return w;
+  const id = typeof body.collectionId === 'string' ? body.collectionId : '';
+  if (!COLLECTION_BY_ID[id]) return fail(404, 'ไม่พบคอลเลกชันนี้', 'no_collection');
+  const q = bundleQuote(id, w.owned);
+  if (q.ids.length === 0) return fail(409, 'คุณมีคอลเลกชันนี้ครบแล้ว', 'owned');
+  const r = await ctx.store.walletBuyMany(w.wallet_id, q.ids, q.price);
+  if (!r.ok) {
+    if (r.reason === 'poor') return fail(402, 'เหรียญไม่พอ', 'poor');
+    if (r.reason === 'owned') return fail(409, 'คุณมีคอลเลกชันนี้ครบแล้ว', 'owned');
     return fail(404, 'ไม่พบกระเป๋า', 'bad_wallet');
   }
   return ok(walletView(r.wallet));

@@ -281,6 +281,17 @@ export class MemoryStore implements WwStore {
     return { ok: true, wallet: this.view(w) };
   }
 
+  async walletBuyMany(walletId: string, itemIds: string[], price: number): Promise<BuyResult> {
+    const w = this.wallets.get(walletId);
+    if (!w) return { ok: false, reason: 'none' };
+    const missing = itemIds.filter((id) => !w.owned.includes(id));
+    if (missing.length === 0) return { ok: false, reason: 'owned' };
+    if (w.coins < price) return { ok: false, reason: 'poor' };
+    w.coins -= price; // ไม่มี await ระหว่างตรวจกับหัก → atomic ในโหนดเดียว
+    w.owned = [...w.owned, ...missing];
+    return { ok: true, wallet: this.view(w) };
+  }
+
   async walletCredit(walletId: string, amount: number, won: boolean) {
     const w = this.wallets.get(walletId);
     if (!w) return null;

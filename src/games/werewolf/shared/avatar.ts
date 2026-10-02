@@ -1,7 +1,7 @@
 // shared/avatar.ts — แคตตาล็อกของแต่งตัวอวตาร + ราคา + กติกาเหรียญ (ข้อมูลล้วน ใช้ร่วมกันทั้งเบราว์เซอร์และเซิร์ฟเวอร์)
 // ★ ราคา/สิทธิ์การเป็นเจ้าของตัดสินที่เซิร์ฟเวอร์เสมอ — ไฟล์นี้บอกแค่ "มีอะไรขายบ้าง ราคาเท่าไร"
 
-import { buildCollectionItems } from './collections';
+import { buildCollectionItems, colItemIds } from './collections';
 import { buildFaceItems } from './faceExtras';
 import { buildPatternOutfits, buildRapItems, buildSpecialItems, buildVariantItems } from './avatarExtra';
 
@@ -273,6 +273,30 @@ export function randomFreeAvatar(seed: string): AvatarConfig {
     out[slot] = free[Math.floor(next() * free.length)].id;
   }
   return out;
+}
+
+// ---------------------------------------------------------------- ซื้อทั้งคอลเลกชัน
+/** ส่วนลดเมื่อซื้อทั้งชุด (คิดเฉพาะชิ้นที่ยังไม่มี) */
+export const BUNDLE_DISCOUNT_PCT = 20;
+export interface BundleQuote {
+  /** ชิ้นที่ยังไม่มีและจะได้ในแพ็กเกจ */
+  ids: string[];
+  /** ราคารวมถ้าซื้อทีละชิ้น */
+  full: number;
+  /** ราคาแพ็กเกจหลังลด (ปัดเป็นหลักสิบ) */
+  price: number;
+  saved: number;
+  total: number;
+  have: number;
+}
+/** คำนวณราคาซื้อทั้งชุดของคอลเลกชัน ตามของที่มีอยู่แล้ว */
+export function bundleQuote(collectionId: string, owned: Iterable<string>): BundleQuote {
+  const have = new Set(owned);
+  const all = colItemIds(collectionId).filter((id) => ITEM_BY_ID[id]);
+  const ids = all.filter((id) => !have.has(id));
+  const full = ids.reduce((s, id) => s + ITEM_BY_ID[id].price, 0);
+  const price = Math.round((full * (100 - BUNDLE_DISCOUNT_PCT)) / 100 / 10) * 10;
+  return { ids, full, price, saved: full - price, total: all.length, have: all.length - ids.length };
 }
 
 // ---------------------------------------------------------------- เหรียญ

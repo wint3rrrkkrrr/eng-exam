@@ -3,8 +3,8 @@
 import type { AvatarItem, AvatarSlot } from './avatar';
 
 export type MotifKind =
-  | 'shuriken' | 'chip' | 'pumpkin' | 'planet' | 'anchor' | 'candy' | 'ankh' | 'heartpx' | 'lotus' | 'tree' | 'starmoon' | 'bolt' | 'sheriff';
-export type SceneKind = 'hills' | 'city' | 'water' | 'space' | 'desert' | 'candy';
+  | 'shuriken' | 'chip' | 'pumpkin' | 'planet' | 'anchor' | 'candy' | 'ankh' | 'heartpx' | 'lotus' | 'tree' | 'starmoon' | 'bolt' | 'sheriff' | 'heart' | 'rose';
+export type SceneKind = 'hills' | 'city' | 'water' | 'space' | 'desert' | 'candy' | 'love';
 
 export interface Collection {
   id: string;
@@ -88,6 +88,37 @@ export const COLLECTIONS: Collection[] = [
     names: { outfit_a: 'เสื้อนายอำเภอ', outfit_b: 'แจ็คเก็ตหนังชายขอบ', headwear_a: 'มงกุฎนายอำเภอทอง', headwear_b: 'หมวกคาวบอยปักดาว', eyewear: 'ผ้าพันหน้าโจรทะเลทราย', accessory_a: 'ผ้าคลุมปอนโชปีก', accessory_b: 'ดาวนายอำเภอลอยข้างไหล่', effect: 'ฝุ่นทะเลทรายและดาวบินวน', backdrop: 'เมืองตะวันตกใต้พระอาทิตย์', grave: 'ไม้กางเขนทะเลทราย' },
   },
 ];
+/** วาเลนไทน์: หัวใจ/กุหลาบ โทนชมพู-แดงกุหลาบ */
+COLLECTIONS.push({
+  id: 'val', emoji: '💘', nameTh: 'วาเลนไทน์', motif: 'heart', scene: 'love',
+  pal: { a: '#ffd1e3', b: '#ff4d8d', c: '#6b0f3a', d: '#ffd166' }, sky: ['#ffc2dd', '#fff0f6', '#2a0a2e', '#7a1e5a'], tier: 1.3,
+  names: {
+    outfit_a: 'ชุดคลุมกุหลาบแดง', outfit_b: 'แจ็คเก็ตหัวใจคู่รัก', headwear_a: 'มงกุฎหัวใจกุหลาบ', headwear_b: 'หมวกคิวปิดลูกศรรัก', eyewear: 'หน้ากากงานเต้นรำวาเลนไทน์',
+    accessory_a: 'ปีกคิวปิดสีชมพู', accessory_b: 'ช่อกุหลาบลอยข้างไหล่', effect: 'กลีบกุหลาบและหัวใจโปรยปราย', backdrop: 'ค่ำคืนวาเลนไทน์ใต้ดวงจันทร์หัวใจ', grave: 'อนุสรณ์รักนิรันดร์',
+  },
+});
+
+/** คำโปรยสั้นๆ ของแต่ละคอลเลกชัน (ใช้ในหน้าร้านค้า) */
+export const COLLECTION_BLURB: Record<string, string> = {
+  nin: 'เงาในคืนจันทร์ — ชูริเคน ซากุระ และเกราะนินจา',
+  cyb: 'มหานครนีออนแห่งอนาคต แสงม่วง-ฟ้าวิ่งวงจร',
+  hal: 'ฟักทอง ค้างคาว และสุสานใต้จันทร์เต็มดวง',
+  spc: 'ออกเดินทางสู่ดวงดาวพร้อมวงแหวนดาวเคราะห์',
+  pir: 'ล่องทะเลกับกัปตัน สมอ และสมบัติ',
+  swt: 'โลกขนมหวานสีพาสเทล น่ารักละลายใจ',
+  egy: 'ทองคำแห่งฟาโรห์ กุญแจอังค์ และพีระมิด',
+  pxl: 'ย้อนยุคเกม 8 บิต หัวใจพิกเซลและเหรียญ',
+  thai: 'ลายกนกทองและบัวบานแบบไทยประยุกต์',
+  xms: 'หิมะ ต้นสน และของขวัญคืนคริสต์มาส',
+  wiz: 'เวทมนตร์ ลูกแก้ว และดวงจันทร์เสี้ยว',
+  hero: 'สายฟ้าและผ้าคลุมของผู้พิทักษ์เมือง',
+  cow: 'ดาวนายอำเภอและพระอาทิตย์ตกเมืองตะวันตก',
+  val: 'ความรักฟุ้งทั้งคืน — กุหลาบ หัวใจ และคิวปิด',
+};
+/** คอลเลกชันเด่นบนหน้าร้าน + ป้ายใหม่ */
+export const FEATURED_COLLECTION = 'val';
+export const NEW_COLLECTIONS: string[] = ['val'];
+
 export const COLLECTION_BY_ID: Record<string, Collection> = Object.fromEntries(COLLECTIONS.map((c) => [c.id, c]));
 
 export type ColPart = keyof Collection['names'];
@@ -103,6 +134,16 @@ export const COL_PARTS: { part: ColPart; slot: AvatarSlot; base: number; animate
   { part: 'backdrop', slot: 'backdrop', base: 200, animated: true },
   { part: 'grave', slot: 'grave', base: 180, animated: true },
 ];
+
+export const colItemIds = (col: string): string[] => COL_PARTS.map((p) => colItemId(col, p.part));
+
+/** ภาพตัวอย่าง "ใส่ทั้งชุด": ชิ้นหลักของแต่ละช่อง (ปีกเป็นของประดับ ชิ้นลอยเป็นตัวสำรอง) */
+export function collectionLook(col: string): Record<string, string> {
+  return {
+    outfit: colItemId(col, 'outfit_a'), headwear: colItemId(col, 'headwear_a'), eyewear: colItemId(col, 'eyewear'),
+    accessory: colItemId(col, 'accessory_a'), effect: colItemId(col, 'effect'), backdrop: colItemId(col, 'backdrop'), grave: colItemId(col, 'grave'),
+  };
+}
 
 export const colItemId = (col: string, part: ColPart): string => `col_${col}_${part}`;
 

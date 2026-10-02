@@ -36,7 +36,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [wardrobe, setWardrobe] = useState(false);
-  const [shopTab, setShopTab] = useState<WardrobeTab>('wardrobe');
+  const [shopTab, setShopTab] = useState<WardrobeTab>('store');
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [summary, setSummary] = useState<{ coins: number; avatar: AvatarConfig } | null>(null);
   const [howTo, setHowTo] = useState(false);
@@ -111,7 +111,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
   const input = 'w-full min-h-12 px-4 rounded-xl bg-white/5 border border-white/15 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-fuchsia-300/70 focus:bg-white/10 text-base transition-colors';
   const tiles: { key: string; label: string; icon: React.ReactNode; grad: string; onClick: () => void }[] = [
     { key: 'how', label: 'วิธีเล่น', icon: <BookOpen className="w-6 h-6" />, grad: 'from-sky-500/80 to-blue-700/80', onClick: () => setHowTo(true) },
-    { key: 'wardrobe', label: 'ตู้เสื้อผ้า', icon: <Shirt className="w-6 h-6" />, grad: 'from-pink-500/80 to-fuchsia-700/80', onClick: () => openShop('wardrobe') },
+    { key: 'wardrobe', label: 'ร้านค้า', icon: <Shirt className="w-6 h-6" />, grad: 'from-pink-500/80 to-fuchsia-700/80', onClick: () => openShop('store') },
     { key: 'gacha', label: 'กาชา', icon: <Sparkles className="w-6 h-6" />, grad: 'from-amber-400/80 to-orange-600/80', onClick: () => openShop('gacha') },
     { key: 'profile', label: 'โปรไฟล์', icon: <Medal className="w-6 h-6" />, grad: 'from-violet-500/80 to-indigo-700/80', onClick: () => setProfileOpen(true) },
     { key: 'redeem', label: 'แลกโค้ด', icon: <Gift className="w-6 h-6" />, grad: 'from-emerald-400/80 to-teal-600/80', onClick: () => openShop('redeem') },
@@ -147,7 +147,7 @@ export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
             <ArrowLeft className="w-4 h-4" /> {UI.back}
           </button>
           {summary && (
-            <button onClick={() => openShop('wardrobe')} className="inline-flex items-center gap-2 min-h-12 pl-1 pr-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur cursor-pointer" aria-label="ร้านค้าและตู้เสื้อผ้า">
+            <button onClick={() => openShop('store')} className="inline-flex items-center gap-2 min-h-12 pl-1 pr-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur cursor-pointer" aria-label="ร้านค้าและตู้เสื้อผ้า">
               <span className="w-9 h-9 rounded-full overflow-hidden border-2 border-amber-300/80 bg-sky-300 shrink-0"><AvatarArt config={summary.avatar} className="w-full h-full" still /></span>
               <span className="text-left leading-tight">
                 <span className="block text-[11px] font-bold text-slate-200 max-w-[7rem] truncate">{name || username}{level !== null && <span className="ml-1 text-violet-300">Lv.{level}</span>}</span>

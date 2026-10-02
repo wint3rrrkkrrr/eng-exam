@@ -199,6 +199,8 @@ export interface WwStore {
   rateHit(key: string, limit: number, windowSeconds: number): Promise<boolean>;
   walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult>;
   walletCredit(walletId: string, amount: number, won: boolean): Promise<WalletRow | null>;
+  /** ซื้อหลายชิ้นรวดเดียว (แพ็กเกจคอลเลกชัน): หักเหรียญรวมครั้งเดียว + ใส่ของที่ยังไม่มีทั้งหมด หรือไม่ทำอะไรเลย */
+  walletBuyMany(walletId: string, itemIds: string[], price: number): Promise<BuyResult>;
   /** หมุนกาชา: หักเหรียญ + ใส่ของ (หรือคืนเหรียญถ้าซ้ำ) ใน transaction เดียว — item ถูกเลือกโดยเซิร์ฟเวอร์ */
   walletSpin(walletId: string, cost: number, itemId: string, refund: number): Promise<SpinResult>;
   /** ให้ของหลายชิ้น (แลกโค้ด) — ข้ามชิ้นที่มีแล้ว คืนจำนวนที่เพิ่มจริง */

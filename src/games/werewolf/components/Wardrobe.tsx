@@ -5,16 +5,18 @@ import {
 } from '../shared/avatar';
 import type { AvatarConfig, AvatarSlot, Rarity } from '../shared/avatar';
 import { VARIANTS, VARIANT_SLOTS } from '../shared/avatarExtra';
-import { COLLECTIONS } from '../shared/collections';
+import { COLLECTIONS, collectionLook } from '../shared/collections';
+import { bundleQuote } from '../shared/avatar';
 import type { WalletView } from '../shared/api';
 import { playGameSound } from '../shared/sound';
-import { buyItem, ensureWallet, saveAvatar } from '../net/wallet';
+import { buyCollection, buyItem, ensureWallet, saveAvatar } from '../net/wallet';
 import type { WalletCreds } from '../net/wallet';
 import { AvatarArt, GraveArt } from './avatar/AvatarArt';
 import { GachaPanel } from './GachaPanel';
 import { RedeemPanel } from './RedeemPanel';
+import { CollectionView, ShopFront } from './ShopFront';
 
-export type WardrobeTab = 'wardrobe' | 'gacha' | 'redeem';
+export type WardrobeTab = 'store' | 'wardrobe' | 'gacha' | 'redeem';
 
 interface Props {
   onClose: () => void;
@@ -32,12 +34,13 @@ const RARITY_STYLE: Record<Rarity, string> = {
 
 const PAGE = 45;
 const TABS: { key: WardrobeTab; label: string }[] = [
+  { key: 'store', label: '🛍️ ร้านค้า' },
   { key: 'wardrobe', label: '👕 ตู้เสื้อผ้า' },
   { key: 'gacha', label: '🎰 กาชา' },
   { key: 'redeem', label: '🎁 แลกโค้ด' },
 ];
 
-export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'wardrobe' }) => {
+export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'store' }) => {
   const [tab, setTab] = useState<WardrobeTab>(initialTab);
   const [creds, setCreds] = useState<WalletCreds | null>(null);
   const [wallet, setWallet] = useState<WalletView | null>(null);
@@ -45,6 +48,9 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
   const [slot, setSlot] = useState<AvatarSlot>('headwear');
   const [pending, setPending] = useState<string | null>(null); // ของที่ยังไม่ได้ซื้อ (กำลังลองดู)
   const [busy, setBusy] = useState<'buy' | 'save' | null>(null);
+  const [viewCol, setViewCol] = useState<string | null>(null); // คอลเลกชันที่กำลังเปิดดู
+  const [tryAll, setTryAll] = useState(false); // ลองใส่ทั้งชุด
+  const [bundleAsk, setBundleAsk] = useState<string | null>(null); // รอยืนยันซื้อทั้งชุด
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [night, setNight] = useState(false); // ดูตัวอย่างฉากกลางวัน/กลางคืน
@@ -73,7 +79,8 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
 
   const owned = useMemo(() => new Set<string>([...FREE_ITEM_IDS, ...(wallet?.owned ?? [])]), [wallet]);
   const dirty = !!wallet && JSON.stringify(draft) !== JSON.stringify(wallet.avatar);
-  const preview: AvatarConfig = pending ? { ...draft, [ITEM_BY_ID[pending].slot]: pending } : draft;
+  const base: AvatarConfig = viewCol && tryAll ? ({ ...draft, ...collectionLook(viewCol) } as AvatarConfig) : draft;
+  const preview: AvatarConfig = pending ? { ...base, [ITEM_BY_ID[pending].slot]: pending } : base;
   const pendingItem = pending ? ITEM_BY_ID[pending] : null;
 
   const flash = (msg: string) => {
@@ -106,6 +113,24 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
     setDraft((d) => ({ ...d, [pendingItem.slot]: pendingItem.id }));
     setPending(null);
     flash(`ซื้อ "${pendingItem.nameTh}" แล้ว!`);
+  };
+
+  const openCollection = (id: string) => { setViewCol(id); setTryAll(false); setPending(null); setBundleAsk(null); setError(null); };
+
+  const buyBundle = async () => {
+    if (!creds || !bundleAsk) return;
+    const id = bundleAsk;
+    setBusy('buy');
+    setError(null);
+    const r = await buyCollection(creds, id);
+    setBusy(null);
+    setBundleAsk(null);
+    if (!r.ok) { playGameSound('error'); return setError(r.errorTh); }
+    playGameSound('buy');
+    setWallet(r.data);
+    setDraft((d) => ({ ...d, ...collectionLook(id) }) as AvatarConfig); // ใส่ทั้งชุดให้เลย (ยังไม่บันทึกจนกว่าจะกด)
+    setTryAll(false);
+    flash(`ซื้อคอลเลกชัน ${COLLECTIONS.find((x) => x.id === id)?.nameTh} ครบชุดแล้ว! อย่าลืมกดบันทึก`);
   };
 
   const save = async (closeAfter = false) => {
@@ -178,16 +203,17 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
 
         {wallet && creds && (
           <>
-            <nav className="px-3 pt-3 grid grid-cols-3 gap-1.5" role="tablist" aria-label="เมนูร้านค้า">
+            <nav className="px-3 pt-3 grid grid-cols-4 gap-1.5" role="tablist" aria-label="เมนูร้านค้า">
               {TABS.map((t) => (
                 <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
-                  className={`min-h-12 rounded-xl text-sm font-black cursor-pointer ${tab === t.key ? 'bg-gradient-to-r from-pink-600 to-violet-700 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+                  className={`min-h-12 rounded-xl text-xs sm:text-sm font-black cursor-pointer ${tab === t.key ? 'bg-gradient-to-r from-pink-600 to-violet-700 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
                   {t.label}
                 </button>
               ))}
             </nav>
 
-            {/* ตัวอย่าง (ทุกแท็บเห็นอวตารที่กำลังแต่ง) */}
+            {/* ตัวอย่าง (ทุกแท็บเห็นอวตารที่กำลังแต่ง · หน้าแรกของร้านมีภาพตัวอย่างในการ์ดเองแล้ว) */}
+            {(tab !== 'store') && (
             <section className="px-4 pt-4 flex flex-col items-center gap-2">
               <div className="w-40 aspect-[4/5] rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl shadow-violet-900/40 bg-sky-300">
                 {tab === 'wardrobe' && slot === 'grave'
@@ -202,6 +228,20 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
               </button>
               <p className="text-[11px] text-slate-500">เล่นจบเกมได้เหรียญ: เล่น +200 · ชนะ +300 · รอดชีวิต +100</p>
             </section>
+            )}
+
+            {tab === 'store' && (viewCol
+              ? <CollectionView colId={viewCol} owned={owned} draft={draft} preview={preview} night={night} pending={pending} trying={tryAll}
+                  onBack={() => { setViewCol(null); setPending(null); setBundleAsk(null); setTryAll(false); }}
+                  onPick={(id) => { setBundleAsk(null); pick(id); }}
+                  onTryAll={() => { setPending(null); setTryAll((t) => !t); }}
+                  onBuyAll={() => { setPending(null); setBundleAsk(viewCol); }}
+                  onEquipAll={() => { setDraft((d) => ({ ...d, ...collectionLook(viewCol) }) as AvatarConfig); flash('ใส่ทั้งชุดแล้ว — อย่าลืมกดบันทึก'); }}
+                />
+              : <ShopFront coins={wallet.coins} owned={owned} draft={draft} onOpen={openCollection}
+                  onBuy={(id) => { openCollection(id); setBundleAsk(id); }}
+                  onGacha={() => setTab('gacha')} onRedeem={() => setTab('redeem')} />
+            )}
 
             {tab === 'gacha' && <GachaPanel creds={creds} wallet={wallet} draft={draft} onWallet={setWallet} onEquip={(id) => { equip(id); setTab('wardrobe'); setSlot(ITEM_BY_ID[id].slot); flash('ใส่ของใหม่แล้ว — อย่าลืมกดบันทึก'); }} />}
             {tab === 'redeem' && <RedeemPanel creds={creds} wallet={wallet} draft={draft} onWallet={setWallet} onEquipSet={equipMany} />}
@@ -315,7 +355,25 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
           <div className="max-w-xl mx-auto space-y-2">
             {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
             {toast && <p role="status" className="text-sm text-emerald-300 font-bold">{toast}</p>}
-            {pendingItem && tab === 'wardrobe' ? (
+            {bundleAsk && tab === 'store' ? (
+              (() => {
+                const q = bundleQuote(bundleAsk, owned);
+                const name = COLLECTIONS.find((x) => x.id === bundleAsk)?.nameTh;
+                return (
+                  <div className="flex gap-2">
+                    <button onClick={() => setBundleAsk(null)} className="min-h-14 px-4 rounded-xl bg-slate-800 text-sm font-bold cursor-pointer">ยกเลิก</button>
+                    <button
+                      onClick={buyBundle}
+                      disabled={busy !== null || wallet.coins < q.price}
+                      className="flex-1 min-h-14 rounded-xl bg-gradient-to-r from-pink-500 to-orange-500 font-black text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer inline-flex items-center justify-center gap-2 px-2 text-sm"
+                    >
+                      {busy === 'buy' && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {wallet.coins < q.price ? `เหรียญไม่พอ (ขาด ${(q.price - wallet.coins).toLocaleString()})` : `ยืนยันซื้อทั้งชุด 🪙 ${q.price.toLocaleString()} — ${name}`}
+                    </button>
+                  </div>
+                );
+              })()
+            ) : pendingItem && (tab === 'wardrobe' || tab === 'store') ? (
               <div className="flex gap-2">
                 <button onClick={() => setPending(null)} className="min-h-14 px-4 rounded-xl bg-slate-800 text-sm font-bold cursor-pointer">ยกเลิก</button>
                 <button
