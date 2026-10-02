@@ -113,29 +113,97 @@ export async function syncWithServer() {
 // ---- Profile cache (in-memory for this session) ----
 const profileCache: Record<string, UserProfile> = {};
 
-// ---- รหัสผ่านตรวจที่ "เซิร์ฟเวอร์" ทั้งหมด (เบราว์เซอร์ไม่แตะตารางรหัสผ่านเลย) — ผลที่ได้คือ session token ----
-// (โปรเจกต์ไม่เปิด strict จึงใช้รูปแบบเดียว: ตรวจ ok ก่อน แล้วค่อยอ่าน token / reason)
 export interface LoginOutcome {
   ok: boolean;
   created?: boolean; // true ถ้าเพิ่งสร้างบัญชี/เพิ่งตั้งรหัสให้ชื่อเก่าที่ยังไม่มีรหัส
   token?: string;
-  reason?: 'wrong_password' | 'rate_limited' | 'bad_input';
+  reason?: 'wrong_password' | 'rate_limited' | 'bad_input' | 'no_account' | 'name_taken' | 'weak_password';
   messageTh?: string;
 }
 
-/** เข้าสู่ระบบ/สมัครบัญชีด้วยชื่อ+รหัสผ่าน: ชื่อใหม่ → สร้างบัญชี, ชื่อเก่าไม่มีรหัส → ตั้งรหัสให้ครั้งแรก, ชื่อเก่ามีรหัส → ต้องตรงกัน */
-export async function loginOrRegister(username: string, password: string): Promise<LoginOutcome> {
-  const res = await fetch('/api/ww/auth-login', {
+export const SESSION_TOKEN_KEY = 'grammar_quiz_token_v1';
+
+/** session token ของเครื่องนี้ (เก็บใน localStorage ถ้าติ๊ก "จำการเข้าสู่ระบบ" ไม่งั้นใน sessionStorage) */
+export function getSessionToken(): string {
+  try {
+    return localStorage.getItem(SESSION_TOKEN_KEY) || sessionStorage.getItem(SESSION_TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+type AuthJson = { token?: string; created?: boolean; errorTh?: string; code?: string } | null;
+
+async function postAuth(route: 'auth-login' | 'auth-logout' | 'auth-password' | 'auth-admin-reset', body: Record<string, unknown>): Promise<{ res: Response; json: AuthJson }> {
+  const res = await fetch(`/api/ww/${route}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: username.trim(), password }),
+    body: JSON.stringify(body),
   });
-  const json = (await res.json().catch(() => null)) as { token?: string; created?: boolean; errorTh?: string; code?: string } | null;
+  const json = (await res.json().catch(() => null)) as AuthJson;
+  return { res, json };
+}
+
+// ---- รหัสผ่านตรวจที่ "เซิร์ฟเวอร์" ทั้งหมด (เบราว์เซอร์ไม่แตะตารางรหัสผ่านเลย) — ผลที่ได้คือ session token ----
+// (โปรเจกต์ไม่เปิด strict จึงใช้รูปแบบเดียว: ตรวจ ok ก่อน แล้วค่อยอ่าน token / reason)
+async function authRequest(mode: 'login' | 'register', username: string, password: string): Promise<LoginOutcome> {
+  const { res, json } = await postAuth('auth-login', { username: username.trim(), password, mode });
   if (res.ok && json?.token) return { ok: true, created: json.created === true, token: json.token };
-  if (res.status === 401) return { ok: false, reason: 'wrong_password' };
+  if (res.status === 401) return { ok: false, reason: 'wrong_password', messageTh: json?.errorTh };
+  if (res.status === 404) return { ok: false, reason: 'no_account', messageTh: json?.errorTh };
+  if (res.status === 409) return { ok: false, reason: 'name_taken', messageTh: json?.errorTh };
   if (res.status === 429) return { ok: false, reason: 'rate_limited', messageTh: json?.errorTh };
-  if (res.status === 400) return { ok: false, reason: 'bad_input', messageTh: json?.errorTh };
-  throw new Error(`login failed: ${res.status}`); // เซิร์ฟเวอร์ไม่พร้อม/ตอบผิดรูปแบบ → ให้หน้าจอแสดงว่าเชื่อมต่อไม่ได้
+  if (res.status === 400) return { ok: false, reason: json?.code === 'weak_password' ? 'weak_password' : 'bad_input', messageTh: json?.errorTh };
+  throw new Error(`auth failed: ${res.status}`); // เซิร์ฟเวอร์ไม่พร้อม/ตอบผิดรูปแบบ → ให้หน้าจอแสดงว่าเชื่อมต่อไม่ได้
+}
+
+/** สมัครสมาชิกใหม่ (ชื่อซ้ำ/รหัสอ่อนเกินไป → ถูกปฏิเสธ) */
+export const registerAccount = (username: string, password: string): Promise<LoginOutcome> => authRequest('register', username, password);
+/** เข้าสู่ระบบเท่านั้น — ไม่มีบัญชีก็ไม่สร้างให้เอง */
+export const loginAccount = (username: string, password: string): Promise<LoginOutcome> => authRequest('login', username, password);
+
+/** ออกจากระบบจริง: ยกเลิกเซสชันที่เซิร์ฟเวอร์ (ล้มเหลวก็ไม่เป็นไร — ฝั่งเครื่องล้างโทเค็นอยู่แล้ว) */
+export async function logoutAccount(): Promise<void> {
+  const sessionToken = getSessionToken();
+  if (!sessionToken) return;
+  try {
+    await postAuth('auth-logout', { sessionToken });
+  } catch {
+    /* ออฟไลน์ก็ล้างฝั่งเครื่องต่อได้ */
+  }
+}
+
+/** เปลี่ยนรหัสผ่าน (ต้องล็อกอินอยู่) — สำเร็จแล้วเครื่องอื่นถูกออกจากระบบ */
+export async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean; messageTh?: string }> {
+  try {
+    const { res, json } = await postAuth('auth-password', { sessionToken: getSessionToken(), oldPassword, newPassword });
+    if (res.ok) return { ok: true };
+    return { ok: false, messageTh: json?.errorTh ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ ลองใหม่อีกครั้ง' };
+  } catch {
+    return { ok: false, messageTh: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้งนะ' };
+  }
+}
+
+/** แอดมินรีเซ็ตรหัสผ่านให้ผู้ใช้ที่ลืม (ต้องล็อกอินด้วยบัญชีแอดมิน) */
+export async function adminResetPassword(target: string, newPassword: string): Promise<{ ok: boolean; messageTh?: string }> {
+  try {
+    const { res, json } = await postAuth('auth-admin-reset', { sessionToken: getSessionToken(), target, newPassword });
+    if (res.ok) return { ok: true };
+    return { ok: false, messageTh: json?.errorTh ?? 'รีเซ็ตไม่สำเร็จ' };
+  } catch {
+    return { ok: false, messageTh: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้' };
+  }
+}
+
+/** ความแข็งแรงรหัสผ่านแบบคร่าวๆ สำหรับแถบบอกผู้ใช้ตอนสมัคร (0 = อ่อนมาก … 4 = แข็งแรง) — ตัวตัดสินจริงอยู่ที่เซิร์ฟเวอร์ */
+export function passwordStrength(pw: string): number {
+  if (pw.length < 8) return pw.length === 0 ? 0 : 1;
+  let score = 1;
+  if (pw.length >= 10) score++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+  if (/\d/.test(pw) && /[^\d]/.test(pw)) score++;
+  if (/[^\p{L}\p{N}]/u.test(pw) && score < 4) score++;
+  return Math.min(score, 4);
 }
 
 export const supabaseSim = {

@@ -19,7 +19,7 @@ export interface PublicPlayerView {
   revealedRole: RoleId | null; // ★ null เสมอถ้ายังไม่เข้าเงื่อนไขเปิดเผย
   revealedTeam: Team | null;
   revealedIsWolf: boolean | null;
-  deathCause: 'night' | 'vote' | 'hunter' | 'lover' | 'disconnect' | null;
+  deathCause: 'night' | 'vote' | 'hunter' | 'lover' | 'disconnect' | 'gunner' | null;
 }
 
 export interface MyTurn {

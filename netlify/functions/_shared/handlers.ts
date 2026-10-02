@@ -224,23 +224,51 @@ export async function walletLogin(ctx: Ctx, body: Record<string, unknown>): Prom
   return ok(res);
 }
 
+const COMMON_PASSWORDS = new Set([
+  '12345678', '123456789', '1234567890', 'password', 'password1', 'qwertyui', 'qwerty123', '11111111', '00000000', 'abcd1234', 'iloveyou', '88888888', '123123123',
+]);
+
+/** นโยบายรหัสผ่านของบัญชีใหม่/เปลี่ยนรหัส: ยาว 8–100 · ไม่ซ้ำชื่อผู้ใช้ · ไม่ใช่รหัสยอดฮิต · ไม่ใช่ตัวอักษรตัวเดียวซ้ำทั้งรหัส (บัญชีเก่าที่รหัสสั้นยังล็อกอินได้ตามเดิม) */
+export function passwordProblem(password: string, username: string): string | null {
+  if (password.length < 8) return 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร';
+  if (password.length > 100) return 'รหัสผ่านยาวเกินไป (ไม่เกิน 100 ตัวอักษร)';
+  if (password.toLowerCase() === username.toLowerCase()) return 'รหัสผ่านต้องไม่เหมือนชื่อผู้ใช้';
+  if (COMMON_PASSWORDS.has(password.toLowerCase()) || /^(.)\1+$/.test(password)) return 'รหัสผ่านนี้เดาง่ายเกินไป ลองตั้งใหม่';
+  return null;
+}
+
 /**
- * ล็อกอิน/สมัครบัญชีเว็บ (ตรวจรหัสที่เซิร์ฟเวอร์ทั้งหมด):
- * ชื่อใหม่/ชื่อเก่าที่ยังไม่เคยตั้งรหัส → ตั้งรหัสนี้เป็นของชื่อนั้น · ชื่อที่มีรหัสแล้ว → ต้องตรง
+ * บัญชีเว็บ (ตรวจรหัสที่เซิร์ฟเวอร์ทั้งหมด) — body.mode:
+ *  'register' = สมัครใหม่ (ชื่อซ้ำ → 409 · ต้องผ่านนโยบายรหัสผ่าน · ชื่อเก่าที่ยังไม่เคยตั้งรหัสก็ใช้สมัครเพื่อ "รับสิทธิ์ชื่อ" ได้)
+ *  'login'    = เข้าสู่ระบบเท่านั้น (ไม่มีบัญชี → 404 ไม่สร้างบัญชีให้เองเด็ดขาด กันพิมพ์ชื่อผิดแล้วได้บัญชีใหม่)
+ *  ไม่ระบุ    = แบบเดิม (ล็อกอิน/สมัครรวมกัน) เก็บไว้ให้เบราว์เซอร์รุ่นเก่าที่ยังเปิดค้างใช้ได้
  * รหัสเก็บแบบ scrypt ในตาราง winter_credentials (เบราว์เซอร์อ่านไม่ได้) · ผลลัพธ์คือ session token ไม่ใช่รหัสผ่านหรือแฮช
  */
 export async function authLogin(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
   const username = typeof body.username === 'string' ? body.username.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
+  const mode = body.mode === 'register' || body.mode === 'login' ? body.mode : 'legacy';
   if (username.length < 2 || username.length > 20) return fail(400, 'ชื่อต้องยาว 2–20 ตัวอักษร', 'bad_name');
-  if (password.length < 4 || password.length > 60) return fail(400, 'รหัสผ่านต้องยาว 4–60 ตัวอักษร', 'bad_password_format');
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f<>]/.test(username)) return fail(400, 'ชื่อมีอักขระที่ใช้ไม่ได้', 'bad_name');
+  if (password.length < (mode === 'register' ? 8 : 4) || password.length > 100) {
+    return fail(400, mode === 'register' ? 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร' : 'กรอกรหัสผ่านให้ถูกต้อง', 'bad_password_format');
+  }
   if (ctx.rateLimit && !(await ctx.store.rateHit(`login:${username.toLowerCase()}`, 8, 60))) {
     return fail(429, 'ลองรหัสผ่านถี่เกินไป รอสักครู่แล้วลองใหม่', 'rate_limited');
   }
 
   let created = false;
   const stored = await ctx.store.getCredential(username);
-  if (stored === null) {
+  if (mode === 'register') {
+    const problem = passwordProblem(password, username);
+    if (problem) return fail(400, problem, 'weak_password');
+    if (stored !== null || (await ctx.store.credentialExistsIgnoreCase(username))) return fail(409, 'ชื่อนี้ถูกใช้แล้ว ลองชื่ออื่น (ไม่สนตัวพิมพ์ใหญ่-เล็ก)', 'name_taken');
+    created = await ctx.store.createCredential(username, hashPassword(password));
+    if (!created) return fail(409, 'ชื่อนี้ถูกใช้แล้ว ลองชื่ออื่น', 'name_taken');
+    await ctx.store.ensureUser(username);
+  } else if (stored === null) {
+    if (mode === 'login') return fail(404, 'ยังไม่มีบัญชีชื่อนี้ — ไปที่แท็บ "สมัครสมาชิก" ก่อน', 'no_account');
     created = await ctx.store.createCredential(username, hashPassword(password));
     if (!created) return fail(409, 'มีคนตั้งรหัสชื่อนี้พร้อมกัน ลองใหม่อีกครั้ง', 'conflict'); // ชนกันพอดี
     await ctx.store.ensureUser(username);
@@ -255,6 +283,60 @@ export async function authLogin(ctx: Ctx, body: Record<string, unknown>): Promis
   const expires = new Date(ctx.now() + SESSION_DAYS * 86_400_000).toISOString();
   await ctx.store.createSession(hashToken(token), username, expires);
   return ok({ username, token, created });
+}
+
+async function sessionUser(ctx: Ctx, body: Record<string, unknown>): Promise<{ username: string; tokenHash: string } | null> {
+  const token = typeof body.sessionToken === 'string' ? body.sessionToken : '';
+  if (token.length < 20 || token.length > 200) return null;
+  const tokenHash = hashToken(token);
+  const s = await ctx.store.getSession(tokenHash);
+  if (!s || Date.parse(s.expires_at) < ctx.now()) return null;
+  return { username: s.username, tokenHash };
+}
+
+/** ออกจากระบบจริง: ยกเลิกเซสชันฝั่งเซิร์ฟเวอร์ (โทเค็นที่ค้างอยู่ในเครื่องใช้ต่อไม่ได้) · ไม่มีเซสชัน → 401 (ฝั่งเบราว์เซอร์ไม่ต้องสนใจผล) */
+export async function authLogout(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const me = await sessionUser(ctx, body);
+  if (!me) return fail(401, 'ไม่ได้ล็อกอินอยู่', 'bad_session');
+  await ctx.store.deleteSession(me.tokenHash);
+  return ok({ ok: true });
+}
+
+/** เปลี่ยนรหัสผ่าน: ต้องล็อกอินอยู่ + รู้รหัสเดิม · สำเร็จแล้วเครื่องอื่นทุกเครื่องถูกออกจากระบบ (เครื่องนี้ยังอยู่) */
+export async function authPassword(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const me = await sessionUser(ctx, body);
+  if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
+  const oldPassword = typeof body.oldPassword === 'string' ? body.oldPassword : '';
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
+  if (ctx.rateLimit && !(await ctx.store.rateHit(`pw:${me.username.toLowerCase()}`, 6, 60))) {
+    return fail(429, 'ลองถี่เกินไป รอสักครู่แล้วลองใหม่', 'rate_limited');
+  }
+  const stored = await ctx.store.getCredential(me.username);
+  const okOld = stored !== null && (isLegacySha256(stored) ? safeEqual(legacySha256(oldPassword), stored) : checkPassword(oldPassword, stored));
+  if (!okOld) return fail(401, 'รหัสผ่านเดิมไม่ถูกต้อง', 'wrong_password');
+  const problem = passwordProblem(newPassword, me.username);
+  if (problem) return fail(400, problem, 'weak_password');
+  if (newPassword === oldPassword) return fail(400, 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม', 'same_password');
+  await ctx.store.updateCredential(me.username, hashPassword(newPassword));
+  await ctx.store.deleteSessionsExcept(me.username, me.tokenHash);
+  return ok({ ok: true });
+}
+
+/** แอดมินรีเซ็ตรหัสให้คนที่ลืม: ต้องล็อกอินด้วยบัญชีแอดมิน (WW_ADMINS คั่นด้วย , ค่าเริ่มต้น win,wintararer) · เซสชันเดิมของผู้ถูกรีเซ็ตถูกยกเลิกทั้งหมด */
+export async function authAdminReset(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const me = await sessionUser(ctx, body);
+  if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
+  const admins = (process.env.WW_ADMINS ?? 'win,wintararer').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!admins.includes(me.username.toLowerCase())) return fail(403, 'เฉพาะแอดมินเท่านั้น', 'not_admin');
+  const target = typeof body.target === 'string' ? body.target.trim() : '';
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
+  if (target.length < 2 || target.length > 20) return fail(400, 'ชื่อผู้ใช้ไม่ถูกต้อง', 'bad_name');
+  const problem = passwordProblem(newPassword, target);
+  if (problem) return fail(400, problem, 'weak_password');
+  if ((await ctx.store.getCredential(target)) === null) return fail(404, 'ไม่พบบัญชีชื่อนี้', 'no_account');
+  await ctx.store.updateCredential(target, hashPassword(newPassword));
+  await ctx.store.deleteSessionsExcept(target, '');
+  return ok({ ok: true });
 }
 
 export async function walletGet(ctx: Ctx, headers: Headers): Promise<HandlerResult> {

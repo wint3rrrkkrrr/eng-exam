@@ -11,7 +11,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 20
+        value: "22"
       # ใส่ค่าจริงในหน้า Render (Environment) — ห้ามใส่ลงไฟล์นี้
       - key: SUPABASE_URL
         sync: false

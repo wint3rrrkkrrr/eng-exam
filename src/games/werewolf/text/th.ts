@@ -115,6 +115,7 @@ export const TH = {
     vote: 'ถูกโหวตกำจัด',
     hunter: 'ถูกนายพรานยิง',
     lover: 'ตายตามคู่รัก',
+    gunner: 'ถูกมือปืนยิง',
     disconnect: 'ขาดการเชื่อมต่อนานเกินไป (ถือว่าตาย)',
   } as Record<string, string>,
   team: {
@@ -406,6 +407,9 @@ export const EVENT_TEXT = {
   idiotSurvived: (name: string) => `🤪 ${name} คือคนโง่ประจำหมู่บ้าน — รอดจากการโหวต แต่โหวตไม่ได้อีกตลอดเกม`,
   tie: '⚖️ คะแนนเสมอ — ไม่มีใครถูกกำจัด',
   noVotes: '⚖️ ไม่มีใครโหวต — ไม่มีใครถูกกำจัด',
+  gunnerShot: (a: string, b: string) => `🔫 ${a} ยิง ${b}`,
+  loversMorning: (a: string, b: string) => `💘 ${a} และ ${b} เป็นคู่รักกัน — เสียชีวิตพร้อมกัน`,
+  loverDied: (name: string, partner: string) => `💘 ${name} ตายตามคู่รัก ${partner} (ทั้งคู่เป็นคู่รักกัน)`,
   hunterShot: (a: string, b: string) => `🔫 นายพราน ${a} ยิง ${b}`,
   hunterSkipped: (a: string) => `🔫 นายพราน ${a} ไม่ได้ยิงใคร`,
   gameOver: (reason: string) => `🏁 เกมจบ — ${reason}`,

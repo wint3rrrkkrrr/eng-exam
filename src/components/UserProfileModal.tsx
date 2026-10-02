@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Camera, UserCheck, Sparkles, Edit3, Save, Smartphone, Calendar, Award } from 'lucide-react';
 import { supabaseSim, DEFAULT_AVATARS, UserProfile } from '../utils/supabaseSim';
 import { compressAndResizeImage } from '../utils/imageUtils';
+import { ChangePasswordForm } from './ChangePasswordForm';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -155,6 +156,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 }`}
               />
             </div>
+
+            <ChangePasswordForm isDark={isDark} />
 
             {/* Account Stats Info */}
             <div className={`p-3.5 rounded-2xl border text-xs space-y-2 ${

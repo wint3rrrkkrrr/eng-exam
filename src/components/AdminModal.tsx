@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Lock, User, Trash2, X, RefreshCw, CheckCircle2, AlertCircle, LogOut, Users, Award, UserCheck, Laptop } from 'lucide-react';
-import { supabaseSim, UserAggregatedLeaderboard } from '../utils/supabaseSim';
+import { Shield, Lock, User, KeyRound, Trash2, X, RefreshCw, CheckCircle2, AlertCircle, LogOut, Users, Award, UserCheck, Laptop } from 'lucide-react';
+import { supabaseSim, UserAggregatedLeaderboard, adminResetPassword } from '../utils/supabaseSim';
 
 interface AdminModalProps {
   theme: 'light' | 'dark';
@@ -80,6 +80,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       supabaseSim.deleteUserByAdmin(username);
       fetchAdminData();
     }
+  };
+
+  const handleResetPassword = async (username: string) => {
+    const pw = window.prompt(`ตั้งรหัสผ่านใหม่ให้ "${username}" (อย่างน้อย 8 ตัว)\n— ต้องล็อกอินเกมด้วยบัญชีแอดมินอยู่ ถึงจะรีเซ็ตได้`);
+    if (!pw) return;
+    const r = await adminResetPassword(username, pw);
+    window.alert(r.ok ? `รีเซ็ตรหัสผ่านของ "${username}" แล้ว — แจ้งรหัสใหม่ให้เจ้าตัว แล้วให้เปลี่ยนเองหลังเข้าสู่ระบบ` : (r.messageTh ?? 'รีเซ็ตไม่สำเร็จ'));
   };
 
   const handleClearAll = () => {
@@ -269,6 +276,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             </p>
                           </div>
 
+                          <button
+                            onClick={() => handleResetPassword(u.username)}
+                            className="p-2 rounded-lg bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 shrink-0 transition"
+                            title="รีเซ็ตรหัสผ่านผู้ใช้นี้"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             onClick={() => handleDeleteUser(u.username)}
                             className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 shrink-0 transition"

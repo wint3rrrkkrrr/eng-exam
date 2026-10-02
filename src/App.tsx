@@ -18,7 +18,7 @@ import { CheeseGameApp } from './components/cheese-game/CheeseGameApp';
 import { CheeseErrorBoundary } from './components/cheese-game/CheeseErrorBoundary';
 import { WerewolfApp } from './games/werewolf/components/WerewolfApp';
 import { WerewolfErrorBoundary } from './games/werewolf/components/WerewolfErrorBoundary';
-import { supabaseSim, syncWithServer } from './utils/supabaseSim';
+import { supabaseSim, syncWithServer, logoutAccount } from './utils/supabaseSim';
 import { allQuestions } from './data/questionsData';
 import { biologyQuestions } from './data/biologyQuestionsData';
 import { historyQuestions } from './data/historyQuestionsData';

@@ -161,6 +161,19 @@ export class MemoryStore implements WwStore {
     return s ? { ...s } : null;
   }
 
+  async deleteSession(tokenHash: string) {
+    this.sessions.delete(tokenHash);
+  }
+
+  async deleteSessionsExcept(username: string, keepTokenHash: string) {
+    for (const [h, v] of [...this.sessions]) if (v.username === username && h !== keepTokenHash) this.sessions.delete(h);
+  }
+
+  async credentialExistsIgnoreCase(username: string) {
+    const u = username.toLowerCase();
+    return [...this.credentials.keys()].some((k) => k.toLowerCase() === u);
+  }
+
   async rateHit(key: string, limit: number, windowSeconds: number) {
     const now = Date.now();
     const cur = this.rate.get(key);

@@ -26,12 +26,22 @@ export function formatEvent(e: PublicLogEvent, ctx: LogContext): string[] {
     case 'morning': {
       const deaths = (d.deaths as Record<string, unknown>[]) ?? [];
       if (deaths.length === 0) return [EVENT_TEXT.nobodyDied];
-      return deaths.map((x) => EVENT_TEXT.morningDied(n(x.playerId), roleName(x.revealedRole)));
+      // คู่รักตายพร้อมกัน: รวมเป็นบรรทัดเดียวว่าเป็นคู่รัก ไม่บอกบทของทั้งสองคน
+      const followers = deaths.filter((x) => x.cause === 'lover' && typeof x.partnerId === 'string');
+      const partnerIds = new Set(followers.map((x) => x.partnerId as string));
+      const lines: string[] = [];
+      for (const x of deaths) {
+        if (x.cause === 'lover' && typeof x.partnerId === 'string') lines.push(EVENT_TEXT.loversMorning(n(x.partnerId), n(x.playerId)));
+        else if (!partnerIds.has(String(x.playerId))) lines.push(EVENT_TEXT.morningDied(n(x.playerId), roleName(x.revealedRole)));
+      }
+      return lines;
     }
     case 'death': {
       if (d.cause === 'disconnect') return [EVENT_TEXT.died(n(d.playerId), TH.cause.disconnect, roleName(d.revealedRole))]; // ประกาศทันทีทุกเฟส
       // ผู้ตายตอนกลางคืน/เช้า สรุปไว้ในเหตุการณ์ "morning" แล้ว
       if (e.phase === 'night' || e.phase === 'morning') return [];
+      // คู่รักตายตาม: ถ้าเกิดจากการประหาร ไม่ต้องประกาศ (ประกาศเฉพาะคนที่ถูกประหาร) · ช่วงอื่น (เช่น มือปืนยิง) บอกว่าเป็นคู่รักกัน ไม่เปิดบท
+      if (d.cause === 'lover') return e.phase === 'execution' || typeof d.partnerId !== 'string' ? [] : [EVENT_TEXT.loverDied(n(d.playerId), n(d.partnerId))];
       // ตายจากโหวต: แสดงตอนนี้ (มีบทที่เปิดเผยแล้วตามค่าตั้งค่า) ส่วนเหตุการณ์ "execution" ข้างล่างไม่แสดงซ้ำ
       if (d.cause === 'vote') return [EVENT_TEXT.executed(n(d.playerId), roleName(d.revealedRole))];
       return [EVENT_TEXT.died(n(d.playerId), TH.cause[String(d.cause)] ?? 'เสียชีวิต', roleName(d.revealedRole))];
@@ -72,6 +82,8 @@ export function formatEvent(e: PublicLogEvent, ctx: LogContext): string[] {
         default: return [EVENT_TEXT.tie];
       }
     }
+    case 'gunner_shot':
+      return [EVENT_TEXT.gunnerShot(n(d.actorId), n(d.targetId))];
     case 'hunter_shot':
       return [EVENT_TEXT.hunterShot(n(d.hunterId), n(d.targetId))];
     case 'hunter_skipped':

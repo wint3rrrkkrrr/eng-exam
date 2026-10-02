@@ -161,6 +161,20 @@ export class SupabaseStore implements WwStore {
     return must(res, 'getSession') as { username: string; expires_at: string } | null;
   }
 
+  async deleteSession(tokenHash: string): Promise<void> {
+    must(await this.db.from('winter_sessions').delete().eq('token_hash', tokenHash) as never, 'deleteSession');
+  }
+
+  async deleteSessionsExcept(username: string, keepTokenHash: string): Promise<void> {
+    must(await this.db.from('winter_sessions').delete().eq('username', username).neq('token_hash', keepTokenHash) as never, 'deleteSessionsExcept');
+  }
+
+  async credentialExistsIgnoreCase(username: string): Promise<boolean> {
+    const esc = username.replace(/[\\%_]/g, (m) => `\\${m}`); // ilike: escape ตัวแทน (wildcard) ให้เป็นตัวอักษรธรรมดา
+    const res = await this.db.from('winter_credentials').select('username').ilike('username', esc).limit(1);
+    return ((must(res, 'credentialExistsIgnoreCase') as unknown[] | null) ?? []).length > 0;
+  }
+
   async rateHit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
     const res = await this.db.rpc('ww_rate_hit', { p_key: key, p_limit: limit, p_window: windowSeconds });
     if (res.error) {

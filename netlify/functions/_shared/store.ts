@@ -152,6 +152,12 @@ export interface WwStore {
   ensureUser(username: string): Promise<void>;
   createSession(tokenHash: string, username: string, expiresAtIso: string): Promise<void>;
   getSession(tokenHash: string): Promise<{ username: string; expires_at: string } | null>;
+  /** ออกจากระบบ: ยกเลิกเซสชันนี้ */
+  deleteSession(tokenHash: string): Promise<void>;
+  /** ยกเลิกเซสชันทั้งหมดของบัญชี ยกเว้นอันที่ระบุ (ใช้ตอนเปลี่ยนรหัสผ่าน = เตะเครื่องอื่นออก) */
+  deleteSessionsExcept(username: string, keepTokenHash: string): Promise<void>;
+  /** มีบัญชีชื่อนี้อยู่แล้วหรือไม่ (ไม่สนตัวพิมพ์ใหญ่/เล็ก) */
+  credentialExistsIgnoreCase(username: string): Promise<boolean>;
   /** นับคำขอในหน้าต่างเวลา — คืน true ถ้ายังไม่เกินลิมิต (atomic) */
   rateHit(key: string, limit: number, windowSeconds: number): Promise<boolean>;
   walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult>;

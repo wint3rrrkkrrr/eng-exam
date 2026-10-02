@@ -6,9 +6,9 @@ import { checkWinners } from './win';
 import { ev, player } from './state';
 
 /** สาเหตุที่ "บอกต่อสาธารณะ" — ไม่เผยว่าถูกกัดหรือถูกพิษ (กันเดาว่าแม่มดมีอยู่) */
-export function publicCause(c: DeathCause): 'night' | 'vote' | 'hunter' | 'lover' | 'disconnect' {
+export function publicCause(c: DeathCause): 'night' | 'vote' | 'hunter' | 'lover' | 'disconnect' | 'gunner' {
   if (c === 'jester') return 'vote';
-  if (c === 'hunter' || c === 'lover' || c === 'vote' || c === 'disconnect') return c;
+  if (c === 'hunter' || c === 'lover' || c === 'vote' || c === 'disconnect' || c === 'gunner') return c; // มือปืนยิงต่อหน้าทุกคนตอนกลางวัน จึงบอกสาเหตุตรงๆ
   return 'night'; // หมาป่า/พิษ/ผู้คุ้มกัน/ผู้พิทักษ์ฯ/ความรู้สึกผิด/มือปืน/ฆาตกรเดี่ยว/ไฟ/นักล่าหมาป่า/ชูปาคาบรา — ปิดบังหมดว่าใครทำ
 }
 
@@ -19,9 +19,17 @@ function isDayDeath(s: GameState, cause: DeathCause): boolean {
 
 function reveal(s: GameState, p: EnginePlayer, cause: DeathCause): void {
   const mode = s.settings.revealOnDeath;
+  // ถูกมือปืนยิง: ทุกคนต้องรู้ว่าคนที่โดนยิงเป็นบทอะไร (ยกเว้นตั้งค่า "ไม่เปิดเผยเลย")
+  if (cause === 'gunner' && mode !== 'none') {
+    p.revealedRole = p.roleId;
+    p.revealedTeam = p.team;
+    p.revealedIsWolf = p.team === 'wolf';
+    return;
+  }
   if (mode === 'vote') {
     // ตายกลางคืน (หมาป่า/พิษ/ผู้คุ้มกัน/ลูกโซ่ตอนเช้า) ไม่เปิดบท · ตายจากโหวตหรือลูกโซ่หลังโหวตเปิดบทเต็ม
-    if (isDayDeath(s, cause)) {
+    // ★ คนที่ตายตามคู่รักไม่เปิดบทเสมอ (บอกแค่ว่าเป็นคู่รักกัน)
+    if (isDayDeath(s, cause) && cause !== 'lover') {
       p.revealedRole = p.roleId;
       p.revealedTeam = p.team;
       p.revealedIsWolf = p.team === 'wolf';
@@ -59,6 +67,7 @@ export function settleDeaths(
     events.push(ev(s, 'death', true, {
       playerId: p.id,
       cause: publicCause(d.cause),
+      partnerId: d.cause === 'lover' ? p.loverOf : null,
       revealedRole: p.revealedRole,
       revealedTeam: p.revealedTeam,
       revealedIsWolf: p.revealedIsWolf,

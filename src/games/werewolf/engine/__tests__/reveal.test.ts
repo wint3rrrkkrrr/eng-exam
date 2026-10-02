@@ -44,12 +44,25 @@ describe('เปิดเผยบทเมื่อตาย (ค่าเร�
     expect(buildView(g.s, 'p6')!.publicPlayers.find((p) => p.playerId === 'p8')!.revealedRole).toBe('villager');
   });
 
-  it('ตายตามคู่รักหลังโหวต (ลูกโซ่ตอนกลางวัน) → เปิดบทด้วย', () => {
+  it('ตายตามคู่รักหลังโหวต (ลูกโซ่ตอนกลางวัน) → ไม่เปิดบทของคนตายตาม (เปิดเฉพาะคนที่ถูกประหาร)', () => {
     const g = makeGame(ROLES);
     playNight(g, { p5: { kind: 'cupid_pair', targets: ['p8', 'p9'] } });
     playDay(g, { p1: 'p8', p2: 'p8' }, { p1: 'p8', p2: 'p8', p6: 'p8' });
     expect(player(g, 'p9').alive).toBe(false);
-    expect(player(g, 'p9').revealedRole).toBe('villager');
+    expect(player(g, 'p9').revealedRole).toBeNull();
+    expect(player(g, 'p8').revealedRole).toBe('villager'); // คนที่ถูกประหารเปิดบทตามปกติ
+  });
+
+  it('มือปืนยิงตอนกลางวัน → เปิดบทของคนที่ถูกยิง · คู่รักของเขาตายตามแบบไม่เปิดบท', () => {
+    // p1,p2 หมาป่า · p3 พ่อมด · p4 นายพราน · p5 คิวปิด · p6 มือปืน · p7-p9 ชาวบ้าน
+    const g = makeGame(['werewolf', 'werewolf', 'witch', 'hunter', 'cupid', 'gunner', 'villager', 'villager', 'villager']);
+    playNight(g, { p5: { kind: 'cupid_pair', targets: ['p8', 'p9'] } });
+    mustAct(g, { type: 'advance' }); // เช้า → อภิปราย
+    expect(g.s.phase).toBe('discussion');
+    mustAct(g, { type: 'gunner_shot', actorId: 'p6', targetId: 'p8' });
+    expect(player(g, 'p8').revealedRole).toBe('villager');
+    expect(player(g, 'p9').alive).toBe(false);
+    expect(player(g, 'p9').revealedRole).toBeNull();
   });
 
   it('นายพรานตายกลางคืนแล้วยิง → คนที่ถูกยิงตอนเช้าไม่เปิดบท', () => {

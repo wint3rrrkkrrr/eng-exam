@@ -33,7 +33,25 @@ describe('formatEvent', () => {
   });
 
   it('คนตายตามคู่รัก/ถูกยิง (กลางวัน) แสดงสาเหตุ', () => {
-    expect(formatEvent(ev('death', { playerId: 'b', cause: 'lover' }, 'execution'), ctx)[0]).toContain('ตายตามคู่รัก');
+    // ประหาร → คนตายตามไม่ต้องประกาศ
+    expect(formatEvent(ev('death', { playerId: 'b', cause: 'lover', partnerId: 'a' }, 'execution'), ctx)).toEqual([]);
+    // ช่วงอื่น (เช่น มือปืนยิง) → บอกว่าเป็นคู่รัก ไม่บอกบท
+    const l = formatEvent(ev('death', { playerId: 'b', cause: 'lover', partnerId: 'a', revealedRole: null }, 'discussion'), ctx)[0];
+    expect(l).toContain('คู่รัก');
+    expect(l).not.toContain('บท:');
+  });
+
+  it('มือปืนยิง: บอกสาเหตุและบทของคนที่ถูกยิง', () => {
+    const l = formatEvent(ev('death', { playerId: 'b', cause: 'gunner', revealedRole: 'villager' }, 'discussion'), ctx)[0];
+    expect(l).toContain('มือปืน');
+    expect(l).toContain('บท:');
+  });
+
+  it('เช้า: คู่รักตายพร้อมกัน → บรรทัดเดียวว่าเป็นคู่รัก ไม่บอกบท', () => {
+    const l = formatEvent(ev('morning', { deaths: [{ playerId: 'a', cause: 'night', revealedRole: null }, { playerId: 'b', cause: 'lover', partnerId: 'a', revealedRole: null }] }, 'morning'), ctx);
+    expect(l).toHaveLength(1);
+    expect(l[0]).toContain('คู่รัก');
+    expect(l[0]).not.toContain('บท:');
   });
 
   it('ผลโหวต: นับคะแนน + ใครโหวตใคร + งดออกเสียง', () => {

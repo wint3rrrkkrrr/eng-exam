@@ -489,6 +489,7 @@ export function announceMorning(s: GameState, events: GameEvent[]): void {
     return {
       playerId: d.id,
       cause: publicCause(d.cause),
+      partnerId: d.cause === 'lover' ? p.loverOf : null,
       revealedRole: p.revealedRole,
       revealedTeam: p.revealedTeam,
       revealedIsWolf: p.revealedIsWolf,
