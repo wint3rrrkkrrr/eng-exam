@@ -301,7 +301,7 @@ export function bundleQuote(collectionId: string, owned: Iterable<string>): Bund
 
 // ---------------------------------------------------------------- เหรียญ
 export const STARTING_COINS = 1000;
-export const REWARD = { play: 60, win: 90, survive: 30 } as const;
+export const REWARD = { play: 150, win: 200, survive: 100 } as const;
 
 export interface RewardBreakdown {
   total: number;
