@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { parseAppRoute, routePath, samePath } from './utils/appRoute';
+import type { AppRoute } from './utils/appRoute';
 import { motion, AnimatePresence } from 'motion/react';
 import { AmbientParticles } from './components/AmbientParticles';
 import { Header } from './components/Header';
@@ -158,7 +160,9 @@ export default function App() {
   });
 
   // Subject state
+  const [initialRoute] = useState<AppRoute>(() => parseAppRoute(window.location.pathname));
   const [currentSubjectId, setCurrentSubjectId] = useState<string>(() => {
+    if (initialRoute.kind === 'exam' && initialRoute.subject && subjectsList.some((s) => s.id === initialRoute.subject)) return initialRoute.subject;
     try {
       const saved = localStorage.getItem('quiz_current_subject_id_v1');
       if (saved && subjectsList.some((s) => s.id === saved)) {
@@ -170,6 +174,8 @@ export default function App() {
     }
   });
   const [showLandingPage, setShowLandingPage] = useState<boolean>(() => {
+    if (initialRoute.kind === 'exam') return false; // ลิงก์ /ข้อสอบ… = เข้าคลังข้อสอบตรงๆ
+    if (initialRoute.kind !== 'home') return true;
     try {
       const saved = localStorage.getItem('grammar_quiz_show_landing_page_v1');
       return saved !== null ? JSON.parse(saved) : true;
@@ -180,8 +186,36 @@ export default function App() {
   const [showSubjectSelector, setShowSubjectSelector] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
-  const [showCheeseGame, setShowCheeseGame] = useState<boolean>(false);
-  const [showWerewolfGame, setShowWerewolfGame] = useState<boolean>(false);
+  const [showCheeseGame, setShowCheeseGame] = useState<boolean>(initialRoute.kind === 'cheese');
+  const [showWerewolfGame, setShowWerewolfGame] = useState<boolean>(initialRoute.kind === 'werewolf');
+  const [wwRoomCode, setWwRoomCode] = useState<string | null>(initialRoute.kind === 'werewolf' ? initialRoute.code : null);
+  const wwUrlCode = useRef<string | null>(initialRoute.kind === 'werewolf' ? initialRoute.code : null);
+
+  // ลิงก์ของหน้า: / · /เกม[/ห้อง] · /หนูชีส · /ข้อสอบ[/วิชา] — รีเฟรชแล้วอยู่หน้าเดิม, ปุ่มย้อนกลับของเบราว์เซอร์ใช้ได้
+  const currentRoute: AppRoute = showWerewolfGame ? { kind: 'werewolf', code: wwRoomCode }
+    : showCheeseGame ? { kind: 'cheese' }
+    : !showLandingPage ? { kind: 'exam', subject: currentSubjectId }
+    : { kind: 'home' };
+  const routeWanted = routePath(currentRoute);
+  const routeFirst = useRef(true);
+  useEffect(() => {
+    if (!samePath(window.location.pathname, routeWanted)) {
+      try { window.history[routeFirst.current ? 'replaceState' : 'pushState'](null, '', routeWanted); } catch { /* ไม่รองรับ — ข้าม */ }
+    }
+    routeFirst.current = false;
+  }, [routeWanted]);
+  useEffect(() => {
+    const onPop = () => {
+      const r = parseAppRoute(window.location.pathname);
+      setShowWerewolfGame(r.kind === 'werewolf');
+      setShowCheeseGame(r.kind === 'cheese');
+      if (r.kind === 'werewolf') { wwUrlCode.current = r.code; setWwRoomCode(r.code); }
+      setShowLandingPage(r.kind !== 'exam');
+      if (r.kind === 'exam' && r.subject && subjectsList.some((s) => s.id === r.subject)) setCurrentSubjectId(r.subject);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // User details & Leaderboard landing tabs
   const [username, setUsername] = useState<string>(() => {
@@ -1042,8 +1076,8 @@ export default function App() {
 
   if (showWerewolfGame) {
     return (
-      <WerewolfErrorBoundary onBack={() => setShowWerewolfGame(false)}>
-        <WerewolfApp username={username} isDark={isDark} onBack={() => setShowWerewolfGame(false)} />
+      <WerewolfErrorBoundary onBack={() => { setWwRoomCode(null); setShowWerewolfGame(false); }}>
+        <WerewolfApp username={username} isDark={isDark} onBack={() => { setWwRoomCode(null); setShowWerewolfGame(false); }} urlCode={wwUrlCode.current} onRoomCode={setWwRoomCode} />
       </WerewolfErrorBoundary>
     );
   }

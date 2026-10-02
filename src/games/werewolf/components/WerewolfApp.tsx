@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, DoorOpen, Gift, Loader2, Medal, PlusCircle, Shirt, Sparkles } from 'lucide-react';
 import { UI } from '../text/th';
 import { api, loadSession, saveSession } from '../net/werewolfClient';
@@ -25,25 +25,38 @@ interface Props {
   username: string;
   isDark: boolean; // เกมนี้ใช้ธีมกลางคืนของตัวเองเสมอ (ไม่ขึ้นกับโหมดสว่าง/มืดของเว็บ)
   onBack: () => void;
+  /** รหัสห้องจากลิงก์ (/เกม/ABCDE) — ถ้าไม่ตรงกับห้องที่ค้างอยู่ จะไม่เข้าห้องเก่า แต่เปิดหน้าเข้าร่วมพร้อมรหัสนี้ */
+  urlCode?: string | null;
+  /** แจ้งแม่ว่าตอนนี้อยู่ห้องไหน (null = ไม่ได้อยู่ในห้อง) เพื่ออัปเดต URL */
+  onRoomCode?: (code: string | null) => void;
 }
 
-export const WerewolfApp: React.FC<Props> = ({ username, onBack }) => {
-  const [session, setSession] = useState<Session | null>(() => loadSession());
+export const WerewolfApp: React.FC<Props> = ({ username, onBack, urlCode = null, onRoomCode }) => {
+  const [session, setSession] = useState<Session | null>(() => {
+    const saved = loadSession();
+    return saved && (!urlCode || saved.roomCode === urlCode) ? saved : null;
+  });
   const [name, setName] = useState(username || '');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(urlCode ?? '');
   const [password, setPassword] = useState('');
   const [joinPassword, setJoinPassword] = useState('');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [wardrobe, setWardrobe] = useState(false);
   const [shopTab, setShopTab] = useState<WardrobeTab>('store');
-  const [mode, setMode] = useState<'create' | 'join'>('create');
+  const [mode, setMode] = useState<'create' | 'join'>(urlCode ? 'join' : 'create');
   const [summary, setSummary] = useState<{ coins: number; avatar: AvatarConfig } | null>(null);
   const [howTo, setHowTo] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [level, setLevel] = useState<number | null>(null);
   const [canSpectate, setCanSpectate] = useState(false);
   useEffect(() => { applyFontScale(); return resetFontScale; }, []); // ขนาดตัวอักษรที่ผู้เล่นเลือก (คืนค่าเดิมเมื่อออกจากเกมแววูฟ ไม่กระทบเว็บส่วนอื่น)
+  const everEntered = useRef(false);
+  useEffect(() => {
+    // เปิดจากลิงก์แต่ยังไม่ได้เข้าห้อง: คงรหัสใน URL ไว้ (รีเฟรชแล้วยังเห็นหน้าเข้าร่วมของห้องนี้)
+    if (session) everEntered.current = true;
+    onRoomCode?.(session?.roomCode ?? (everEntered.current ? null : urlCode));
+  }, [session?.roomCode]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!session) setMusic('menu'); }, [session]); // เพลงหน้าแรก/ร้านค้า (ในห้องใช้เพลงตามเฟส)
 
   // ล็อกอินด้วยบัญชีเว็บแล้ว → ดึงกระเป๋า/ตู้เสื้อผ้าของ "บัญชี" มาไว้ในเครื่องนี้ก่อนเข้าห้อง (เปลี่ยนเครื่องก็ได้ของเดิม)

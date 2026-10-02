@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { inviteUrl } from '../../net/route';
 import { BookOpen, Check, Copy, Loader2, Play, Shirt, UserX } from 'lucide-react';
 import { UI } from '../../text/th';
 import { api } from '../../net/werewolfClient';
@@ -33,7 +34,7 @@ export const LobbyPhase: React.FC<Props> = ({ view, session, refresh }) => {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(view.roomCode);
+      await navigator.clipboard.writeText(inviteUrl(window.location.origin, view.roomCode));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch { /* เบราว์เซอร์ไม่อนุญาต — ผู้ใช้จดรหัสเอง */ }

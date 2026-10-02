@@ -4,6 +4,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/games/werewolf/**/*.test.ts', 'netlify/functions/**/*.test.ts'],
+    include: ['src/games/werewolf/**/*.test.ts', 'src/utils/**/*.test.ts', 'netlify/functions/**/*.test.ts'],
   },
 });
