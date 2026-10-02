@@ -43,3 +43,15 @@ describe('pickColumns: ทุกคนพอดีจอ', () => {
     expect(pickColumns(0, W, 400)).toBe(1);
   });
 });
+
+describe('pickColumns: ความกว้างที่วัดไม่ได้', () => {
+  it('กว้าง 0/ติดลบ/NaN → ไม่เป็น 1 คอลัมน์ (กันการ์ดใหญ่เต็มจอ) แต่คืน 3 (หรือเท่าจำนวนคนถ้าน้อยกว่า)', () => {
+    for (const w of [0, -5, NaN, 20]) {
+      expect(pickColumns(8, w, 500)).toBe(3);
+      expect(pickColumns(2, w, 500)).toBe(2);
+    }
+  });
+  it('เดสก์ท็อป (กว้าง 544 สูง 666) 8 คน → 4 คอลัมน์ ไม่ใช่ 1', () => {
+    expect(pickColumns(8, 544, 666)).toBe(4);
+  });
+});
