@@ -109,7 +109,9 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 };
 
 /** ตารางการ์ดผู้เล่น: คนน้อย 4 คอลัมน์ · คนเยอะเพิ่มคอลัมน์ให้การ์ดเล็กลง จะได้เห็นทุกคนโดยไม่ต้องเลื่อนยาว */
-export const PlayerGrid: React.FC<{ children: React.ReactNode; count?: number }> = ({ children, count = 12 }) => (
+export const PlayerGrid: React.FC<{ children: React.ReactNode; count?: number; /** กำหนดจำนวนคอลัมน์เอง (ใช้กับ useFitColumns ให้พอดีจอ) */ cols?: number }> = ({ children, count = 12, cols }) => cols ? (
+  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>{children}</div>
+) : (
   // คนน้อย = การ์ดใหญ่ (3 คอลัมน์) ให้เห็นชุดแต่งตัวชัดๆ · คนเยอะค่อยเพิ่มคอลัมน์
   <div className={`grid gap-2 ${count > 24 ? 'grid-cols-6' : count > 15 ? 'grid-cols-5' : count > 9 ? 'grid-cols-4' : 'grid-cols-3'}`}>{children}</div>
 );

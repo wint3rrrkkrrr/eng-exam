@@ -45,27 +45,26 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
   const meAvatar = mePlayer ? parseAvatar(mePlayer.avatar) : null;
 
   return (
-    <section aria-label="สถานะเกม" className={`rounded-2xl border-2 p-3 ${style.box}`}>
-      <div role="status" aria-live="polite" className="flex items-start gap-3">
+    <section aria-label="สถานะเกม" className={`rounded-2xl border-2 p-2.5 ${style.box}`}>
+      <div role="status" aria-live="polite" className="flex items-start gap-2.5">
         {meAvatar && !view.spectator ? (
-          <button type="button" onClick={onZoomMe} aria-label="ดูตัวละครของฉันใหญ่ๆ" className="relative shrink-0 w-24 aspect-[4/5] rounded-xl overflow-hidden border-2 border-amber-300/80 bg-sky-300 shadow-lg cursor-zoom-in">
+          <button type="button" onClick={onZoomMe} aria-label="ดูตัวละครของฉันใหญ่ๆ" className="relative shrink-0 w-14 aspect-[4/5] rounded-lg overflow-hidden border-2 border-amber-300/80 bg-sky-300 shadow cursor-zoom-in">
             {game.me.isAlive
               ? <AvatarArt config={meAvatar} night={isNightPhase(view.phase)} className="w-full h-full" />
               : <GraveArt backdrop={meAvatar.backdrop} grave={meAvatar.grave} role={mePlayer?.revealedRole ?? null} night={isNightPhase(view.phase)} className="w-full h-full" />}
-            <span className="absolute bottom-0 inset-x-0 bg-black/55 text-[10px] font-black text-white py-0.5">ตัวฉัน 🔍</span>
+            
           </button>
         ) : (
           <div className="text-3xl leading-none shrink-0" aria-hidden>{g.icon}</div>
         )}
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="text-[11px] font-bold text-slate-400">{UI.phases[view.phase] ?? view.phase} · วันที่ {game.dayNumber}</div>
-          <h2 className={`text-lg font-black leading-snug ${style.accent}`}><span aria-hidden>{g.icon} </span>{g.title}</h2>
-          {g.body && <p className="text-[13px] text-slate-200/90 leading-snug">{g.body}</p>}
+          <h2 className={`text-base font-black leading-snug ${style.accent}`}><span aria-hidden>{g.icon} </span>{g.title}</h2>
+          {g.body && <p className="text-xs text-slate-200/85 leading-snug">{g.body}</p>}
         </div>
         {left !== null && view.phase !== 'game_over' && (
-          <div className={`shrink-0 w-14 h-14 rounded-full flex flex-col items-center justify-center border-2 ${urgent ? 'border-red-400 bg-red-900/70 text-red-100 animate-pulse' : 'border-white/30 bg-black/35 text-slate-100'}`} aria-label={`เหลือเวลา ${left} วินาที`}>
-            <span className="text-lg font-black tabular-nums leading-none">{left}</span>
-            <span className="text-[9px] font-bold opacity-80">วิ</span>
+          <div className={`shrink-0 w-11 h-11 rounded-full flex flex-col items-center justify-center border-2 ${urgent ? 'border-red-400 bg-red-900/70 text-red-100 animate-pulse' : 'border-white/30 bg-black/35 text-slate-100'}`} aria-label={`เหลือเวลา ${left} วินาที`}>
+            <span className="text-base font-black tabular-nums leading-none">{left}</span>
           </div>
         )}
       </div>
@@ -86,16 +85,21 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
       )}
 
       {/* บทของฉัน + ปุ่มช่วยเหลือ */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {!view.spectator && (
-          <button type="button" onClick={onOpenRole} className="min-h-10 px-3 rounded-xl bg-black/30 hover:bg-black/45 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">
+          <button type="button" onClick={onOpenRole} className="min-h-9 px-2.5 rounded-xl bg-black/30 hover:bg-black/45 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">
             🎭 <b className="text-white">{game.me.roleNameTh}</b>
+          </button>
+        )}
+        {meAvatar && (
+          <button type="button" onClick={onZoomMe} className="min-h-9 px-2.5 rounded-xl bg-gradient-to-r from-pink-600/80 to-violet-600/80 hover:brightness-110 text-xs font-black inline-flex items-center gap-1 cursor-pointer">
+            👗 ดูตัวฉัน
           </button>
         )}
         {game.me.role === 'witch' && <span className="text-[11px] font-bold text-amber-300">{GAME_UI.potions(Number(rs.heal ?? 0), Number(rs.poison ?? 0))}</span>}
         {game.lover && <span className="text-[11px] font-bold text-pink-300">💘 {nameOf(game.lover)}</span>}
-        <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} aria-label="ช่วงนี้คืออะไร" className={`ml-auto min-w-10 min-h-10 rounded-full flex items-center justify-center cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-black/30 text-slate-300 hover:bg-black/45'}`}>
-          <HelpCircle className="w-5 h-5" />
+        <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} aria-label="ช่วงนี้คืออะไร" className={`ml-auto min-w-9 min-h-9 rounded-full flex items-center justify-center cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-black/30 text-slate-300 hover:bg-black/45'}`}>
+          <HelpCircle className="w-4 h-4" />
         </button>
       </div>
 

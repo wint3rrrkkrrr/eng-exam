@@ -36,10 +36,9 @@ function useSend(session: Session, refresh: () => Promise<void>, selection: Sele
 }
 
 const Box: React.FC<{ title: string; hint?: string; children?: React.ReactNode }> = ({ title, hint, children }) => (
-  <section className="rounded-2xl border border-slate-700/60 bg-slate-950/50 p-3 space-y-2">
-    <div className="flex items-baseline justify-between gap-2">
-      <h2 className="text-base font-black">{title}</h2>
-    </div>
+  <section className="rounded-2xl border border-slate-700/60 bg-slate-950/50 p-2.5 space-y-2">
+    {/* หัวข้อ/คำอธิบายอยู่ในการ์ดสถานะด้านบนแล้ว — ที่นี่เก็บไว้เฉพาะให้โปรแกรมอ่านหน้าจอ */}
+    <h2 className="sr-only">{title}</h2>
     {/* hint เดิมย้ายไปอยู่ในแผงสถานะด้านบนแล้ว (กันข้อความซ้ำ) */}
     {false && hint && <p className="text-xs text-slate-400">{hint}</p>}
     {children}
@@ -148,7 +147,6 @@ export const NominationPhase: React.FC<Props> = ({ view, session, refresh, selec
         <p className="text-sm text-slate-400">{GAME_UI.nomination.dead}</p>
       ) : turn.isMyTurn ? (
         <>
-          <p className="text-xs text-slate-300">{GAME_UI.nomination.hint} · {INFO_UI.selectHint}</p>
           {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
           <button disabled={busy || selection.selected.length !== 1} onClick={() => send({ targetId: selection.selected[0] }, 'nominate')} className={bigButton}>
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} {INFO_UI.nominateConfirm}
@@ -193,7 +191,6 @@ export const VotePhase: React.FC<Props> = ({ view, session, refresh, selection }
         <p className="text-sm text-slate-400">{GAME_UI.vote.cannot}</p>
       ) : turn.isMyTurn ? (
         <>
-          <p className="text-xs text-slate-300">{GAME_UI.vote.hint} · {INFO_UI.selectHint}</p>
           {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
           <div className="flex gap-2">
             <button disabled={busy || selection.selected.length !== 1} onClick={() => send({ type: 'vote', targetId: selection.selected[0] })} className={`${bigButton} flex-1`}>

@@ -10,6 +10,7 @@ import { buzz } from '../shared/notify';
 import { StatusPanel } from './StatusPanel';
 import { EventsPanel } from './EventsPanel';
 import { AvatarZoom } from './AvatarZoom';
+import { useFitColumns } from './useFitColumns';
 import { isNightPhase } from './avatar/TimeContext';
 import { GameChatPanel } from './GameChatPanel';
 import { PlayerCard, PlayerGrid } from './PlayerCard';
@@ -138,6 +139,9 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
     return () => ro.disconnect();
   }, []);
   const TABBAR = `${navH}px`;
+  // ตารางผู้เล่น: เลือกคอลัมน์ให้ทุกคนพอดีจอ (หักแถบแท็บ + ปุ่มลงมือที่ติดล่าง)
+  const playerCount = view.players.filter((p) => !p.isSpectator).length;
+  const fit = useFitColumns<HTMLElement>(playerCount, navH + (showDock ? dockH : 0) + 12);
   const tabBtn = (key: 'game' | 'chat' | 'events', icon: string, label: string, badge?: React.ReactNode) => (
     <button
       key={key}
@@ -163,7 +167,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
 
       {/* ===== แท็บ เกม ===== */}
       {tab === 'game' && (
-        <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + navH + 16 }}>
+        <div className="space-y-3" style={{ paddingBottom: (showDock ? dockH : 0) + navH + 12 }}>
           <StatusPanel view={view} nameOf={nameOf} hunterTurn={hunterTurn} gunnerTurn={gunnerTurn} left={left} onOpenRole={() => setRoleInfo(game.me.role)} onZoomMe={() => setZoomId(game.me.playerId)} />
 
           {/* เหตุการณ์สำคัญที่เกิดกับเรา (ตาย/ถูกเปลี่ยนฝ่าย) */}
@@ -180,8 +184,8 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
           )}
 
           {/* ตารางการ์ดผู้เล่น — แตะการ์ดเพื่อเลือกเป้าหมาย/โหวต · แตะไอคอนบทของคนตายเพื่อดูข้อมูลบท */}
-          <section aria-label={UI.game.players}>
-            <PlayerGrid count={view.players.filter((p) => !p.isSpectator).length}>
+          <section ref={fit.ref} aria-label={UI.game.players}>
+            <PlayerGrid count={playerCount} cols={fit.cols}>
               {view.players.filter((p) => !p.isSpectator).map((p) => {
                 const canPick = selectable.includes(p.playerId);
                 return (

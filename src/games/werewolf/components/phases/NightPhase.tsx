@@ -150,9 +150,10 @@ export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection 
 
   // ---- บทอื่นๆ: แตะการ์ดด้านบนเลือก 1–2 คน
   return (
-    <div className="space-y-2.5">
-      <p className="text-sm font-bold">{turn.promptTh}</p>
-      <p className="text-xs text-slate-400">{turn.selectableTargets.length === 0 ? INFO_UI.noneSelectable : need >= 2 ? GAME_UI.night.pickTwo : GAME_UI.night.pickOne}</p>
+    <div className="space-y-2">
+      {/* ข้อความบอกว่าต้องทำอะไรอยู่ในการ์ดสถานะด้านบนแล้ว — ที่นี่เหลือแต่ปุ่ม (แถบล่างจะได้เตี้ย ตารางผู้เล่นพอดีจอ) */}
+      {turn.selectableTargets.length === 0 && <p className="text-xs text-slate-400">{INFO_UI.noneSelectable}</p>}
+      {need >= 2 && <p className="text-xs text-slate-400">{GAME_UI.night.pickTwo}</p>}
       {(game.me.team === 'wolf' || game.me.team === 'vampire' || game.me.team === 'cult') && wolves.length > 0 && (
         <div className="rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs">
           <span className="text-red-300">{GAME_UI.night.wolvesTitle}: </span><span className="font-bold">{wolves.join(', ')}</span>
@@ -184,15 +185,17 @@ export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection 
         );
       })()}
       {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
-      <button
-        disabled={busy || selection.selected.length !== need}
-        onClick={() => send({ kind, targets: selection.selected, meta: veil ? { veil: true } : undefined })}
-        className={confirmBtn}
-      >
-        {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-        {GAME_UI.confirm}
-      </button>
-      {skipBtn}
+      <div className="flex gap-2">
+        <button
+          disabled={busy || selection.selected.length !== need}
+          onClick={() => send({ kind, targets: selection.selected, meta: veil ? { veil: true } : undefined })}
+          className={`${confirmBtn} flex-1`}
+        >
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+          {GAME_UI.confirm}
+        </button>
+        <div className="w-[38%]">{skipBtn}</div>
+      </div>
     </div>
   );
 };
