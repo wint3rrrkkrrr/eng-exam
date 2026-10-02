@@ -10,6 +10,7 @@ import { buzz } from '../shared/notify';
 import { StatusPanel } from './StatusPanel';
 import { EventsPanel } from './EventsPanel';
 import { AvatarZoom } from './AvatarZoom';
+import { RoleIcon } from './avatar/RoleIcon';
 import { useFitColumns } from './useFitColumns';
 import { isNightPhase } from './avatar/TimeContext';
 import { GameChatPanel } from './GameChatPanel';
@@ -253,7 +254,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
           {tabBtn('events', '📜', 'เหตุการณ์', newEvents > 0 ? <span className="absolute top-2 right-[26%] w-3 h-3 rounded-full bg-pink-400" aria-label="มีเหตุการณ์ใหม่" /> : null)}
           {!view.spectator && (
             <button type="button" onClick={() => setRoleInfo(game.me.role)} aria-label={`ดูข้อมูลบท ${game.me.roleNameTh}`} className="relative flex flex-col items-center justify-center gap-0.5 min-h-16 px-1 cursor-pointer text-slate-300 hover:text-white">
-              <span className="text-2xl leading-none">🎭</span>
+              <span className="w-7 h-7 inline-block" aria-hidden><RoleIcon id={game.me.role} className="w-full h-full" /></span>
               <span className="text-xs font-black max-w-full truncate">{game.me.roleNameTh}</span>
             </button>
           )}
