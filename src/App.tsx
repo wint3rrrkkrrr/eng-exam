@@ -136,12 +136,12 @@ export default function App() {
 
   const [, setProfileRefresh] = useState(0);
 
-  // Sync with cloud server every 4 seconds & listen for profile changes
+  // ซิงก์โปรไฟล์จากคลาวด์ทุก 60 วินาที (เฉพาะตอนเปิดแท็บอยู่) — เดิมทุก 4 วิ และดึงตารางโปรไฟล์ทั้งตาราง กินโควตา Supabase หนักมาก
   useEffect(() => {
     syncWithServer();
     const interval = setInterval(() => {
-      syncWithServer();
-    }, 4000);
+      if (!document.hidden) syncWithServer();
+    }, 60000);
 
     const handleStorage = () => {
       setProfileRefresh((prev) => prev + 1);

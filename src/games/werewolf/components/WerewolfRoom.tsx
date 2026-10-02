@@ -21,8 +21,8 @@ interface Props {
   onLeave: (message?: string) => void;
 }
 
-const POLL_MS = 2500; // ดึง "มุมมองของฉัน" ซ้ำ (สำรองเผื่อสัญญาณเรียลไทม์หลุด/ไม่มี Supabase)
-const POLL_FAST_MS = 1000; // ช่วงเสนอชื่อ/แก้ตัว/โหวต: กระดานสดต้องเคลื่อนไหวเร็ว
+const POLL_MS = 4000; // ดึง "มุมมองของฉัน" ซ้ำ (สำรองเผื่อสัญญาณเรียลไทม์หลุด/ไม่มี Supabase)
+const POLL_FAST_MS = 1500; // ช่วงเสนอชื่อ/แก้ตัว/โหวต: กระดานสดต้องเคลื่อนไหวเร็ว
 const LIVE_PHASES = ['nomination', 'defense', 'vote'];
 const TICK_MS = 3000; // เรียก tick เดินเวลา — เซิร์ฟเวอร์ตัดสินเองว่าถึงเวลาจริงไหม
 
@@ -31,6 +31,7 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
   const [offline, setOffline] = useState(false);
   const clockOffset = useRef(0); // เวลาเซิร์ฟเวอร์ − เวลาเครื่อง
   const phaseRef = useRef<string>('lobby');
+  const endsAtRef = useRef<number | null>(null);
   const versionRef = useRef<number>(-1);
   const busy = useRef(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -91,6 +92,7 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
       setOffline(false);
       clockOffset.current = Date.parse(r.data.serverNow) - Date.now();
       phaseRef.current = r.data.phase;
+      endsAtRef.current = r.data.endsAt ? Date.parse(r.data.endsAt) : null;
       // อัปเดตหน้าจอเมื่อมีอะไรเปลี่ยน (state_version ขยับ) หรือยังไม่มีข้อมูล — กันหน้ากระตุก
       setView((prev) => (prev && prev.stateVersion === r.data.stateVersion && JSON.stringify(prev.chat) === JSON.stringify(r.data.chat) && prev.endsAt === r.data.endsAt && JSON.stringify(prev.players) === JSON.stringify(r.data.players) ? prev : r.data));
       versionRef.current = r.data.stateVersion;
@@ -120,9 +122,15 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
 
   // เดินเวลา: ใครเรียกก็ได้ (เซิร์ฟเวอร์กันเรียกซ้ำเอง)
   useEffect(() => {
+    let lastTick = 0;
     const id = setInterval(async () => {
       const p = phaseRef.current;
-      if (p === 'lobby' || p === 'game_over') return;
+      if (p === 'lobby' || p === 'game_over' || document.hidden) return;
+      // เรียก tick เมื่อหมดเวลาแล้วเท่านั้น หรือสำรองทุก ~7 วิ (ให้ทุกคนครบ/บอทเดินได้) — เดิมทุกคนเรียกทุก 3 วิตลอดเกม และไม่เรียกตอนแท็บอยู่เบื้องหลัง
+      const end = endsAtRef.current;
+      const due = end !== null && Date.now() + clockOffset.current >= end;
+      if (!due && Date.now() - lastTick < 6000 + Math.random() * 3000) return;
+      lastTick = Date.now();
       const r = await api<{ advanced: boolean }>('tick', {}, session);
       if (r.ok && r.data.advanced) void refresh();
     }, TICK_MS);
