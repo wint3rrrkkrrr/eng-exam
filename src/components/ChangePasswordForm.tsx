@@ -28,7 +28,7 @@ export const ChangePasswordForm: React.FC<{ isDark: boolean }> = ({ isDark }) =>
     const r = await changePassword(oldPw, newPw);
     setBusy(false);
     if (r.ok) {
-      setMsg({ ok: true, text: 'เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ' });
+      setMsg({ ok: true, text: 'เปลี่ยนรหัสผ่านแล้ว — เซสชันของเครื่องอื่นถูกยกเลิกแล้ว (ต้องล็อกอินใหม่ด้วยรหัสใหม่)' });
       setOldPw(''); setNewPw(''); setConfirm('');
     } else {
       setMsg({ ok: false, text: r.messageTh ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ' });

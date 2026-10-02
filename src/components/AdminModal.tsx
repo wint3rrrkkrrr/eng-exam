@@ -83,7 +83,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleResetPassword = async (username: string) => {
-    const pw = window.prompt(`ตั้งรหัสผ่านใหม่ให้ "${username}" (อย่างน้อย 8 ตัว)\n— ต้องล็อกอินเกมด้วยบัญชีแอดมินอยู่ ถึงจะรีเซ็ตได้`);
+    const pw = window.prompt(`ตั้งรหัสผ่านใหม่ให้ "${username}" (อย่างน้อย 8 ตัว)\n— ต้องล็อกอินเกมด้วยบัญชีแอดมิน และเซิร์ฟเวอร์ต้องตั้ง WW_ADMINS ไว้`);
     if (!pw) return;
     const r = await adminResetPassword(username, pw);
     window.alert(r.ok ? `รีเซ็ตรหัสผ่านของ "${username}" แล้ว — แจ้งรหัสใหม่ให้เจ้าตัว แล้วให้เปลี่ยนเองหลังเข้าสู่ระบบ` : (r.messageTh ?? 'รีเซ็ตไม่สำเร็จ'));

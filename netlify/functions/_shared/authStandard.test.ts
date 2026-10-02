@@ -82,8 +82,19 @@ describe('ออกจากระบบ / เปลี่ยนรหัสผ�
     expect((await H.walletLogin(ctx, { username: 'pwuser', sessionToken: b })).status).toBe(401); // เครื่องอื่นถูกเตะ
   });
 
+  it('ไม่ตั้ง WW_ADMINS = ปิดรีเซ็ตโดยแอดมิน (แม้ชื่อ win) · login ชื่อตัวพิมพ์ต่างกันได้ข้อความบอกใบ้', async () => {
+    const { ctx } = make();
+    delete process.env.WW_ADMINS;
+    const w = tok(await H.authLogin(ctx, { username: 'win', password: 'adminpass9', mode: 'register' }));
+    expect((await H.authAdminReset(ctx, { sessionToken: w, target: 'win', newPassword: 'resetpass9' })).status).toBe(403);
+    const r = await H.authLogin(ctx, { username: 'WIN', password: 'adminpass9', mode: 'login' });
+    expect(r.status).toBe(404);
+    expect(JSON.stringify(r.body)).toContain('ตัวพิมพ์');
+  });
+
   it('แอดมินรีเซ็ตรหัส: คนทั่วไปทำไม่ได้ (403) · แอดมินทำได้ และเซสชันของผู้ถูกรีเซ็ตถูกยกเลิก', async () => {
     const { ctx } = make();
+    process.env.WW_ADMINS = 'win';
     const victim = tok(await H.authLogin(ctx, { username: 'forgetful', password: 'oldpass99', mode: 'register' }));
     const normal = tok(await H.authLogin(ctx, { username: 'someone', password: 'secret99', mode: 'register' }));
     const admin = tok(await H.authLogin(ctx, { username: 'win', password: 'adminpass9', mode: 'register' }));

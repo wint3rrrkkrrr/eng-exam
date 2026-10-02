@@ -976,6 +976,8 @@ export default function App() {
 
   const handleLogoutUser = () => {
     if (window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
+      void logoutAccount(); // ยกเลิกเซสชันที่เซิร์ฟเวอร์ด้วย (ต้องเรียกก่อนล้างโทเค็นในเครื่อง)
+      try { localStorage.removeItem('ww_wallet_v1'); localStorage.removeItem('ww_wallet_owner_v1'); } catch { /* ไม่เป็นไร */ } // เครื่องที่ใช้ร่วมกัน: ล้างกระเป๋าที่จำไว้
       setUsername('');
       localStorage.removeItem('grammar_quiz_username_v1');
       sessionStorage.removeItem('grammar_quiz_username_v1');

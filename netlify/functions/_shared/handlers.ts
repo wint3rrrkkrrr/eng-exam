@@ -268,7 +268,10 @@ export async function authLogin(ctx: Ctx, body: Record<string, unknown>): Promis
     if (!created) return fail(409, 'ชื่อนี้ถูกใช้แล้ว ลองชื่ออื่น', 'name_taken');
     await ctx.store.ensureUser(username);
   } else if (stored === null) {
-    if (mode === 'login') return fail(404, 'ยังไม่มีบัญชีชื่อนี้ — ไปที่แท็บ "สมัครสมาชิก" ก่อน', 'no_account');
+    if (mode === 'login') {
+      if (await ctx.store.credentialExistsIgnoreCase(username)) return fail(404, 'ไม่พบชื่อนี้ — มีชื่อที่คล้ายกันแต่ตัวพิมพ์ใหญ่-เล็กต่างกัน ลองพิมพ์ให้ตรงกับตอนสมัคร', 'no_account');
+      return fail(404, 'ยังไม่มีบัญชีชื่อนี้ — ไปที่แท็บ "สมัครสมาชิก" ก่อน', 'no_account');
+    }
     created = await ctx.store.createCredential(username, hashPassword(password));
     if (!created) return fail(409, 'มีคนตั้งรหัสชื่อนี้พร้อมกัน ลองใหม่อีกครั้ง', 'conflict'); // ชนกันพอดี
     await ctx.store.ensureUser(username);
@@ -322,12 +325,12 @@ export async function authPassword(ctx: Ctx, body: Record<string, unknown>): Pro
   return ok({ ok: true });
 }
 
-/** แอดมินรีเซ็ตรหัสให้คนที่ลืม: ต้องล็อกอินด้วยบัญชีแอดมิน (WW_ADMINS คั่นด้วย , ค่าเริ่มต้น win,wintararer) · เซสชันเดิมของผู้ถูกรีเซ็ตถูกยกเลิกทั้งหมด */
+/** แอดมินรีเซ็ตรหัสให้คนที่ลืม: ต้องล็อกอินด้วยบัญชีแอดมิน (ต้องตั้งตัวแปร WW_ADMINS คั่นด้วย , เช่น win · ไม่ตั้ง = ปิดฟีเจอร์ — กันคนสมัครชื่อแอดมินแล้วได้สิทธิ์) · เซสชันเดิมของผู้ถูกรีเซ็ตถูกยกเลิกทั้งหมด */
 export async function authAdminReset(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
   const me = await sessionUser(ctx, body);
   if (!me) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
-  const admins = (process.env.WW_ADMINS ?? 'win,wintararer').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
-  if (!admins.includes(me.username.toLowerCase())) return fail(403, 'เฉพาะแอดมินเท่านั้น', 'not_admin');
+  const admins = (process.env.WW_ADMINS ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!admins.includes(me.username.toLowerCase())) return fail(403, 'เฉพาะแอดมินเท่านั้น (เซิร์ฟเวอร์ต้องตั้ง WW_ADMINS)', 'not_admin');
   const target = typeof body.target === 'string' ? body.target.trim() : '';
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
   if (target.length < 2 || target.length > 20) return fail(400, 'ชื่อผู้ใช้ไม่ถูกต้อง', 'bad_name');

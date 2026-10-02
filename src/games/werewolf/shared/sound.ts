@@ -325,7 +325,12 @@ function scheduleStep(audio: AudioContext, r: Running, track: Track, at: number)
 
 function startTrack(name: MusicTrack): void {
   const audio = getCtx();
-  if (!audio || audio.state !== 'running') return;
+  if (!audio) return;
+  if (audio.state !== 'running') {
+    // ยังไม่ผ่านการแตะ/กำลังปลุก → รอ resume เสร็จแล้วลองเริ่มใหม่ (ถ้าเบราว์เซอร์ยังไม่อนุญาต ก็รอการแตะครั้งถัดไป)
+    void audio.resume().then(() => syncMusic()).catch(() => { /* รอการแตะครั้งหน้า */ });
+    return;
+  }
   const track = TRACKS[name];
   const out = audio.createGain();
   out.gain.setValueAtTime(0, audio.currentTime);
