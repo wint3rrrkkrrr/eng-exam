@@ -185,9 +185,16 @@ export default function App() {
   // User details & Leaderboard landing tabs
   const [username, setUsername] = useState<string>(() => {
     try {
-      return localStorage.getItem('grammar_quiz_username_v1') || '';
+      return localStorage.getItem('grammar_quiz_username_v1') || sessionStorage.getItem('grammar_quiz_username_v1') || '';
     } catch {
       return '';
+    }
+  });
+  const [rememberLogin, setRememberLogin] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('grammar_quiz_username_v1') !== null || sessionStorage.getItem('grammar_quiz_username_v1') === null;
+    } catch {
+      return true;
     }
   });
   const [landingTab, setLandingTab] = useState<'subjects' | 'leaderboard'>('subjects');
@@ -561,14 +568,20 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('grammar_quiz_username_v1', username);
+      if (rememberLogin) {
+        sessionStorage.removeItem('grammar_quiz_username_v1');
+        localStorage.setItem('grammar_quiz_username_v1', username);
+      } else {
+        localStorage.removeItem('grammar_quiz_username_v1');
+        sessionStorage.setItem('grammar_quiz_username_v1', username);
+      }
       if (username) {
         supabaseSim.registerUser(username); // async — fire and forget
       }
     } catch {
       // ignore
     }
-  }, [username]);
+  }, [username, rememberLogin]);
 
 
 
@@ -965,6 +978,7 @@ export default function App() {
     if (window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
       setUsername('');
       localStorage.removeItem('grammar_quiz_username_v1');
+      sessionStorage.removeItem('grammar_quiz_username_v1');
       setShowLandingPage(true);
       try { soundFX.playTap(); } catch (e) {}
     }
@@ -975,7 +989,10 @@ export default function App() {
       <div className={`min-h-screen flex flex-col items-center justify-center relative overflow-x-clip ${isDark ? 'bg-[#0b0c12]' : 'bg-stone-50'}`}>
         <AmbientParticles isDark={isDark} />
         <NameInputOverlay
-          onSave={setUsername}
+          onSave={(name, remember) => {
+            setRememberLogin(remember);
+            setUsername(name);
+          }}
           theme={theme}
           soundEnabled={soundEnabled}
           onPlayTap={() => {

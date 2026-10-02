@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, User, ArrowRight, BookOpen, GraduationCap, Camera, Edit3 } from 'lucide-react';
+import { Sparkles, User, ArrowRight, BookOpen, GraduationCap, Camera, Edit3, Lock, Loader2 } from 'lucide-react';
 import logoImage from '../assets/images/winter_exam_logo_1789496745669.jpg';
-import { supabaseSim, DEFAULT_AVATARS } from '../utils/supabaseSim';
+import { supabaseSim, DEFAULT_AVATARS, loginOrRegister } from '../utils/supabaseSim';
 import { compressAndResizeImage } from '../utils/imageUtils';
 
+const SAVED_PW_KEY = 'grammar_quiz_saved_pw_v1';
+
 interface NameInputOverlayProps {
-  onSave: (name: string) => void;
+  onSave: (name: string, rememberLogin: boolean) => void;
   theme: 'light' | 'dark';
   soundEnabled: boolean;
   onPlayTap?: () => void;
@@ -18,7 +20,19 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
   soundEnabled,
   onPlayTap,
 }) => {
-  const [inputName, setInputName] = useState('');
+  const savedCreds = (() => {
+    try {
+      const raw = localStorage.getItem(SAVED_PW_KEY);
+      return raw ? (JSON.parse(raw) as { username: string; password: string }) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const [inputName, setInputName] = useState(savedCreds?.username ?? '');
+  const [password, setPassword] = useState(savedCreds?.password ?? '');
+  const [rememberPassword, setRememberPassword] = useState(!!savedCreds);
+  const [rememberLogin, setRememberLogin] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [bioInput, setBioInput] = useState('เด็กเตรียมสอบ WINTER 2026 ✌️');
   const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATARS[0]);
   const [showAdvancedProfile, setShowAdvancedProfile] = useState(false);
@@ -38,7 +52,7 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputName.trim();
     if (!trimmed) {
@@ -53,16 +67,44 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
       setError('ชื่อยาวเกินไปหน่อย ไม่เกิน 20 ตัวอักษรพอนะ');
       return;
     }
+    if (password.length < 4) {
+      setError('รหัสผ่านสั้นไปหน่อย ตั้งอย่างน้อย 4 ตัวอักษรนะ');
+      return;
+    }
 
-    onPlayTap?.();
-    
-    // Save custom profile settings
-    supabaseSim.updateProfile(trimmed, {
-      avatar: selectedAvatar,
-      bio: bioInput.trim() || 'เด็กเตรียมสอบ WINTER 2026 ✌️',
-    });
+    setSubmitting(true);
+    setError('');
+    try {
+      const result = await loginOrRegister(trimmed, password);
+      if (!result.ok) {
+        setError('รหัสผ่านไม่ถูกต้องสำหรับชื่อนี้ ลองใหม่อีกครั้งนะ');
+        setSubmitting(false);
+        return;
+      }
 
-    onSave(trimmed);
+      onPlayTap?.();
+
+      try {
+        if (rememberPassword) {
+          localStorage.setItem(SAVED_PW_KEY, JSON.stringify({ username: trimmed, password }));
+        } else {
+          localStorage.removeItem(SAVED_PW_KEY);
+        }
+      } catch {
+        // ไม่เป็นไร — แค่จำรหัสไม่ได้ข้ามเซสชัน
+      }
+
+      // Save custom profile settings
+      supabaseSim.updateProfile(trimmed, {
+        avatar: selectedAvatar,
+        bio: bioInput.trim() || 'เด็กเตรียมสอบ WINTER 2026 ✌️',
+      });
+
+      onSave(trimmed, rememberLogin);
+    } catch {
+      setError('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้งนะ');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -137,6 +179,58 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
               </div>
             </div>
 
+            {/* Password Input */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-400 mb-1">
+                รหัสผ่าน
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                  <Lock className="w-4 h-4 opacity-60" />
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="ตั้ง/กรอกรหัสผ่านของคุณ"
+                  className={`w-full pl-10 pr-4 py-3 rounded-2xl border text-sm font-bold tracking-wide outline-none transition-all ${
+                    isDark
+                      ? 'bg-zinc-900/60 border-zinc-800 text-zinc-100 placeholder-zinc-500 focus:border-amber-400/60 focus:bg-zinc-900'
+                      : 'bg-stone-50 border-stone-200 text-stone-900 placeholder-stone-400 focus:border-stone-400 focus:bg-stone-100/50'
+                  }`}
+                  maxLength={60}
+                />
+              </div>
+              <p className={`mt-1 text-[10px] ${isDark ? 'text-zinc-500' : 'text-stone-500'}`}>
+                ชื่อใหม่ → ตั้งรหัสผ่านนี้เป็นของคุณ · ชื่อเดิม → กรอกรหัสผ่านเดิมให้ตรงกัน
+              </p>
+            </div>
+
+            {/* Remember toggles */}
+            <div className="flex flex-col gap-2 text-xs font-bold">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberPassword}
+                  onChange={(e) => setRememberPassword(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-400 cursor-pointer"
+                />
+                <span className={isDark ? 'text-zinc-300' : 'text-stone-700'}>บันทึกรหัสผ่านไว้ในเครื่องนี้</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberLogin}
+                  onChange={(e) => setRememberLogin(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-400 cursor-pointer"
+                />
+                <span className={isDark ? 'text-zinc-300' : 'text-stone-700'}>จำการเข้าสู่ระบบ (ไม่ต้องล็อกอินใหม่ทุกครั้ง)</span>
+              </label>
+            </div>
+
             {/* Bio Input */}
             <div>
               <label className="block text-xs font-bold text-zinc-400 mb-1">
@@ -205,14 +299,21 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
 
             <button
               type="submit"
-              className={`w-full group inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm tracking-wider transition-all duration-300 transform active:scale-98 shadow-md hover:scale-[1.02] mt-2 ${
+              disabled={submitting}
+              className={`w-full group inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm tracking-wider transition-all duration-300 transform active:scale-98 shadow-md hover:scale-[1.02] mt-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                 isDark
                   ? 'bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-amber-500/10'
                   : 'bg-stone-900 hover:bg-stone-800 text-white'
               }`}
             >
-              <span>บันทึกโปรไฟล์ & ลุยกันเลย!</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <span>เข้าสู่ระบบ & ลุยกันเลย!</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
 

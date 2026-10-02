@@ -6,8 +6,12 @@ create table if not exists winter_users (
   username text primary key,
   joined_at timestamptz default now(),
   last_active timestamptz default now(),
-  device_info text default ''
+  device_info text default '',
+  password_hash text
 );
+
+-- รันซ้ำได้ปลอดภัย: เติมคอลัมน์รหัสผ่านให้ตารางเดิมที่สร้างไปแล้ว (บัญชีเก่าที่ยังไม่มีรหัส จะตั้งรหัสครั้งแรกตอน login)
+alter table winter_users add column if not exists password_hash text;
 
 -- 2. Scores table
 create table if not exists winter_scores (
@@ -29,8 +33,12 @@ create table if not exists winter_profiles (
   bio text default '',
   joined_at timestamptz default now(),
   last_active timestamptz default now(),
-  device_info text default ''
+  device_info text default '',
+  mouse_avatar text
 );
+
+-- รันซ้ำได้ปลอดภัย: โค้ดแอปบันทึกคอลัมน์ mouse_avatar ด้วย ถ้าไม่มีคอลัมน์นี้ การบันทึกโปรไฟล์/รูปจะล้มเหลวทั้งก้อน
+alter table winter_profiles add column if not exists mouse_avatar text;
 
 -- 4. Chat messages table
 create table if not exists winter_chat (

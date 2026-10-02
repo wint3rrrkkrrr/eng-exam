@@ -113,6 +113,38 @@ export async function syncWithServer() {
 // ---- Profile cache (in-memory for this session) ----
 const profileCache: Record<string, UserProfile> = {};
 
+// ---- รหัสผ่าน: แฮช SHA-256 ฝั่งเบราว์เซอร์ก่อนส่งขึ้น Supabase (ไม่เก็บรหัสดิบ) ----
+export async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export type LoginOutcome =
+  | { ok: true; created: boolean } // created=true ถ้าเพิ่งสร้างบัญชี/เพิ่งตั้งรหัสให้บัญชีเก่า
+  | { ok: false; reason: 'wrong_password' };
+
+/** เข้าสู่ระบบ/สมัครบัญชีด้วยชื่อ+รหัสผ่าน: ชื่อใหม่ → สร้างบัญชี, ชื่อเก่าไม่มีรหัส → ตั้งรหัสให้ครั้งแรก, ชื่อเก่ามีรหัส → ต้องตรงกัน */
+export async function loginOrRegister(username: string, password: string): Promise<LoginOutcome> {
+  const clean = username.trim();
+  const hash = await hashPassword(password);
+  const { data, error } = await supabase.from('winter_users').select('username, password_hash').eq('username', clean).maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    await supabase.from('winter_users').upsert(
+      { username: clean, password_hash: hash, last_active: new Date().toISOString(), device_info: detectDevice() },
+      { onConflict: 'username' },
+    );
+    return { ok: true, created: true };
+  }
+  if (!data.password_hash) {
+    await supabase.from('winter_users').update({ password_hash: hash }).eq('username', clean);
+    return { ok: true, created: true };
+  }
+  if (data.password_hash !== hash) return { ok: false, reason: 'wrong_password' };
+  return { ok: true, created: false };
+}
+
 export const supabaseSim = {
   registerUser: async (username: string) => {
     if (!username?.trim()) return;
