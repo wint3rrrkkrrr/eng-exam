@@ -91,11 +91,6 @@ export const StatusPanel: React.FC<Props> = ({ view, nameOf, hunterTurn, gunnerT
             🎭 <b className="text-white">{game.me.roleNameTh}</b>
           </button>
         )}
-        {meAvatar && (
-          <button type="button" onClick={onZoomMe} className="min-h-9 px-2.5 rounded-xl bg-gradient-to-r from-pink-600/80 to-violet-600/80 hover:brightness-110 text-xs font-black inline-flex items-center gap-1 cursor-pointer">
-            👗 ดูตัวฉัน
-          </button>
-        )}
         {game.me.role === 'witch' && <span className="text-[11px] font-bold text-amber-300">{GAME_UI.potions(Number(rs.heal ?? 0), Number(rs.poison ?? 0))}</span>}
         {game.lover && <span className="text-[11px] font-bold text-pink-300">💘 {nameOf(game.lover)}</span>}
         <button type="button" onClick={() => setShowHelp((v) => !v)} aria-expanded={showHelp} aria-label="ช่วงนี้คืออะไร" className={`ml-auto min-w-9 min-h-9 rounded-full flex items-center justify-center cursor-pointer ${showHelp ? 'bg-violet-700 text-white' : 'bg-black/30 text-slate-300 hover:bg-black/45'}`}>
