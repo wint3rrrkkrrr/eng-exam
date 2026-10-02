@@ -16,18 +16,20 @@ export interface SimSummary {
   wolf: number;
   lovers: number;
   solo: number;
+  vampire: number;
+  cult: number;
   draws: number;
   maxDays: number;
   problems: string[];
 }
 
 export function runSimulation(sizes: number[], gamesPerSize: number, label = 'sim'): SimSummary {
-  const sum: SimSummary = { games: 0, finished: 0, village: 0, wolf: 0, lovers: 0, solo: 0, draws: 0, maxDays: 0, problems: [] };
+  const sum: SimSummary = { games: 0, finished: 0, village: 0, wolf: 0, lovers: 0, solo: 0, vampire: 0, cult: 0, draws: 0, maxDays: 0, problems: [] };
   for (const n of sizes) {
     for (let i = 0; i < gamesPerSize; i++) {
       const seed = `${label}-${n}-${i}`;
       const players = Array.from({ length: n }, (_, k) => ({ id: `p${k + 1}`, name: `ผู้เล่น${k + 1}`, seat: k + 1 }));
-      const { state, errors } = createGame({ roomCode: 'SIM01', players, roleIds: presetRoles(n), seed });
+      const { state, errors } = createGame({ roomCode: 'SIM01', players, roleIds: presetRoles(n, i % 4), seed });
       if (!state) {
         sum.problems.push(`${seed}: สร้างเกมไม่ได้ ${errors.map((e) => e.messageTh).join(',')}`);
         continue;

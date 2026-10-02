@@ -14,7 +14,10 @@ export class MemoryStore implements WwStore {
   players = new Map<string, PlayerRow>();
   auth = new Map<string, { token_hash: string; room_code: string }>();
   wallets = new Map<string, WalletRow & { token_hash: string }>();
-  accounts = new Map<string, string | null>(); // username → แฮชรหัสผ่าน (จำลองตาราง winter_users ตอนทดสอบ)
+  credentials = new Map<string, string>(); // username → แฮชรหัสผ่าน (จำลอง winter_credentials)
+  users = new Set<string>();
+  sessions = new Map<string, { username: string; expires_at: string }>();
+  rate = new Map<string, { start: number; hits: number }>();
   playerWallet = new Map<string, string>();
   eventsPublic = new Map<string, PublicEventRecord[]>();
   eventsPrivate = new Map<string, EventRow[]>();
@@ -131,8 +134,42 @@ export class MemoryStore implements WwStore {
     if (w) { w.username = username; w.token_hash = tokenHash; }
   }
 
-  async getAccountPasswordHash(username: string) {
-    return this.accounts.has(username) ? { exists: true, hash: this.accounts.get(username) ?? null } : { exists: false, hash: null };
+  async getCredential(username: string) {
+    return this.credentials.get(username) ?? null;
+  }
+
+  async createCredential(username: string, hash: string) {
+    if (this.credentials.has(username)) return false;
+    this.credentials.set(username, hash);
+    return true;
+  }
+
+  async updateCredential(username: string, hash: string) {
+    this.credentials.set(username, hash);
+  }
+
+  async ensureUser(username: string) {
+    this.users.add(username);
+  }
+
+  async createSession(tokenHash: string, username: string, expiresAtIso: string) {
+    this.sessions.set(tokenHash, { username, expires_at: expiresAtIso });
+  }
+
+  async getSession(tokenHash: string) {
+    const s = this.sessions.get(tokenHash);
+    return s ? { ...s } : null;
+  }
+
+  async rateHit(key: string, limit: number, windowSeconds: number) {
+    const now = Date.now();
+    const cur = this.rate.get(key);
+    if (!cur || now - cur.start > windowSeconds * 1000) {
+      this.rate.set(key, { start: now, hits: 1 });
+      return 1 <= limit;
+    }
+    cur.hits += 1;
+    return cur.hits <= limit;
   }
 
   async getWalletTokenHash(walletId: string) {

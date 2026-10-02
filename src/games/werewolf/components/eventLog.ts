@@ -36,6 +36,8 @@ export function formatEvent(e: PublicLogEvent, ctx: LogContext): string[] {
       if (d.cause === 'vote') return [EVENT_TEXT.executed(n(d.playerId), roleName(d.revealedRole))];
       return [EVENT_TEXT.died(n(d.playerId), TH.cause[String(d.cause)] ?? 'เสียชีวิต', roleName(d.revealedRole))];
     }
+    case 'time_adjusted':
+      return [EVENT_TEXT.timeAdjusted(d.direction === 'less')];
     case 'nominate':
       return [EVENT_TEXT.nominate(n(d.nominatorId), n(d.nomineeId))];
     case 'nominees':

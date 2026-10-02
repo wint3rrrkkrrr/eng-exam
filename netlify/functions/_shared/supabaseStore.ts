@@ -130,10 +130,44 @@ export class SupabaseStore implements WwStore {
     must(await this.db.from('ww_wallets').update({ username, token_hash: tokenHash }).eq('wallet_id', walletId) as never, 'bindWalletToAccount');
   }
 
-  async getAccountPasswordHash(username: string): Promise<{ exists: boolean; hash: string | null }> {
-    const res = await this.db.from('winter_users').select('password_hash').eq('username', username).maybeSingle();
-    const row = must(res, 'getAccountPasswordHash') as { password_hash: string | null } | null;
-    return { exists: row !== null, hash: row?.password_hash ?? null };
+  async getCredential(username: string): Promise<string | null> {
+    const res = await this.db.from('winter_credentials').select('password_hash').eq('username', username).maybeSingle();
+    return (must(res, 'getCredential') as { password_hash: string } | null)?.password_hash ?? null;
+  }
+
+  async createCredential(username: string, hash: string): Promise<boolean> {
+    const res = await this.db.from('winter_credentials').insert({ username, password_hash: hash });
+    if (res.error) {
+      if (res.error.code === '23505') return false; // มีอยู่แล้ว
+      throw new Error(`createCredential: ${res.error.message}`);
+    }
+    return true;
+  }
+
+  async updateCredential(username: string, hash: string): Promise<void> {
+    must(await this.db.from('winter_credentials').update({ password_hash: hash }).eq('username', username) as never, 'updateCredential');
+  }
+
+  async ensureUser(username: string): Promise<void> {
+    must(await this.db.from('winter_users').upsert({ username, last_active: new Date().toISOString() }, { onConflict: 'username' }) as never, 'ensureUser');
+  }
+
+  async createSession(tokenHash: string, username: string, expiresAtIso: string): Promise<void> {
+    must(await this.db.from('winter_sessions').insert({ token_hash: tokenHash, username, expires_at: expiresAtIso }) as never, 'createSession');
+  }
+
+  async getSession(tokenHash: string): Promise<{ username: string; expires_at: string } | null> {
+    const res = await this.db.from('winter_sessions').select('username,expires_at').eq('token_hash', tokenHash).maybeSingle();
+    return must(res, 'getSession') as { username: string; expires_at: string } | null;
+  }
+
+  async rateHit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+    const res = await this.db.rpc('ww_rate_hit', { p_key: key, p_limit: limit, p_window: windowSeconds });
+    if (res.error) {
+      console.error('[ww] rateHit', res.error.message);
+      return true; // ตัวนับล้ม ไม่ควรทำให้เกมเล่นไม่ได้
+    }
+    return res.data === true;
   }
 
   async walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult> {

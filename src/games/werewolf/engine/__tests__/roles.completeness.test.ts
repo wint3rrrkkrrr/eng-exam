@@ -5,8 +5,8 @@ import { ROLE_LIST, ROLES } from '../roles';
 const STRING_FIELDS = ['id', 'nameTh', 'descriptionTh', 'goalTh', 'winTh', 'onActorDeath'] as const;
 
 describe('ทะเบียนบท', () => {
-  it('มีบทครบ 52 บท (แพ็กหลัก 14 + หมาป่าผู้บดบัง + แพ็ก M6 #1–#9 อีก 37) และไม่มี id ซ้ำ', () => {
-    expect(ROLE_LIST).toHaveLength(52);
+  it('มีบทครบ 54 บท (แพ็กหลัก 14 + หมาป่าผู้บดบัง + แพ็ก M6 #1–#9 อีก 37 + นักเลียนแบบ/ผู้ควบคุมเวลา) และไม่มี id ซ้ำ', () => {
+    expect(ROLE_LIST).toHaveLength(54);
     expect(new Set(ROLE_LIST.map((r) => r.id)).size).toBe(ROLE_LIST.length);
     for (const r of ROLE_LIST) expect(ROLES[r.id]).toBe(r);
   });

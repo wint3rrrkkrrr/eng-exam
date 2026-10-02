@@ -23,6 +23,9 @@ export interface LobbySettings {
   allowSpectators: boolean; // อนุญาตให้คนเข้ามาดูเกมที่เริ่มไปแล้ว
 }
 
+/** ผู้ควบคุมเวลาปรับเวลาอภิปรายครั้งละกี่วินาที */
+export const TIME_ADJUST_SECONDS = 60;
+
 export const DEFAULT_TIMERS: LobbyTimers = {
   roleRevealSeconds: 60,
   nightActionSeconds: 30,

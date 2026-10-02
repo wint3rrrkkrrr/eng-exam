@@ -2,7 +2,7 @@
 import type { GameAction, GameState } from './types';
 import { getRole } from './roles';
 import { nextRand, pick, shuffle } from './rng';
-import { abilityUsable, legalTargets, pendingSlotFor, witchOptions } from './night';
+import { abilityUsable, actingDef, legalTargets, pendingSlotFor, witchOptions } from './night';
 import { advance } from './reducer';
 import { applyAction } from './reducer';
 import { player } from './state';
@@ -13,7 +13,7 @@ type Rng = { rngState: number };
 /** แอคชันของบอทสำหรับ "ช่องปัจจุบัน" — ถ้าบทมีหลายความสามารถ ใช้ตัวที่ตรงกับช่องนี้ */
 export function botNightAction(s: GameState, id: string, rng: Rng, slotNum?: number): GameAction {
   const me = player(s, id)!;
-  const def = getRole(me.roleId);
+  const def = actingDef(me);
   const ab = slotNum != null
     ? def.abilities.find((x) => (x.nightSlot ?? def.nightSlot) === slotNum)
     : def.abilities[0];

@@ -67,6 +67,7 @@ export type IntentKind =
   | 'vampire_bite'
   | 'cult_recruit'
   | 'copy_role'
+  | 'borrow'
   | 'pick_model'
   | 'solo_kill'
   | 'oil_mark'
@@ -181,6 +182,7 @@ export type PrivateResult =
   | { kind: 'converted'; day: number; toRole: RoleId; byRole: RoleId | null }
   | { kind: 'you_died'; day: number; cause: DeathCause }
   | { kind: 'copied'; day: number; roleId: RoleId }
+  | { kind: 'borrowed'; day: number; roleId: RoleId | null }
   | { kind: 'aura'; day: number; targetId: string; aura: 'good' | 'evil' | 'neutral' }
   | { kind: 'mystic'; day: number; targetId: string; category: AbilityCategory }
   | { kind: 'detective'; day: number; targetIds: [string, string]; sameTeam: boolean }
@@ -228,6 +230,8 @@ export interface GameState {
   delayed: DelayedEffect[];
   /** ลูกหมาป่าตายแล้ว → ฝูงฆ่าได้ 2 คนในคืนถัดไป (ใช้แล้วเคลียร์) */
   packExtraKill: boolean;
+  /** ผู้ควบคุมเวลากดปรับ → ธงให้เซิร์ฟเวอร์ปรับ phase_ends_at แล้วเคลียร์ (เอนจินไม่รู้จักเวลา) */
+  timeAdjust: 'more' | 'less' | null;
   veilNext: boolean; // คืนนี้มีหมาป่าสั่งบดบัง → โหวตวันถัดไปจะซ่อนว่าใครโหวตใคร
   voteVeiled: boolean; // โหวตรอบนี้ถูกบดบังอยู่หรือไม่
   winners: Winner[] | null;
@@ -244,6 +248,7 @@ export type GameAction =
   | { type: 'vote'; actorId: string; targetId: string | null }
   | { type: 'hunter_shot'; actorId: string; targetId: string }
   | { type: 'disconnect_dead'; actorId: string } // เซิร์ฟเวอร์สั่งเมื่อหลุดเกินเวลาและตั้งค่า 'ถือว่าตาย'
+  | { type: 'time_adjust'; actorId: string; direction: 'more' | 'less' } // ผู้ควบคุมเวลา: เพิ่ม/ลดเวลาอภิปราย (เซิร์ฟเวอร์ปรับเวลาจริง)
   | { type: 'gunner_shot'; actorId: string; targetId: string } // มือปืน: ยิงได้ตอนช่วงอภิปราย (กลางวัน)
   | { type: 'advance'; timedOut?: boolean };
 

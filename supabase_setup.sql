@@ -6,12 +6,39 @@ create table if not exists winter_users (
   username text primary key,
   joined_at timestamptz default now(),
   last_active timestamptz default now(),
-  device_info text default '',
-  password_hash text
+  device_info text default ''
 );
 
--- รันซ้ำได้ปลอดภัย: เติมคอลัมน์รหัสผ่านให้ตารางเดิมที่สร้างไปแล้ว (บัญชีเก่าที่ยังไม่มีรหัส จะตั้งรหัสครั้งแรกตอน login)
-alter table winter_users add column if not exists password_hash text;
+-- 1b. บัญชีผู้ใช้ (รหัสผ่าน + เซสชัน) — ตารางลับ: เปิด RLS และ "ไม่มีนโยบายเลย" + ถอนสิทธิ์ anon
+--     = เบราว์เซอร์อ่าน/เขียนไม่ได้เด็ดขาด (รวมถึงผ่าน Realtime) เฉพาะฟังก์ชันเซิร์ฟเวอร์ (service role) เข้าถึงได้
+--     รหัสผ่านเก็บแบบ scrypt ที่เซิร์ฟเวอร์ · รันซ้ำได้ปลอดภัย
+create table if not exists winter_credentials (
+  username text primary key,
+  password_hash text not null,
+  created_at timestamptz default now()
+);
+create table if not exists winter_sessions (
+  token_hash text primary key,
+  username text not null,
+  created_at timestamptz default now(),
+  expires_at timestamptz not null
+);
+alter table winter_credentials enable row level security;
+alter table winter_sessions enable row level security;
+revoke all on winter_credentials from anon, authenticated;
+revoke all on winter_sessions from anon, authenticated;
+
+-- ย้ายรหัสเดิมจากคอลัมน์ password_hash เก่าใน winter_users (ถ้ามี) เข้าตารางลับ แล้วลบคอลัมน์ทิ้ง (กันแฮชรั่วทางตารางสาธารณะ)
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'winter_users' and column_name = 'password_hash') then
+    insert into winter_credentials (username, password_hash)
+      select username, password_hash from winter_users where password_hash is not null
+      on conflict (username) do nothing;
+    alter table winter_users drop column password_hash;
+  end if;
+end
+$$;
 
 -- 2. Scores table
 create table if not exists winter_scores (
@@ -75,14 +102,20 @@ alter table winter_chat enable row level security;
 alter table winter_friends enable row level security;
 alter table winter_friend_requests enable row level security;
 
--- RLS Policies: allow all for anon (public app)
+-- RLS Policies: allow all for anon (public app) — รันซ้ำได้ปลอดภัย
+drop policy if exists "allow all" on winter_users;
 create policy "allow all" on winter_users for all using (true) with check (true);
+drop policy if exists "allow all" on winter_scores;
 create policy "allow all" on winter_scores for all using (true) with check (true);
+drop policy if exists "allow all" on winter_profiles;
 create policy "allow all" on winter_profiles for all using (true) with check (true);
+drop policy if exists "allow all" on winter_chat;
 create policy "allow all" on winter_chat for all using (true) with check (true);
+drop policy if exists "allow all" on winter_friends;
 create policy "allow all" on winter_friends for all using (true) with check (true);
+drop policy if exists "allow all" on winter_friend_requests;
 create policy "allow all" on winter_friend_requests for all using (true) with check (true);
 
 -- Enable Realtime for chat
-alter publication supabase_realtime add table winter_chat;
-alter publication supabase_realtime add table winter_users;
+do $$ begin alter publication supabase_realtime add table winter_chat; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table winter_users; exception when duplicate_object then null; end $$;

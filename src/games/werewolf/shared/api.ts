@@ -84,7 +84,8 @@ export type ActionRequest =
   | { type: 'nominate'; targetId: string }
   | { type: 'vote'; targetId: string | null }
   | { type: 'hunter_shot'; targetId: string }
-  | { type: 'gunner_shot'; targetId: string };
+  | { type: 'gunner_shot'; targetId: string }
+  | { type: 'time_adjust'; direction: 'more' | 'less' };
 
 export interface ChatRequest {
   channel: 'public' | 'wolf' | 'lovers' | 'dead';

@@ -1,6 +1,6 @@
 // engine/night.ts — การไหลของกลางคืน: สร้างช่องตื่น → รับแอคชัน → ปิดช่อง → ประมวลผล
 import type {
-  EngineError, EnginePlayer, GameAction, GameEvent, GameState, Intent, IntentKind, NightSlot,
+  EngineError, EnginePlayer, GameAction, GameEvent, GameState, Intent, IntentKind, NightSlot, RoleDef,
 } from './types';
 import { getRole } from './roles';
 import { nextRand } from './rng';
@@ -16,6 +16,15 @@ export function isPackRole(roleId: string): boolean {
 
 export function canVeil(p: EnginePlayer): boolean {
   return p.roleId === 'veil_wolf' && Number(p.roleState.veilLeft) > 0;
+}
+
+/** บทที่ "ใช้ได้จริง" ของผู้เล่น: ความสามารถของตัวเอง + ความสามารถที่ยืมมา (นักเลียนแบบ) พร้อมระบุช่องตื่นชัดเจน */
+export function actingDef(p: EnginePlayer): RoleDef {
+  const def = getRole(p.roleId);
+  const b = p.roleState.borrowedRole;
+  if (typeof b !== 'string') return def;
+  const bd = getRole(b);
+  return { ...def, abilities: [...def.abilities, ...bd.abilities.map((ab) => ({ ...ab, nightSlot: ab.nightSlot ?? bd.nightSlot ?? undefined }))] };
 }
 
 /** ความสามารถของบทนี้ที่ตื่นในช่องนี้ */
@@ -66,7 +75,7 @@ export function abilityUsable(p: EnginePlayer, ab: { kind: IntentKind; uses?: nu
 
 /** คืนนี้ผู้เล่นคนนี้มีอะไรให้ทำในช่องนี้จริงไหม — ถ้าไม่มี จะไม่ถูกนับว่าต้องรอ (บทที่ตื่นมาดูหน้ากันเฉยๆ ยังนับว่าต้องตื่น) */
 function canActInSlot(p: EnginePlayer, slot: number): boolean {
-  const def = getRole(p.roleId);
+  const def = actingDef(p);
   const here = def.abilities.filter((ab) => (ab.nightSlot ?? def.nightSlot) === slot);
   if (here.length === 0) return true; // บทที่ตื่นแบบไม่ต้องเลือก (ช่างก่อสร้าง/สมุน)
   return here.some((ab) => abilityUsable(p, ab));
@@ -75,6 +84,26 @@ function canActInSlot(p: EnginePlayer, slot: number): boolean {
 /** คีย์ "ทำแล้วหรือยัง" — ผูกกับช่องด้วย เพื่อให้บทที่ตื่น 2 ช่องในคืนเดียวทำแต่ละช่องแยกกันได้ */
 export function actedKey(playerId: string, slot: number): string {
   return `${playerId}@${slot}`;
+}
+
+/** นักเลียนแบบ: ใส่ตัวเองเข้าช่องตื่นของบทที่ยืมมา (ใช้ความสามารถนั้นพร้อมคนอื่นในคืนเดียวกัน) */
+function injectBorrowed(s: GameState, slots: NightSlot[]): void {
+  for (const p of s.players) {
+    if (!p.alive || typeof p.roleState.borrowedRole !== 'string') continue;
+    const bd = getRole(p.roleState.borrowedRole);
+    for (const slotNum of wakeSlotsOf(bd, s.dayNumber)) {
+      let slot = slots.find((x) => x.slot === slotNum);
+      if (!slot) {
+        slot = { slot: slotNum, roleIds: [bd.id], actors: [], idle: true, auto: false };
+        slots.push(slot);
+        slots.sort((a, b) => a.slot - b.slot);
+      }
+      if (!slot.actors.includes(p.id) && canActInSlot(p, slotNum)) {
+        slot.actors.push(p.id);
+        slot.idle = false;
+      }
+    }
+  }
 }
 
 export function startNight(s: GameState, events: GameEvent[]): void {
@@ -113,6 +142,8 @@ export function startNight(s: GameState, events: GameEvent[]): void {
       };
     });
 
+  injectBorrowed(s, slots);
+
   s.voteVeiled = false;
   s.night = { slots, intents: [], wolfVotes: {}, acted: {}, wolfTarget: null, veilBy: [] };
   events.push(ev(s, 'night_start', true, { day: s.dayNumber }));
@@ -120,7 +151,7 @@ export function startNight(s: GameState, events: GameEvent[]): void {
 
 // ---------------------------------------------------------------- เป้าหมายที่ทำได้
 export function legalTargets(s: GameState, actor: EnginePlayer, kind: IntentKind): string[] {
-  const def = getRole(actor.roleId);
+  const def = actingDef(actor);
   const ab = def.abilities.find((a) => a.kind === kind);
   if (!ab) return [];
   let selfOk = ab.canTargetSelf;
@@ -163,7 +194,7 @@ export function applyNightAction(s: GameState, a: NightAction, events: GameEvent
   const actor = player(s, a.actorId);
   if (!actor) return err('no_player', 'ไม่พบผู้เล่น');
   if (!actor.alive) return err('dead', 'ผู้ที่ตายแล้วใช้ความสามารถไม่ได้');
-  const def = getRole(actor.roleId);
+  const def = actingDef(actor);
   // กลางคืนทำพร้อมกัน: ข้าม = ข้ามความสามารถที่ค้างอยู่อันแรก · อย่างอื่น = หาช่องจากชนิดความสามารถ
   let slot: NightSlot | null | undefined;
   if (a.kind === 'skip') {
@@ -185,7 +216,7 @@ export function applyNightAction(s: GameState, a: NightAction, events: GameEvent
     // ข้ามช่องกัดของฝูง (ไม่ใช่ช่องอื่นที่บทเดียวกันตื่นด้วย เช่น หมาป่าผู้หยุดความสามารถที่ช่อง 11)
     const biteAb = def.abilities.find((x) => x.kind === 'wolf_bite');
     const biteSlot = biteAb ? (biteAb.nightSlot ?? def.nightSlot) : null;
-    if (isPackRole(actor.roleId) && biteSlot === slot.slot) n.wolfVotes[actor.id] = null;
+    if (biteAb !== undefined && biteSlot === slot.slot) n.wolfVotes[actor.id] = null;
     events.push(ev(s, 'skip', false, { actorId: actor.id }));
     return undefined;
   }

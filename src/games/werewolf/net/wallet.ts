@@ -8,19 +8,19 @@ import type { ApiResult } from './werewolfClient';
 const KEY = 'ww_wallet_v1';
 const OWNER_KEY = 'ww_wallet_owner_v1'; // บัญชีที่กระเป๋าในเครื่องนี้เป็นของ (ว่าง = กระเป๋าของเครื่องที่ยังไม่ผูกบัญชี)
 const USER_KEY = 'grammar_quiz_username_v1';
-const PWHASH_KEY = 'grammar_quiz_pwhash_v1';
+const TOKEN_KEY = 'grammar_quiz_token_v1';
 
 export interface AccountCreds {
   username: string;
-  passwordHash: string;
+  sessionToken: string; // ได้จากเซิร์ฟเวอร์ตอนล็อกอิน (ไม่ใช่รหัสผ่าน)
 }
 
 /** บัญชีเว็บที่ล็อกอินอยู่ (ชื่อ + แฮชรหัสผ่านที่เก็บไว้ตอนล็อกอิน) — ไม่มี = ล็อกอินแบบเก่า/ยังไม่ล็อกอิน */
 export function savedAccount(): AccountCreds | null {
   try {
     const username = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY) || '';
-    const passwordHash = localStorage.getItem(PWHASH_KEY) || sessionStorage.getItem(PWHASH_KEY) || '';
-    return username && passwordHash ? { username, passwordHash } : null;
+    const sessionToken = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || '';
+    return username && sessionToken ? { username, sessionToken } : null;
   } catch {
     return null;
   }
@@ -65,7 +65,7 @@ export async function ensureWallet(): Promise<ApiResult<{ creds: WalletCreds; wa
   const account = savedAccount();
   if (account && walletOwner() !== account.username) {
     const local = loadWallet();
-    const body = { username: account.username, passwordHash: account.passwordHash, ...(walletOwner() === null ? walletBody(local) : {}) };
+    const body = { username: account.username, sessionToken: account.sessionToken, ...(walletOwner() === null ? walletBody(local) : {}) };
     const r = await api<WalletCreated>('wallet-login', body);
     if (r.ok) {
       const creds = { walletId: r.data.walletId, token: r.data.token };

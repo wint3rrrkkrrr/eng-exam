@@ -8,7 +8,7 @@ const sum = runSimulation(PRESET_SIZES, perSize);
 
 console.log(`จำลองแล้ว ${sum.games} เกม (ขนาด ${PRESET_SIZES.join('/')} คน × ${perSize}) ใช้เวลา ${Date.now() - t0} ms`);
 console.log(`จบเกมสำเร็จ: ${sum.finished}/${sum.games}`);
-console.log(`ผู้ชนะ → ชาวบ้าน ${sum.village} · หมาป่า ${sum.wolf} · คู่รัก ${sum.lovers} · ฝ่ายอิสระ ${sum.solo} · เสมอ ${sum.draws}`);
+console.log(`ผู้ชนะ → ชาวบ้าน ${sum.village} · หมาป่า ${sum.wolf} · คู่รัก ${sum.lovers} · ฝ่ายอิสระ ${sum.solo} · แวมไพร์ ${sum.vampire} · ลัทธิ ${sum.cult} · เสมอ ${sum.draws}`);
 console.log(`เกมที่ยาวที่สุด: ${sum.maxDays} วัน`);
 if (sum.problems.length > 0) {
   console.error(`\n❌ พบปัญหา ${sum.problems.length} รายการ (แสดง 10 อันแรก):`);

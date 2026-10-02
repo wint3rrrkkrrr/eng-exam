@@ -15,6 +15,6 @@ describe('simulate (บอทเล่นกันเอง)', () => {
     const sum = runSimulation(PRESET_SIZES, 15, 'vitest');
     expect(sum.problems).toEqual([]);
     expect(sum.finished).toBe(sum.games);
-    expect(sum.village + sum.wolf + sum.lovers + sum.solo + sum.draws).toBe(sum.games);
+    expect(sum.village + sum.wolf + sum.lovers + sum.solo + sum.vampire + sum.cult + sum.draws).toBe(sum.games);
   }, 60000);
 });

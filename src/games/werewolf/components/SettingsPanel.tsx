@@ -29,6 +29,7 @@ export const SettingsPanel: React.FC<Props> = ({ view, session, refresh }) => {
   const readOnly = !view.me.isHost;
   const [draft, setDraft] = useState<LobbySettings | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [presetVariant, setPresetVariant] = useState(0); // กดชุดบทซ้ำ = สลับชุดอื่น (เกมใหญ่ที่ที่นั่งไม่พอใส่ทุกบท)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lobby = draft ?? view.lobby;
   const playerCount = view.players.length;
@@ -77,7 +78,7 @@ export const SettingsPanel: React.FC<Props> = ({ view, session, refresh }) => {
           <h3 className="text-xs font-black text-violet-300">{UI.settings.roles}</h3>
           {!readOnly && (
             <div className="flex gap-2 flex-wrap">
-              <button onClick={() => change({ ...lobby, roleCounts: countsFromRoles(presetRoles(Math.max(5, playerCount))) })} className="min-h-12 px-3 rounded-xl bg-violet-800/60 hover:bg-violet-700 text-xs font-bold cursor-pointer">{UI.settings.preset}</button>
+              <button onClick={() => { change({ ...lobby, roleCounts: countsFromRoles(presetRoles(Math.max(5, playerCount), presetVariant)) }); setPresetVariant((v) => v + 1); }} className="min-h-12 px-3 rounded-xl bg-violet-800/60 hover:bg-violet-700 text-xs font-bold cursor-pointer">{UI.settings.preset}</button>
               <button onClick={() => change({ ...lobby, roleCounts: fillWithVillagers(lobby.roleCounts, playerCount) })} className="min-h-12 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold cursor-pointer">{UI.settings.fill}</button>
               <button onClick={() => change({ ...lobby, roleCounts: {} })} className="min-h-12 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold cursor-pointer">{UI.settings.clear}</button>
             </div>

@@ -113,36 +113,29 @@ export async function syncWithServer() {
 // ---- Profile cache (in-memory for this session) ----
 const profileCache: Record<string, UserProfile> = {};
 
-// ---- รหัสผ่าน: แฮช SHA-256 ฝั่งเบราว์เซอร์ก่อนส่งขึ้น Supabase (ไม่เก็บรหัสดิบ) ----
-export async function hashPassword(password: string): Promise<string> {
-  const data = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+// ---- รหัสผ่านตรวจที่ "เซิร์ฟเวอร์" ทั้งหมด (เบราว์เซอร์ไม่แตะตารางรหัสผ่านเลย) — ผลที่ได้คือ session token ----
+// (โปรเจกต์ไม่เปิด strict จึงใช้รูปแบบเดียว: ตรวจ ok ก่อน แล้วค่อยอ่าน token / reason)
+export interface LoginOutcome {
+  ok: boolean;
+  created?: boolean; // true ถ้าเพิ่งสร้างบัญชี/เพิ่งตั้งรหัสให้ชื่อเก่าที่ยังไม่มีรหัส
+  token?: string;
+  reason?: 'wrong_password' | 'rate_limited' | 'bad_input';
+  messageTh?: string;
 }
-
-export type LoginOutcome =
-  | { ok: true; created: boolean } // created=true ถ้าเพิ่งสร้างบัญชี/เพิ่งตั้งรหัสให้บัญชีเก่า
-  | { ok: false; reason: 'wrong_password' };
 
 /** เข้าสู่ระบบ/สมัครบัญชีด้วยชื่อ+รหัสผ่าน: ชื่อใหม่ → สร้างบัญชี, ชื่อเก่าไม่มีรหัส → ตั้งรหัสให้ครั้งแรก, ชื่อเก่ามีรหัส → ต้องตรงกัน */
 export async function loginOrRegister(username: string, password: string): Promise<LoginOutcome> {
-  const clean = username.trim();
-  const hash = await hashPassword(password);
-  const { data, error } = await supabase.from('winter_users').select('username, password_hash').eq('username', clean).maybeSingle();
-  if (error) throw error;
-  if (!data) {
-    await supabase.from('winter_users').upsert(
-      { username: clean, password_hash: hash, last_active: new Date().toISOString(), device_info: detectDevice() },
-      { onConflict: 'username' },
-    );
-    return { ok: true, created: true };
-  }
-  if (!data.password_hash) {
-    await supabase.from('winter_users').update({ password_hash: hash }).eq('username', clean);
-    return { ok: true, created: true };
-  }
-  if (data.password_hash !== hash) return { ok: false, reason: 'wrong_password' };
-  return { ok: true, created: false };
+  const res = await fetch('/api/ww/auth-login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: username.trim(), password }),
+  });
+  const json = (await res.json().catch(() => null)) as { token?: string; created?: boolean; errorTh?: string; code?: string } | null;
+  if (res.ok && json?.token) return { ok: true, created: json.created === true, token: json.token };
+  if (res.status === 401) return { ok: false, reason: 'wrong_password' };
+  if (res.status === 429) return { ok: false, reason: 'rate_limited', messageTh: json?.errorTh };
+  if (res.status === 400) return { ok: false, reason: 'bad_input', messageTh: json?.errorTh };
+  throw new Error(`login failed: ${res.status}`); // เซิร์ฟเวอร์ไม่พร้อม/ตอบผิดรูปแบบ → ให้หน้าจอแสดงว่าเชื่อมต่อไม่ได้
 }
 
 export const supabaseSim = {

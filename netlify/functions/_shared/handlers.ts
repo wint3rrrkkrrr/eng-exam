@@ -7,7 +7,7 @@ import {
 import type { GameAction, GameEvent, GameState } from '../../../src/games/werewolf/engine';
 import { publicCause } from '../../../src/games/werewolf/engine/deaths';
 import {
-  DEFAULT_LOBBY, expandRoles, sanitizeLobby,
+  DEFAULT_LOBBY, TIME_ADJUST_SECONDS, expandRoles, sanitizeLobby,
 } from '../../../src/games/werewolf/shared/lobby';
 import type { LobbySettings } from '../../../src/games/werewolf/shared/lobby';
 import type {
@@ -18,7 +18,7 @@ import {
 } from '../../../src/games/werewolf/shared/avatar';
 import type { AvatarConfig, RewardBreakdown } from '../../../src/games/werewolf/shared/avatar';
 import {
-  checkPassword, hashPassword, hashToken, newId, newRoomCode, newSeed, newToken, randBetween, safeEqual,
+  checkPassword, hashPassword, hashToken, isLegacySha256, legacySha256, newId, newRoomCode, newSeed, newToken, randBetween, safeEqual, walletTokenFor,
 } from './crypto';
 import type {
   ChatRecord, Commit, EventRow, PlayerPatch, PlayerRow, RoomRow, ServerState, WalletRow, WwStore,
@@ -29,7 +29,14 @@ export interface Ctx {
   store: WwStore;
   now: () => number;
   rand?: (lo: number, hi: number) => number;
+  /** ความลับของเซิร์ฟเวอร์ (ไว้คำนวณตั๋วกระเป๋าของบัญชี) — ไม่ระบุ = ค่าสำหรับทดสอบ */
+  secret?: string;
+  /** เปิดตัวจำกัดความถี่ (rate limit) — เปิดเฉพาะตอนใช้ Supabase จริง */
+  rateLimit?: boolean;
 }
+
+const DEV_SECRET = 'ww-dev-secret-not-for-production';
+const SESSION_DAYS = 60;
 
 export interface HandlerResult {
   status: number;
@@ -190,26 +197,61 @@ export async function walletCreate(ctx: Ctx): Promise<HandlerResult> {
  */
 export async function walletLogin(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
   const username = typeof body.username === 'string' ? body.username.trim() : '';
-  const pw = typeof body.passwordHash === 'string' ? body.passwordHash : '';
-  if (!username || username.length > 40 || !/^[0-9a-f]{64}$/.test(pw)) return fail(400, 'ข้อมูลล็อกอินไม่ถูกต้อง', 'bad_login');
-  const acc = await ctx.store.getAccountPasswordHash(username);
-  if (!acc.exists || !acc.hash || !safeEqual(pw, acc.hash)) return fail(401, 'ชื่อหรือรหัสผ่านไม่ถูกต้อง', 'bad_account');
+  const sessionToken = typeof body.sessionToken === 'string' ? body.sessionToken : '';
+  if (!username || username.length > 40 || sessionToken.length < 20 || sessionToken.length > 200) return fail(400, 'ข้อมูลล็อกอินไม่ถูกต้อง', 'bad_login');
+  const sess = await ctx.store.getSession(hashToken(sessionToken));
+  if (!sess || sess.username !== username || Date.parse(sess.expires_at) < ctx.now()) return fail(401, 'เซสชันหมดอายุ กรุณาล็อกอินใหม่', 'bad_session');
 
-  const tokenHash = hashToken(pw);
+  const secret = ctx.secret ?? DEV_SECRET;
   let w = await ctx.store.getWalletByUsername(username);
   if (!w) {
     const device = await checkWallet(ctx, body.walletId, body.walletToken);
     if (device && !device.username) {
-      await ctx.store.bindWalletToAccount(device.wallet_id, username, tokenHash); // ย้ายกระเป๋าเดิมของเครื่องนี้มาเป็นของบัญชี
+      // ย้ายกระเป๋าเดิมของเครื่องนี้มาเป็นของบัญชี (ตั๋วใหม่คำนวณจากความลับของเซิร์ฟเวอร์)
+      await ctx.store.bindWalletToAccount(device.wallet_id, username, hashToken(walletTokenFor(secret, device.wallet_id)));
     } else {
       const id = newId();
-      await ctx.store.createWallet(id, tokenHash, STARTING_COINS);
-      await ctx.store.bindWalletToAccount(id, username, tokenHash);
+      const t = walletTokenFor(secret, id);
+      await ctx.store.createWallet(id, hashToken(t), STARTING_COINS);
+      await ctx.store.bindWalletToAccount(id, username, hashToken(t));
     }
     w = (await ctx.store.getWalletByUsername(username))!;
   }
-  const res: WalletCreated = { walletId: w.wallet_id, token: pw, wallet: walletView(w) };
+  const res: WalletCreated = { walletId: w.wallet_id, token: walletTokenFor(secret, w.wallet_id), wallet: walletView(w) };
   return ok(res);
+}
+
+/**
+ * ล็อกอิน/สมัครบัญชีเว็บ (ตรวจรหัสที่เซิร์ฟเวอร์ทั้งหมด):
+ * ชื่อใหม่/ชื่อเก่าที่ยังไม่เคยตั้งรหัส → ตั้งรหัสนี้เป็นของชื่อนั้น · ชื่อที่มีรหัสแล้ว → ต้องตรง
+ * รหัสเก็บแบบ scrypt ในตาราง winter_credentials (เบราว์เซอร์อ่านไม่ได้) · ผลลัพธ์คือ session token ไม่ใช่รหัสผ่านหรือแฮช
+ */
+export async function authLogin(ctx: Ctx, body: Record<string, unknown>): Promise<HandlerResult> {
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+  if (username.length < 2 || username.length > 20) return fail(400, 'ชื่อต้องยาว 2–20 ตัวอักษร', 'bad_name');
+  if (password.length < 4 || password.length > 60) return fail(400, 'รหัสผ่านต้องยาว 4–60 ตัวอักษร', 'bad_password_format');
+  if (ctx.rateLimit && !(await ctx.store.rateHit(`login:${username.toLowerCase()}`, 8, 60))) {
+    return fail(429, 'ลองรหัสผ่านถี่เกินไป รอสักครู่แล้วลองใหม่', 'rate_limited');
+  }
+
+  let created = false;
+  const stored = await ctx.store.getCredential(username);
+  if (stored === null) {
+    created = await ctx.store.createCredential(username, hashPassword(password));
+    if (!created) return fail(409, 'มีคนตั้งรหัสชื่อนี้พร้อมกัน ลองใหม่อีกครั้ง', 'conflict'); // ชนกันพอดี
+    await ctx.store.ensureUser(username);
+  } else if (isLegacySha256(stored)) {
+    if (!safeEqual(legacySha256(password), stored)) return fail(401, 'รหัสผ่านไม่ถูกต้อง', 'wrong_password');
+    await ctx.store.updateCredential(username, hashPassword(password)); // อัปเกรดแฮชเก่าเป็น scrypt
+  } else if (!checkPassword(password, stored)) {
+    return fail(401, 'รหัสผ่านไม่ถูกต้อง', 'wrong_password');
+  }
+
+  const token = newToken();
+  const expires = new Date(ctx.now() + SESSION_DAYS * 86_400_000).toISOString();
+  await ctx.store.createSession(hashToken(token), username, expires);
+  return ok({ username, token, created });
 }
 
 export async function walletGet(ctx: Ctx, headers: Headers): Promise<HandlerResult> {
@@ -493,11 +535,18 @@ async function saveState(
   const justEnded = next.phase === 'game_over' && prev.game.phase !== 'game_over';
   const rewards = justEnded ? await computeRewards(ctx, room.room_code, next) : prev.rewards;
   const now = ctx.now();
+  // ผู้ควบคุมเวลา: อ่านธงแล้วเคลียร์ก่อนบันทึก (ปรับเฉพาะเวลาหมดเฟสของเฟสปัจจุบัน)
+  const timeAdjust = next.timeAdjust;
+  if (timeAdjust) next = { ...next, timeAdjust: null };
   const timing = computeTiming(next, lobby.timers, now, ctx.rand ?? randBetween);
   const rows = eventRows(events);
   const phaseChanged = signature(prev.game) !== signature(next);
   // เวลาหมดเฟสเปลี่ยนเฉพาะเมื่อเฟส/ช่องเปลี่ยนจริง (แอคชันธรรมดาไม่ต่อเวลา)
-  const endsAt = phaseChanged ? timing.endsAt : (room.phase_ends_at ? Date.parse(room.phase_ends_at) : timing.endsAt);
+  let endsAt = phaseChanged ? timing.endsAt : (room.phase_ends_at ? Date.parse(room.phase_ends_at) : timing.endsAt);
+  if (timeAdjust && endsAt !== null) {
+    const delta = (timeAdjust === 'more' ? 1 : -1) * TIME_ADJUST_SECONDS * 1000;
+    endsAt = Math.max(now + 10_000, endsAt + delta); // ลดแล้วต้องเหลืออย่างน้อย 10 วินาที
+  }
   const minUntil = phaseChanged ? timing.minUntil : prev.minUntil;
   const committed = await ctx.store.commit({
     roomCode: room.room_code,
@@ -527,7 +576,7 @@ async function saveState(
 }
 
 // ---------------------------------------------------------------- ส่งแอคชัน (กลางคืน/เสนอชื่อ/โหวต/ยิง/พร้อม)
-const ACTION_TYPES = new Set(['ready', 'night_action', 'nominate', 'vote', 'hunter_shot', 'gunner_shot']);
+const ACTION_TYPES = new Set(['ready', 'night_action', 'nominate', 'vote', 'hunter_shot', 'gunner_shot', 'time_adjust']);
 
 export async function action(ctx: Ctx, headers: Headers, body: Record<string, unknown>, forceType?: ActionRequest['type']): Promise<HandlerResult> {
   const a = await authenticate(ctx, headers, body.roomCode);
@@ -549,6 +598,7 @@ export async function action(ctx: Ctx, headers: Headers, body: Record<string, un
       case 'night_action': ga = { type: 'night_action', actorId, kind: String(body.kind) as never, targets, meta }; break;
       case 'nominate': ga = { type: 'nominate', actorId, targetId: String(body.targetId) }; break;
       case 'vote': ga = { type: 'vote', actorId, targetId: body.targetId === null || body.targetId === undefined ? null : String(body.targetId) }; break;
+      case 'time_adjust': ga = { type: 'time_adjust', actorId, direction: body.direction === 'less' ? 'less' : 'more' }; break;
       case 'gunner_shot': ga = { type: 'gunner_shot', actorId, targetId: String(body.targetId) }; break;
       default: ga = { type: 'hunter_shot', actorId, targetId: String(body.targetId) };
     }

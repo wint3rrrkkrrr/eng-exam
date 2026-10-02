@@ -11,8 +11,9 @@ import { BATCH6_ROLES } from './batch6';
 import { BATCH7_ROLES } from './batch7';
 import { BATCH8_ROLES } from './batch8';
 import { BATCH9_ROLES } from './batch9';
+import { BATCH11_ROLES } from './batch11';
 
-export const ROLE_LIST: RoleDef[] = [...CORE_ROLES, ...BATCH1_ROLES, ...BATCH2_ROLES, ...BATCH3_ROLES, ...BATCH4_ROLES, ...BATCH5_ROLES, ...BATCH6_ROLES, ...BATCH7_ROLES, ...BATCH8_ROLES, ...BATCH9_ROLES];
+export const ROLE_LIST: RoleDef[] = [...CORE_ROLES, ...BATCH1_ROLES, ...BATCH2_ROLES, ...BATCH3_ROLES, ...BATCH4_ROLES, ...BATCH5_ROLES, ...BATCH6_ROLES, ...BATCH7_ROLES, ...BATCH8_ROLES, ...BATCH9_ROLES, ...BATCH11_ROLES];
 
 export const ROLES: Record<RoleId, RoleDef> = Object.fromEntries(ROLE_LIST.map((r) => [r.id, r]));
 

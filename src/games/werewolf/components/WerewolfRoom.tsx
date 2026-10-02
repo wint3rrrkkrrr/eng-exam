@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Info, Loader2, LogOut, WifiOff } from 'lucide-react';
+import { Info, Loader2, LogOut, Volume2, VolumeX, WifiOff } from 'lucide-react';
 import { UI } from '../text/th';
 import { api, clearSession, subscribeRoom } from '../net/werewolfClient';
 import type { Session } from '../net/werewolfClient';
@@ -11,6 +11,7 @@ import { PhaseBackdrop } from './PhaseBackdrop';
 import { NightContext, isNightPhase } from './avatar/TimeContext';
 import { RoomInfoPanel } from './InfoModals';
 import { SpectatorScreen } from './SpectatorScreen';
+import { isSoundMuted, playGameSound, setSoundMuted } from '../shared/sound';
 
 interface Props {
   session: Session;
@@ -31,6 +32,28 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
   const busy = useRef(false);
   const [showInfo, setShowInfo] = useState(false);
   const livePhase = view?.phase ?? 'lobby';
+  const [muted, setMuted] = useState<boolean>(() => isSoundMuted());
+  const lastPhase = useRef<string | null>(null);
+  const wasAlive = useRef<boolean | null>(null);
+
+  // เสียงประกอบตามเหตุการณ์: เปลี่ยนเฟส / เราตาย / จบเกม (ไม่เล่นตอนเพิ่งเข้าห้อง)
+  useEffect(() => {
+    if (!view) return;
+    const prev = lastPhase.current;
+    lastPhase.current = view.phase;
+    if (prev !== null && prev !== view.phase) {
+      if (view.phase === 'night') playGameSound('night_start');
+      else if (view.phase === 'morning') playGameSound('morning');
+      else if (view.phase === 'execution') playGameSound('vote_result');
+      else if (view.phase === 'game_over') {
+        const winners = view.game?.gameOver?.winners ?? [];
+        playGameSound(winners.some((w) => w.playerIds.includes(view.me.playerId)) ? 'win' : 'lose');
+      }
+    }
+    const alive = view.game?.me.isAlive ?? null;
+    if (wasAlive.current === true && alive === false) playGameSound('death');
+    if (alive !== null) wasAlive.current = alive;
+  }, [view?.phase, view?.game?.me.isAlive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const leave = useCallback((msg?: string) => {
     clearSession(session.roomCode);
@@ -121,6 +144,14 @@ export const WerewolfRoom: React.FC<Props> = ({ session, onLeave }) => {
               {UI.title} · <span className="font-mono text-white">{view.roomCode}</span> · {UI.phases[view.phase] ?? view.phase}
             </div>
           </div>
+          <button
+            onClick={() => { const next = !muted; setMuted(next); setSoundMuted(next); if (!next) playGameSound('confirm'); }}
+            aria-label={muted ? 'เปิดเสียง' : 'ปิดเสียง'}
+            aria-pressed={muted}
+            className="ml-auto min-w-12 min-h-12 rounded-xl flex items-center justify-center bg-black/30 hover:bg-black/50 text-slate-100 cursor-pointer"
+          >
+            {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </button>
           <button onClick={() => leave()} className="inline-flex items-center gap-1.5 min-h-12 px-3 text-xs text-slate-200 hover:text-red-300 cursor-pointer">
             <LogOut className="w-4 h-4" /> {UI.leaveRoom}
           </button>

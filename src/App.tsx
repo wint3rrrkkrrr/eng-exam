@@ -979,7 +979,9 @@ export default function App() {
       setUsername('');
       localStorage.removeItem('grammar_quiz_username_v1');
       sessionStorage.removeItem('grammar_quiz_username_v1');
-      localStorage.removeItem('grammar_quiz_pwhash_v1');
+      localStorage.removeItem('grammar_quiz_token_v1');
+      sessionStorage.removeItem('grammar_quiz_token_v1');
+      localStorage.removeItem('grammar_quiz_pwhash_v1'); // คีย์เก่าของเวอร์ชันก่อน
       sessionStorage.removeItem('grammar_quiz_pwhash_v1');
       setShowLandingPage(true);
       try { soundFX.playTap(); } catch (e) {}

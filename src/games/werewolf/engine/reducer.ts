@@ -54,6 +54,9 @@ export function applyAction(input: GameState, action: GameAction): ApplyResult {
       }
       break;
     }
+    case 'time_adjust':
+      error = applyTimeAdjust(s, action.actorId, action.direction, events);
+      break;
     case 'gunner_shot':
       error = applyGunnerShot(s, action.actorId, action.targetId, events);
       break;
@@ -61,6 +64,20 @@ export function applyAction(input: GameState, action: GameAction): ApplyResult {
 
   if (error) return fail(input, error);
   return { state: s, events };
+}
+
+// ---------------------------------------------------------------- ผู้ควบคุมเวลา: เพิ่ม/ลดเวลาอภิปราย (ธงให้เซิร์ฟเวอร์ปรับเวลาจริง)
+function applyTimeAdjust(s: GameState, actorId: string, direction: 'more' | 'less', events: GameEvent[]): EngineError | undefined {
+  if (s.phase !== 'discussion') return err('wrong_phase', 'ปรับเวลาได้เฉพาะช่วงอภิปราย');
+  if (direction !== 'more' && direction !== 'less') return err('bad_direction', 'เลือกเพิ่มหรือลดเวลาเท่านั้น');
+  const actor = player(s, actorId);
+  if (!actor || !actor.alive) return err('dead', 'ผู้ที่ตายแล้วปรับเวลาไม่ได้');
+  if (actor.roleId !== 'time_lord') return err('not_your_role', 'คุณไม่ใช่ผู้ควบคุมเวลา');
+  if (Number(actor.roleState.timeUses) <= 0) return err('no_uses', 'คุณใช้สิทธิ์ปรับเวลาครบแล้ว');
+  actor.roleState.timeUses = Number(actor.roleState.timeUses) - 1;
+  s.timeAdjust = direction;
+  events.push(ev(s, 'time_adjusted', true, { direction })); // ประกาศให้ทุกคนรู้ว่าเวลาถูกปรับ แต่ไม่ระบุตัวผู้ปรับ
+  return undefined;
 }
 
 // ---------------------------------------------------------------- มือปืน: ยิงได้เองตอนช่วงอภิปราย (ทะลุทุกการป้องกัน)

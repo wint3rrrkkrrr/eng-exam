@@ -8,12 +8,12 @@ import type { Ctx, Headers, HandlerResult } from './handlers';
 export type Route =
   | 'create-room' | 'join-room' | 'update-settings' | 'start-game' | 'my-view'
   | 'action' | 'nominate' | 'vote' | 'chat' | 'release-seat' | 'tick' | 'play-again'
-  | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
+  | 'auth-login' | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
 
 export const ROUTES: Route[] = [
   'create-room', 'join-room', 'update-settings', 'start-game', 'my-view',
   'action', 'nominate', 'vote', 'chat', 'release-seat', 'tick', 'play-again',
-  'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
+  'auth-login', 'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
 ];
 
 let cachedStore: WwStore | null = null;
@@ -31,9 +31,48 @@ export function usingMemoryStore(): boolean {
   return cachedStore instanceof MemoryStore;
 }
 
-export async function dispatch(route: Route, headers: Headers, body: Record<string, unknown>, store: WwStore = getStore()): Promise<HandlerResult> {
-  const ctx: Ctx = { store, now: () => Date.now() };
+/** ลิมิตต่อหน้าต่างเวลา [จำนวนครั้ง, วินาที] — เกินแล้วตอบ 429 (ค่ากว้างพอสำหรับการเล่นปกติ/ดึงมุมมองถี่ๆ ช่วงโหวต) */
+export const RATE_LIMITS: Record<Route, [number, number]> = {
+  'create-room': [10, 60], 'join-room': [30, 60], 'update-settings': [60, 60], 'start-game': [10, 60],
+  'my-view': [400, 60], 'action': [240, 60], 'nominate': [60, 60], 'vote': [60, 60], 'chat': [60, 60],
+  'release-seat': [30, 60], 'tick': [120, 60], 'play-again': [10, 60],
+  'auth-login': [20, 60], 'wallet-create': [10, 60], 'wallet-login': [20, 60], 'wallet': [120, 60],
+  'shop-buy': [30, 60], 'avatar-save': [30, 60], 'sync-avatar': [30, 60],
+};
+
+// ต้องมีตั๋วผู้เล่น/กระเป๋าถึงจะรู้ตัวตน — เส้นทางอื่นนับตาม IP
+const IP_ONLY: Route[] = ['create-room', 'join-room', 'auth-login', 'wallet-create', 'wallet-login'];
+
+export interface DispatchOptions {
+  /** เปิดตัวจำกัดความถี่ (ค่าเริ่มต้น: เปิดเมื่อใช้ Supabase จริง · ที่เก็บในหน่วยความจำ/เทสต์ปิดไว้) */
+  rateLimit?: boolean;
+  secret?: string;
+}
+
+function rateKey(route: Route, headers: Headers): string {
+  const who = IP_ONLY.includes(route)
+    ? `ip:${headers['x-ww-ip'] ?? 'unknown'}`
+    : `p:${headers['x-ww-player-id'] ?? headers['x-ww-wallet-id'] ?? headers['x-ww-ip'] ?? 'unknown'}`;
+  return `${route}|${who}`;
+}
+
+export async function dispatch(
+  route: Route, headers: Headers, body: Record<string, unknown>, store: WwStore = getStore(), opts: DispatchOptions = {},
+): Promise<HandlerResult> {
+  const limited = opts.rateLimit ?? !(store instanceof MemoryStore);
+  const ctx: Ctx = {
+    store,
+    now: () => Date.now(),
+    rateLimit: limited,
+    secret: opts.secret ?? process.env.WW_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? undefined,
+  };
   try {
+    if (limited) {
+      const [limit, windowSec] = RATE_LIMITS[route];
+      if (!(await store.rateHit(rateKey(route, headers), limit, windowSec))) {
+        return { status: 429, body: { errorTh: 'ส่งคำขอถี่เกินไป รอสักครู่แล้วลองใหม่', code: 'rate_limited' } };
+      }
+    }
     switch (route) {
       case 'create-room': return await H.createRoom(ctx, body);
       case 'join-room': return await H.joinRoom(ctx, body);
@@ -47,6 +86,7 @@ export async function dispatch(route: Route, headers: Headers, body: Record<stri
       case 'release-seat': return await H.releaseSeat(ctx, headers, body);
       case 'tick': return await H.tick(ctx, headers, body);
       case 'play-again': return await H.playAgain(ctx, headers, body);
+      case 'auth-login': return await H.authLogin(ctx, body);
       case 'wallet-create': return await H.walletCreate(ctx);
       case 'wallet-login': return await H.walletLogin(ctx, body);
       case 'wallet': return await H.walletGet(ctx, headers);
@@ -79,6 +119,8 @@ export async function handleRequest(route: Route, req: Request): Promise<Respons
     'x-ww-token': req.headers.get('x-ww-token') ?? undefined,
     'x-ww-wallet-id': req.headers.get('x-ww-wallet-id') ?? undefined,
     'x-ww-wallet-token': req.headers.get('x-ww-wallet-token') ?? undefined,
+    // IP ผู้เรียก (Netlify ใส่ให้เอง) — ใช้นับ rate limit เท่านั้น
+    'x-ww-ip': (req.headers.get('x-nf-client-connection-ip') ?? (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim()) || undefined,
   };
   const r = await dispatch(route, headers, body);
   return new Response(JSON.stringify(r.body), { status: r.status, headers: json });

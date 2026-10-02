@@ -50,6 +50,7 @@ export const TH = {
     vampire_bite: 'เลือกคนที่จะกัด (ไม่ตาย แต่จะกลายเป็นแวมไพร์ตอนจบคืนถัดไป)',
     cult_recruit: 'เลือกคนฝ่ายหมู่บ้านที่จะชักชวนเข้าลัทธิ',
     copy_role: 'เลือกผู้เล่น 1 คนเพื่อกลายเป็นบทของเขาทันที',
+    borrow: 'เลือกผู้เล่น 1 คน — คืนถัดไปคุณจะใช้ความสามารถของบทเขาได้ด้วย',
     pick_model: 'เลือกผู้เล่น 1 คนเป็น "ต้นแบบ" ของคุณ',
     solo_kill: 'เลือกคนที่จะฆ่าคืนนี้',
     oil_mark: 'เลือกคนที่จะชโลมน้ำมัน (หรือกดจุดไฟเผาทุกคนที่ชโลมไว้ด้านล่าง)',
@@ -77,6 +78,10 @@ export const TH = {
         : `🔔 ต้นแบบของคุณตายแล้ว — คุณกลายเป็น "${toRole}" ตั้งแต่บัดนี้`,
     youDied: (causeTh: string) => `💀 คุณตายแล้ว — ${causeTh} (คุณยังดูเกมต่อและคุยในแชท "ผู้ตาย" ได้)`,
     healUsed: 'คุณใช้ยาชุบชีวิตแล้ว',
+    borrowed: (roleName: string | null) =>
+      roleName
+        ? `🔔 คุณยืมความสามารถของ "${roleName}" สำเร็จ — ใช้ได้ตั้งแต่คืนถัดไป (ยังอยู่ฝ่ายอิสระเหมือนเดิม)`
+        : 'บทที่คุณเลือกไม่มีความสามารถกลางคืนให้ยืม — คงความสามารถเดิมไว้',
     copied: (roleName: string) => `คุณลอกบทสำเร็จ — ตอนนี้คุณเป็น "${roleName}" แล้ว`,
     sorcererCheck: (name: string, isSeer: boolean, day: number) => `คืนที่ ${day}: ${name} → ${isSeer ? 'เป็นผู้หยั่งรู้ 🔮' : 'ไม่ใช่ผู้หยั่งรู้'}`,
     wolfseerCheck: (name: string, roleName: string, team: string, day: number) => `คืนที่ ${day}: ${name} → บท "${roleName}" (${TEAM_TH[team] ?? team})`,
@@ -158,7 +163,7 @@ export const UI = {
   },
   settings: {
     roles: 'บทบาทในเกม',
-    preset: 'ใช้ชุดบทมาตรฐานตามจำนวนคน',
+    preset: 'ใช้ชุดบทมาตรฐานตามจำนวนคน (กดซ้ำ = สลับชุดอื่น)',
     fill: 'เติมชาวบ้านให้ครบ',
     clear: 'ล้างทั้งหมด',
     total: (roles: number, players: number) => `รวม ${roles} บท · ผู้เล่น ${players} คน`,
@@ -350,6 +355,12 @@ export const GAME_UI = {
   },
   execution: { title: 'ผลการโหวต' },
   hunter: { title: 'นัดสุดท้ายของนายพราน', hint: 'เลือกผู้ที่จะยิง — เมื่อหมดเวลา ระบบอาจสุ่มให้' },
+  timeLord: {
+    title: (uses: number) => `คุณคือผู้ควบคุมเวลา (เหลือ ${uses} ครั้ง)`,
+    hint: 'ปรับเวลาอภิปรายครั้งละ 1 นาที — ทุกคนเห็นว่าเวลาถูกปรับ แต่ไม่รู้ว่าใครกด',
+    more: '⏱️ เพิ่มเวลา +1 นาที',
+    less: '⏱️ ลดเวลา −1 นาที',
+  },
   gunner: { title: (shots: number) => `คุณคือมือปืน (เหลือ ${shots} นัด)`, hint: 'ยิงได้ตอนนี้เลย — ยิงแล้วทุกคนจะรู้ทันทีว่าคุณเป็นมือปืน' },
   gameOver: {
     title: 'เกมจบแล้ว!',
@@ -374,6 +385,7 @@ export const GAME_UI = {
 };
 
 export const EVENT_TEXT = {
+  timeAdjusted: (less: boolean) => `⏱️ เวลาอภิปรายถูก${less ? 'ลด' : 'เพิ่ม'} 1 นาที`,
   nightStart: (day: number) => `🌙 คืนที่ ${day} — หมู่บ้านหลับใหล`,
   nobodyDied: '☀️ เช้าวันใหม่ — เมื่อคืนไม่มีผู้เสียชีวิต',
   morningDied: (name: string, role: string | null) => `☀️ เมื่อคืน ${name} เสียชีวิต${role ? ` (บท: ${role})` : ''}`,

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { GAME_UI, INFO_UI } from '../../text/th';
 import { api } from '../../net/werewolfClient';
+import { playGameSound } from '../../shared/sound';
 import type { Session } from '../../net/werewolfClient';
 import type { MyViewResponse } from '../../shared/api';
 import type { Selection } from '../selection';
@@ -38,6 +39,7 @@ export const NightPhase: React.FC<Props> = ({ view, session, refresh, selection 
     const r = await api('action', { type: 'night_action', ...body }, session);
     setBusy(false);
     if (!r.ok) setError(r.errorTh);
+    else playGameSound('confirm');
     selection.setSelected([]);
     await refresh();
   };

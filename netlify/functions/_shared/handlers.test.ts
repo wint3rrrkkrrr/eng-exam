@@ -261,6 +261,37 @@ describe('ตัวจับเวลา (tick)', () => {
     expect(room1.phase_ends_at).toBe(ends0);
   });
 
+  it('★ ผู้ควบคุมเวลา: เพิ่ม/ลดเวลาอภิปรายจริงที่เซิร์ฟเวอร์ (ครั้งละ 60 วินาที) · ลดแล้วเหลือไม่ต่ำกว่า 10 วินาที', async () => {
+    const env = makeEnv();
+    const roles = ['time_lord', 'werewolf', 'villager', 'villager', 'villager', 'villager'];
+    const lob = await startWith(env, 6, roles);
+    for (const a of lob.players) await H.action(env.ctx, hdr(a), { roomCode: lob.code, type: 'ready' });
+    const g = (await env.store.getRoomSecrets(lob.code))!.engine_state!.game;
+    const tl = lob.players.find((a) => g.players.find((p) => p.id === a.playerId)!.roleId === 'time_lord')!;
+    env.clock.t += 300_000; // กลางคืนหมดเวลา → เช้า
+    await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code });
+    env.clock.t += 9_000; // เช้า → อภิปราย
+    await H.tick(env.ctx, hdr(lob.host), { roomCode: lob.code });
+    const r0 = (await env.store.getRoom(lob.code))!;
+    expect(r0.phase).toBe('discussion');
+    const ends0 = Date.parse(r0.phase_ends_at!);
+
+    expect((await H.action(env.ctx, hdr(tl), { roomCode: lob.code, type: 'time_adjust', direction: 'more' })).status).toBe(200);
+    const r1 = (await env.store.getRoom(lob.code))!;
+    expect(Date.parse(r1.phase_ends_at!)).toBe(ends0 + 60_000);
+    expect((await env.store.getRoomSecrets(lob.code))!.engine_state!.game.timeAdjust).toBeNull(); // ธงถูกเคลียร์แล้ว
+
+    // ลดตอนเหลือเวลาไม่ถึง 70 วินาที → ถูกกันไว้ที่ 10 วินาทีจากตอนนี้
+    env.clock.t = Date.parse(r1.phase_ends_at!) - 30_000;
+    expect((await H.action(env.ctx, hdr(tl), { roomCode: lob.code, type: 'time_adjust', direction: 'less' })).status).toBe(200);
+    const r2 = (await env.store.getRoom(lob.code))!;
+    expect(Date.parse(r2.phase_ends_at!)).toBe(env.clock.t + 10_000);
+    // ครั้งที่ 3 ถูกปฏิเสธ · คนอื่นปรับไม่ได้
+    expect((await H.action(env.ctx, hdr(tl), { roomCode: lob.code, type: 'time_adjust', direction: 'more' })).status).toBe(403);
+    const other = lob.players.find((a) => a !== tl)!;
+    expect((await H.action(env.ctx, hdr(other), { roomCode: lob.code, type: 'time_adjust', direction: 'more' })).status).toBe(403);
+  });
+
   it('★ tick พร้อมกันหลายเครื่อง → เดินจริงแค่รอบเดียว (idempotent)', async () => {
     const env = makeEnv();
     const lob = await startWith(env, 8);
@@ -495,42 +526,94 @@ const wh = (w: { walletId: string; token: string }): Headers => ({ 'x-ww-wallet-
 const newWallet = async (env: Env) => bodyOf<WalletCreated>(await H.walletCreate(env.ctx));
 const priceOf = (id: string) => AVATAR_ITEMS.find((i) => i.id === id)!.price;
 
-const PW_A = 'a'.repeat(64);
-const PW_B = 'b'.repeat(64);
-const login = async (env: Env, username: string, passwordHash: string, device?: WalletCreated) =>
-  H.walletLogin(env.ctx, { username, passwordHash, ...(device ? { walletId: device.walletId, walletToken: device.token } : {}) });
+const loginAcct = async (env: Env, username: string, password: string) =>
+  bodyOf<{ username: string; token: string; created: boolean }>(await H.authLogin(env.ctx, { username, password }));
+const walletLogin = (env: Env, username: string, sessionToken: string, device?: WalletCreated) =>
+  H.walletLogin(env.ctx, { username, sessionToken, ...(device ? { walletId: device.walletId, walletToken: device.token } : {}) });
+
+describe('บัญชีเว็บ: ตรวจรหัสผ่านที่เซิร์ฟเวอร์ (authLogin)', () => {
+  it('ชื่อใหม่ → สร้างบัญชี ได้ session token · เก็บรหัสแบบ scrypt ไม่ใช่ข้อความดิบ · เก็บแฮชของ token ไม่ใช่ token', async () => {
+    const env = makeEnv();
+    const r = await loginAcct(env, 'WIN', 'รหัสลับ1234');
+    expect(r.created).toBe(true);
+    expect(r.token.length).toBeGreaterThan(30);
+    const stored = env.store.credentials.get('WIN')!;
+    expect(stored).not.toContain('รหัสลับ1234');
+    expect(stored).toMatch(/^[0-9a-f]{32}:[0-9a-f]{64}$/); // salt:scrypt
+    expect(env.store.sessions.has(r.token)).toBe(false); // เก็บเฉพาะแฮช
+    expect(env.store.users.has('WIN')).toBe(true);
+  });
+
+  it('ล็อกอินซ้ำด้วยรหัสเดิมได้ · รหัสผิดถูกปฏิเสธ 401 · ได้ token คนละอันต่อเครื่อง', async () => {
+    const env = makeEnv();
+    const a = await loginAcct(env, 'WIN', 'secret99');
+    const b = await loginAcct(env, 'WIN', 'secret99');
+    expect(b.created).toBe(false);
+    expect(b.token).not.toBe(a.token);
+    expect((await H.authLogin(env.ctx, { username: 'WIN', password: 'ผิด1234' })).status).toBe(401);
+    expect((await H.authLogin(env.ctx, { username: 'WIN', password: '' })).status).toBe(400);
+    expect((await H.authLogin(env.ctx, { username: 'W', password: 'secret99' })).status).toBe(400);
+    expect((await H.authLogin(env.ctx, { username: 'x'.repeat(21), password: 'secret99' })).status).toBe(400);
+    expect((await H.authLogin(env.ctx, { username: 5, password: {} })).status).toBe(400);
+  });
+
+  it('แฮช SHA-256 แบบเก่า (จากเวอร์ชันก่อน) ล็อกอินได้ แล้วถูกอัปเกรดเป็น scrypt อัตโนมัติ', async () => {
+    const env = makeEnv();
+    const { createHash } = await import('node:crypto');
+    env.store.credentials.set('OLD', createHash('sha256').update('oldpass1').digest('hex'));
+    expect((await H.authLogin(env.ctx, { username: 'OLD', password: 'wrong999' })).status).toBe(401);
+    expect((await H.authLogin(env.ctx, { username: 'OLD', password: 'oldpass1' })).status).toBe(200);
+    expect(env.store.credentials.get('OLD')).toMatch(/^[0-9a-f]{32}:[0-9a-f]{64}$/);
+    expect((await H.authLogin(env.ctx, { username: 'OLD', password: 'oldpass1' })).status).toBe(200); // ยังเข้าได้หลังอัปเกรด
+  });
+
+  it('★ ลองเดารหัส: เกิน 8 ครั้ง/นาที (ต่อชื่อ) → 429 แม้จะเดาถูกในครั้งต่อไป', async () => {
+    const env = makeEnv();
+    const ctx = { ...env.ctx, rateLimit: true };
+    await H.authLogin(ctx, { username: 'WIN', password: 'secret99' });
+    let last = 0;
+    for (let i = 0; i < 12; i++) last = (await H.authLogin(ctx, { username: 'WIN', password: `เดา${i}xx` })).status;
+    expect(last).toBe(429);
+    expect((await H.authLogin(ctx, { username: 'WIN', password: 'secret99' })).status).toBe(429);
+    expect((await H.authLogin(ctx, { username: 'คนอื่น', password: 'secret99' })).status).toBe(200); // ชื่ออื่นไม่โดนลิมิตด้วย
+  });
+});
 
 describe('กระเป๋าเงินตามบัญชี (ข้ามเครื่อง)', () => {
   it('ล็อกอินคนละเครื่องด้วยบัญชีเดียวกัน → ได้กระเป๋า/ของที่ซื้อ/เหรียญเดียวกัน', async () => {
     const env = makeEnv();
-    env.store.accounts.set('WIN', PW_A);
-    const d1 = bodyOf<WalletCreated>(await login(env, 'WIN', PW_A));
+    const s1 = (await loginAcct(env, 'WIN', 'secret99')).token;
+    const d1 = bodyOf<WalletCreated>(await walletLogin(env, 'WIN', s1));
     expect((await H.shopBuy(env.ctx, wh(d1), { itemId: 'hw_cap' })).status).toBe(200);
 
-    const d2 = bodyOf<WalletCreated>(await login(env, 'WIN', PW_A)); // เครื่องที่ 2 (ไม่มีตั๋วเดิมในเครื่อง)
+    const s2 = (await loginAcct(env, 'WIN', 'secret99')).token; // เครื่องที่ 2 (session คนละอัน)
+    const d2 = bodyOf<WalletCreated>(await walletLogin(env, 'WIN', s2));
     expect(d2.walletId).toBe(d1.walletId);
+    expect(d2.token).toBe(d1.token); // ตั๋วกระเป๋าคำนวณจากความลับของเซิร์ฟเวอร์ — ตรงกันทุกเครื่อง
     expect(d2.wallet.owned).toEqual(['hw_cap']);
     expect(d2.wallet.coins).toBe(STARTING_COINS - priceOf('hw_cap'));
-    expect((await H.walletGet(env.ctx, wh(d2))).status).toBe(200); // ตั๋วที่ได้ใช้งานได้จริง
+    expect((await H.walletGet(env.ctx, wh(d2))).status).toBe(200);
   });
 
-  it('รหัสผ่านผิด / ไม่มีบัญชี / แฮชรูปแบบแปลก → ปฏิเสธ ไม่ได้กระเป๋า', async () => {
+  it('session ผิด/หมดอายุ/ของคนอื่น/ไม่มี → ปฏิเสธ ไม่ได้กระเป๋า', async () => {
     const env = makeEnv();
-    env.store.accounts.set('WIN', PW_A);
-    expect((await login(env, 'WIN', PW_B)).status).toBe(401);
-    expect((await login(env, 'คนอื่น', PW_A)).status).toBe(401);
-    expect((await login(env, 'WIN', 'x')).status).toBe(400);
-    env.store.accounts.set('OLD', null); // บัญชีเก่าที่ยังไม่เคยตั้งรหัสผ่าน
-    expect((await login(env, 'OLD', PW_A)).status).toBe(401);
+    const a = (await loginAcct(env, 'ผู้ใช้เอ', 'secret99')).token;
+    await loginAcct(env, 'ผู้ใช้บี', 'secret99');
+    expect((await walletLogin(env, 'ผู้ใช้เอ', 'ปลอม'.repeat(10))).status).toBe(401);
+    expect((await walletLogin(env, 'ผู้ใช้บี', a)).status).toBe(401); // token ของ A อ้างเป็น B
+    expect((await walletLogin(env, 'ผู้ใช้เอ', 'short')).status).toBe(400);
+    expect((await H.walletLogin(env.ctx, { username: 'A' })).status).toBe(400);
+    env.clock.t += 61 * 86_400_000; // เกิน 60 วัน
+    expect((await walletLogin(env, 'ผู้ใช้เอ', a)).status).toBe(401);
     expect(env.store.wallets.size).toBe(0);
   });
 
   it('กระเป๋าเดิมของเครื่อง (ยังไม่ผูกบัญชี) ถูกย้ายมาผูกให้ครั้งแรก — เหรียญ/ของไม่หาย', async () => {
     const env = makeEnv();
-    env.store.accounts.set('WIN', PW_A);
+    const s = (await loginAcct(env, 'WIN', 'secret99')).token;
     const old = await newWallet(env);
     await H.shopBuy(env.ctx, wh(old), { itemId: 'hw_cap' });
-    const r = bodyOf<WalletCreated>(await login(env, 'WIN', PW_A, old));
+    const r = bodyOf<WalletCreated>(await walletLogin(env, 'WIN', s, old));
     expect(r.walletId).toBe(old.walletId);
     expect(r.wallet.owned).toEqual(['hw_cap']);
     expect((await H.walletGet(env.ctx, wh(old))).status).toBe(401); // ตั๋วเดิมใช้ไม่ได้แล้ว (ตั๋วใหม่ = ของบัญชี)
@@ -538,14 +621,22 @@ describe('กระเป๋าเงินตามบัญชี (ข้า�
 
   it('★ แย่งกระเป๋าไม่ได้: บัญชี B ถือตั๋วกระเป๋าของบัญชี A มาก็ไม่ได้ของ A · ได้กระเป๋าใหม่ของตัวเอง', async () => {
     const env = makeEnv();
-    env.store.accounts.set('A', PW_A);
-    env.store.accounts.set('B', PW_B);
-    const a = bodyOf<WalletCreated>(await login(env, 'A', PW_A));
+    const sa = (await loginAcct(env, 'ผู้ใช้เอ', 'secret99')).token;
+    const sb = (await loginAcct(env, 'ผู้ใช้บี', 'secret99')).token;
+    const a = bodyOf<WalletCreated>(await walletLogin(env, 'ผู้ใช้เอ', sa));
     await H.shopBuy(env.ctx, wh(a), { itemId: 'hw_cap' });
-    const b = bodyOf<WalletCreated>(await login(env, 'B', PW_B, { ...a, token: PW_A }));
+    const b = bodyOf<WalletCreated>(await walletLogin(env, 'ผู้ใช้บี', sb, a));
     expect(b.walletId).not.toBe(a.walletId);
     expect(b.wallet.owned).toEqual([]);
-    expect(env.store.wallets.get(a.walletId)!.username).toBe('A');
+    expect(env.store.wallets.get(a.walletId)!.username).toBe('ผู้ใช้เอ');
+  });
+
+  it('ตั๋วกระเป๋าเดาไม่ได้: คนละกระเป๋าได้ตั๋วต่างกัน และตั๋วของ A ใช้เปิดกระเป๋า B ไม่ได้', async () => {
+    const env = makeEnv();
+    const a = bodyOf<WalletCreated>(await walletLogin(env, 'ผู้ใช้เอ', (await loginAcct(env, 'ผู้ใช้เอ', 'secret99')).token));
+    const b = bodyOf<WalletCreated>(await walletLogin(env, 'ผู้ใช้บี', (await loginAcct(env, 'ผู้ใช้บี', 'secret99')).token));
+    expect(a.token).not.toBe(b.token);
+    expect((await H.walletGet(env.ctx, { 'x-ww-wallet-id': b.walletId, 'x-ww-wallet-token': a.token })).status).toBe(401);
   });
 });
 

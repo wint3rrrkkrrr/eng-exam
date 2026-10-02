@@ -23,6 +23,7 @@ export function wwDevHandler() {
       'x-ww-token': one(req.headers['x-ww-token']),
       'x-ww-wallet-id': one(req.headers['x-ww-wallet-id']),
       'x-ww-wallet-token': one(req.headers['x-ww-wallet-token']),
+      'x-ww-ip': one(req.headers['x-forwarded-for'])?.split(',')[0].trim(),
     }, body);
     res.status(r.status).json(r.body);
   };

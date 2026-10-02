@@ -387,6 +387,26 @@ export const RoleGlyph: React.FC<{ id: string }> = ({ id }) => {
           <path d="M16 2 L17.6 6.4 L22 7 L18.6 10 L19.6 14.4 L16 11.8 L12.4 14.4 L13.4 10 L10 7 L14.4 6.4 Z" fill="#facc15" stroke="#a16207" strokeWidth=".6" strokeLinejoin="round" transform="translate(0 -3) scale(.6)" />
         </g>
       );
+    case 'copycat': // หน้ากากสองใบซ้อนกัน (ลอกเลียน)
+      return (
+        <g>
+          <path d="M5 8 H19 V18 C19 23 15.6 26 12 26 C8.4 26 5 23 5 18 Z" fill="#cbd5e1" stroke="#475569" strokeWidth="1.4" />
+          <circle cx="9" cy="14" r="1.5" fill={INK} /><circle cx="15" cy="14" r="1.5" fill={INK} />
+          <path d="M9 20 Q12 22 15 20" stroke={INK} strokeWidth="1.2" fill="none" strokeLinecap="round" />
+          <path d="M15 6 H28 V15 C28 19.5 25 22.5 21.5 22.5 C18 22.5 15 19.5 15 15 Z" fill="#fde68a" stroke="#a16207" strokeWidth="1.4" opacity=".92" />
+          <circle cx="19" cy="12" r="1.3" fill={INK} /><circle cx="24" cy="12" r="1.3" fill={INK} />
+          <path d="M19 17 Q21.5 19 24 17" stroke={INK} strokeWidth="1.2" fill="none" strokeLinecap="round" />
+        </g>
+      );
+    case 'time_lord': // นาฬิกาทราย
+      return (
+        <g>
+          <path d="M8 4 H24 M8 28 H24" stroke="#78350f" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M10 4 C10 12 16 13 16 16 C16 19 10 20 10 28 H22 C22 20 16 19 16 16 C16 13 22 12 22 4 Z" fill="#fde68a" stroke="#a16207" strokeWidth="1.4" strokeLinejoin="round" />
+          <path d="M12.6 24.5 H19.4 L16 20.5 Z" fill="#f59e0b" />
+          <path d="M16 13.2 V20" stroke="#f59e0b" strokeWidth="1" />
+        </g>
+      );
     case 'mirror': // กระจกวงรี
       return (
         <g>

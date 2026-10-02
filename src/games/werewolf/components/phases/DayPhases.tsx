@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { GAME_UI, INFO_UI } from '../../text/th';
 import { api } from '../../net/werewolfClient';
+import { playGameSound } from '../../shared/sound';
 import type { Session } from '../../net/werewolfClient';
 import type { MyViewResponse } from '../../shared/api';
 import type { Selection } from '../selection';
@@ -27,6 +28,7 @@ function useSend(session: Session, refresh: () => Promise<void>, selection: Sele
     const r = await api(route, body, session);
     setBusy(false);
     if (!r.ok) setError(r.errorTh);
+    else playGameSound('confirm');
     selection.setSelected([]);
     await refresh();
   };
@@ -72,6 +74,22 @@ export const GunnerShot: React.FC<Props & { shots: number }> = ({ session, refre
       <button disabled={busy || selection.selected.length !== 1} onClick={() => send({ type: 'gunner_shot', targetId: selection.selected[0] })} className={bigButton}>
         {busy && <Loader2 className="w-4 h-4 animate-spin" />} ยิง!
       </button>
+    </section>
+  );
+};
+
+// ---------------------------------------------------------------- ผู้ควบคุมเวลา (ช่วงอภิปราย กดได้ทันที)
+export const TimeLordControls: React.FC<Props & { uses: number }> = ({ session, refresh, selection, uses }) => {
+  const { busy, error, send } = useSend(session, refresh, selection);
+  return (
+    <section className="rounded-2xl border-2 border-sky-500/60 bg-sky-950/30 p-3 space-y-2">
+      <h2 className="text-base font-black text-sky-200">{GAME_UI.timeLord.title(uses)}</h2>
+      <p className="text-xs text-slate-300">{GAME_UI.timeLord.hint}</p>
+      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+      <div className="grid grid-cols-2 gap-2">
+        <button disabled={busy} onClick={() => send({ type: 'time_adjust', direction: 'more' })} className={bigButton}>{GAME_UI.timeLord.more}</button>
+        <button disabled={busy} onClick={() => send({ type: 'time_adjust', direction: 'less' })} className={bigButton}>{GAME_UI.timeLord.less}</button>
+      </div>
     </section>
   );
 };

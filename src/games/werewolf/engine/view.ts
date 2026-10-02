@@ -2,7 +2,7 @@
 // ใช้โดย netlify/functions/ww-my-view ตอน M3 · มีเทสต์ views.leak.test.ts คุมไม่ให้ความลับรั่ว
 import type { GameState, IntentKind, PrivateResult, RoleId, Team } from './types';
 import { getRole } from './roles';
-import { abilityForSlot, canVeil, isPackRole, legalTargets, pendingSlotFor, witchOptions } from './night';
+import { abilityForSlot, actingDef, canVeil, isPackRole, legalTargets, pendingSlotFor, witchOptions } from './night';
 import { publicCause } from './deaths';
 import { player } from './state';
 import { TH } from '../text/th';
@@ -99,6 +99,8 @@ function formatResult(s: GameState, r: PrivateResult): { day: number; textTh: st
       return { day: r.day, textTh: TH.result.converted(getRole(r.toRole).nameTh, r.byRole ? getRole(r.byRole).nameTh : null) };
     case 'you_died':
       return { day: r.day, textTh: TH.result.youDied(TH.deathCauseSelf[r.cause] ?? TH.deathCauseSelf.default) };
+    case 'borrowed':
+      return { day: r.day, textTh: TH.result.borrowed(r.roleId ? getRole(r.roleId).nameTh : null) };
     case 'copied':
       return { day: r.day, textTh: TH.result.copied(getRole(r.roleId).nameTh) };
     case 'sorcerer_check':
@@ -162,7 +164,7 @@ export function buildView(s: GameState, viewerId: string): MyView | null {
   } else if (me.alive && s.phase === 'night' && s.night) {
     const slot = pendingSlotFor(s, me.id);
     if (slot) {
-      const ab = abilityForSlot(def, slot.slot);
+      const ab = abilityForSlot(actingDef(me), slot.slot);
       if (ab) {
         myTurn = {
           isMyTurn: true,

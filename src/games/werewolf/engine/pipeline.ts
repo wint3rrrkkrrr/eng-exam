@@ -115,7 +115,7 @@ export function abilityCategoryOf(s: GameState, id: string): AbilityCategory {
   if (kinds.some((k) => k === 'block')) return 'block';
   if (kinds.some((k) => k === 'protect_doctor' || k === 'protect_bodyguard' || k === 'protect_priest' || k === 'witch')) return 'protect';
   if (kinds.some((k) => k.startsWith('investigate') || k === 'inspect_grave')) return 'investigate';
-  if (kinds.some((k) => k === 'cupid_pair' || k === 'swap' || k === 'hag_curse' || k === 'alpha_convert' || k === 'infect' || k === 'vampire_bite' || k === 'cult_recruit')) return 'convert';
+  if (kinds.some((k) => k === 'cupid_pair' || k === 'swap' || k === 'hag_curse' || k === 'alpha_convert' || k === 'infect' || k === 'vampire_bite' || k === 'cult_recruit' || k === 'borrow')) return 'convert';
   return 'none';
 }
 
@@ -436,6 +436,37 @@ export function resolveNight(s: GameState, events: GameEvent[]): void {
     if (!t) continue;
     mustPlayer(s, it.actorId).roleState.modelId = t;
     log('pick_model', { actor: it.actorId, model: t });
+  }
+
+  // นักเลียนแบบ: ยืมความสามารถของบทที่เลือก (ใช้ได้ตั้งแต่คืนถัดไป) — ยืมบทเดิมซ้ำไม่ได้โควตาเพิ่ม · ยืมไม่ได้ผล = คงของเดิมไว้
+  for (const it of intents.filter((i) => i.kind === 'borrow')) {
+    const actor = mustPlayer(s, it.actorId);
+    const t = player(s, it.targets[0] ?? '');
+    if (!t) continue;
+    const def = getRole(t.roleId);
+    const ok = def.wakes === 'every-night' && def.abilities.length > 0 && def.id !== 'copycat' && def.id !== 'doppelganger';
+    const rs = actor.roleState;
+    if (!ok) {
+      (s.privateLog[actor.id] ??= []).push({ kind: 'borrowed', day: s.dayNumber, roleId: null });
+      log('borrow_fail', { actor: actor.id, role: def.id });
+      continue;
+    }
+    const saved = (rs.borrowedStates ?? {}) as Record<string, Record<string, unknown>>;
+    const keys = (rs.borrowedKeys ?? []) as string[];
+    const cur = typeof rs.borrowedRole === 'string' ? rs.borrowedRole : null;
+    if (cur !== def.id) {
+      if (cur) {
+        saved[cur] = Object.fromEntries(keys.map((k) => [k, rs[k]])); // จำจำนวนที่ใช้ไปแล้วของบทเดิมไว้ (ยืมกลับมาไม่ได้ยาเพิ่ม)
+        for (const k of keys) delete rs[k];
+      }
+      const init = saved[def.id] ?? (def.initRoleState ? def.initRoleState() : {});
+      Object.assign(rs, init);
+      rs.borrowedRole = def.id;
+      rs.borrowedKeys = Object.keys(init);
+      rs.borrowedStates = saved;
+    }
+    (s.privateLog[actor.id] ??= []).push({ kind: 'borrowed', day: s.dayNumber, roleId: def.id });
+    log('borrow', { actor: actor.id, role: def.id });
   }
 
   // ---- ขั้น 8: ลูกโซ่หลังตาย (คู่รัก → นายพราน) + ขั้น 9: เปลี่ยนฝ่าย (M6) + ตรวจผู้ชนะ

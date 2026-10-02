@@ -12,7 +12,7 @@ import { toggleSelection } from './selection';
 import type { Selection } from './selection';
 import { NightPhase } from './phases/NightPhase';
 import {
-  DefensePhase, DiscussionPhase, ExecutionPhase, GunnerShot, HunterShot, MorningPhase, NominationPhase, VotePhase,
+  DefensePhase, DiscussionPhase, ExecutionPhase, GunnerShot, HunterShot, MorningPhase, NominationPhase, TimeLordControls, VotePhase,
 } from './phases/DayPhases';
 import { GameOverPhase } from './phases/GameOverPhase';
 
@@ -30,7 +30,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
   const left = useCountdown(view.endsAt, serverNow);
   const nameOf = (id: string) => view.players.find((p) => p.playerId === id)?.displayName ?? '?';
   const hunterTurn = turn.actionKind === 'hunter_shot';
-  const roleState = game.me.roleState as { heal?: number; poison?: number; gunnerShots?: number };
+  const roleState = game.me.roleState as { heal?: number; poison?: number; gunnerShots?: number; timeUses?: number };
   const gunnerTurn = game.me.role === 'gunner' && game.me.isAlive && view.phase === 'discussion' && (roleState.gunnerShots ?? 0) > 0;
   const [roleInfo, setRoleInfo] = useState<string | null>(null);
 
@@ -121,6 +121,7 @@ export const GameScreen: React.FC<Props> = ({ view, session, refresh, serverNow 
       </section>
 
       {hunterTurn && <HunterShot {...props} />}
+      {game.me.role === 'time_lord' && game.me.isAlive && view.phase === 'discussion' && Number(roleState.timeUses ?? 0) > 0 && <TimeLordControls {...props} uses={Number(roleState.timeUses)} />}
       {gunnerTurn && <GunnerShot {...props} shots={roleState.gunnerShots ?? 0} />}
 
       {/* เหตุการณ์สำคัญที่เกิดกับเรา (ตาย/ถูกเปลี่ยนฝ่าย) — ขึ้นเด่นเหนือส่วนอื่น เห็นเฉพาะเจ้าตัว */}

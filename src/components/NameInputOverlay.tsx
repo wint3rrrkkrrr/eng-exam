@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Sparkles, User, ArrowRight, BookOpen, GraduationCap, Camera, Edit3, Lock, Loader2 } from 'lucide-react';
 import logoImage from '../assets/images/winter_exam_logo_1789496745669.jpg';
-import { supabaseSim, DEFAULT_AVATARS, loginOrRegister, hashPassword } from '../utils/supabaseSim';
+import { supabaseSim, DEFAULT_AVATARS, loginOrRegister } from '../utils/supabaseSim';
 import { compressAndResizeImage } from '../utils/imageUtils';
 
 const SAVED_PW_KEY = 'grammar_quiz_saved_pw_v1';
@@ -77,20 +77,19 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
     try {
       const result = await loginOrRegister(trimmed, password);
       if (!result.ok) {
-        setError('รหัสผ่านไม่ถูกต้องสำหรับชื่อนี้ ลองใหม่อีกครั้งนะ');
+        setError(result.reason === 'wrong_password' ? 'รหัสผ่านไม่ถูกต้องสำหรับชื่อนี้ ลองใหม่อีกครั้งนะ' : (result.messageTh ?? 'ลองใหม่อีกครั้งนะ'));
         setSubmitting(false);
         return;
       }
 
       onPlayTap?.();
 
-      // เก็บแฮชรหัสผ่านไว้ให้ระบบกระเป๋าเงิน/ตู้เสื้อผ้าของเกมใช้ล็อกอินบัญชีเดียวกันข้ามเครื่อง (ที่เก็บเดียวกับ "จำการเข้าสู่ระบบ")
+      // เก็บ session token (ไม่ใช่รหัสผ่าน) ไว้ให้ระบบกระเป๋าเงิน/ตู้เสื้อผ้าของเกมล็อกอินบัญชีเดียวกันข้ามเครื่อง (ที่เก็บเดียวกับ "จำการเข้าสู่ระบบ")
       try {
-        const hash = await hashPassword(password);
         const keep = rememberLogin ? localStorage : sessionStorage;
         const drop = rememberLogin ? sessionStorage : localStorage;
-        keep.setItem('grammar_quiz_pwhash_v1', hash);
-        drop.removeItem('grammar_quiz_pwhash_v1');
+        keep.setItem('grammar_quiz_token_v1', result.token ?? '');
+        drop.removeItem('grammar_quiz_token_v1');
       } catch {
         // ไม่เป็นไร — กระเป๋าจะใช้แบบผูกกับเครื่องตามเดิม
       }

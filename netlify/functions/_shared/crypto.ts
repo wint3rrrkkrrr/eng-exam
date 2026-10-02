@@ -1,6 +1,6 @@
 // _shared/crypto.ts — ตั๋วผู้เล่น (token) + แฮชรหัสผ่านห้อง + รหัสห้อง
 // เก็บ "แฮช" ของตั๋วเท่านั้น ไม่เก็บตั๋วดิบ · เทียบแบบ constant-time กัน timing attack
-import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
 export function newToken(): string {
   return randomBytes(32).toString('base64url');
@@ -26,6 +26,19 @@ export function checkPassword(password: string, stored: string): boolean {
   const [salt, hash] = stored.split(':');
   if (!salt || !hash) return false;
   return safeEqual(scryptSync(password, salt, 32).toString('hex'), hash);
+}
+
+/** ตั๋วกระเป๋าของบัญชี: คำนวณจากความลับของเซิร์ฟเวอร์ + รหัสกระเป๋า (ทุกเครื่องที่ล็อกอินได้ตั๋วเดียวกัน ไม่ต้องเก็บตั๋วไว้ที่ไหน) */
+export function walletTokenFor(secret: string, walletId: string): string {
+  return createHmac('sha256', secret).update(`wallet:${walletId}`).digest('base64url');
+}
+
+/** แฮช SHA-256 ล้วนแบบเก่า (เคยทำในเบราว์เซอร์) — ใช้ตรวจแล้วอัปเกรดเป็น scrypt ตอนล็อกอินครั้งแรก */
+export function isLegacySha256(stored: string): boolean {
+  return /^[0-9a-f]{64}$/.test(stored);
+}
+export function legacySha256(password: string): string {
+  return createHash('sha256').update(password).digest('hex');
 }
 
 export function newId(): string {

@@ -19,6 +19,9 @@ export function appendSideWinners(s: GameState, winners: Winner[]): Winner[] {
     if (p.roleId === 'fool' && p.roleState.sideWinFool === true) {
       extra.push({ team: 'solo', playerIds: [p.id], reasonTh: 'คนโง่เจ้าเล่ห์ถูกโหวตประหารสำเร็จ (ชนะเฉพาะตัว)', main: false });
     }
+    if (p.roleId === 'copycat' && p.alive) {
+      extra.push({ team: 'solo', playerIds: [p.id], reasonTh: 'นักเลียนแบบรอดชีวิตจนเกมจบ', main: false });
+    }
     if (p.roleId === 'mirror' && p.alive) {
       extra.push({ team: 'solo', playerIds: [p.id], reasonTh: 'กระจกสะท้อนรอดชีวิตจนเกมจบ', main: false });
     }

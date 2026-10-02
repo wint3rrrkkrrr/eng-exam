@@ -381,6 +381,34 @@ revoke all on function public.ww_wallet_buy(uuid, text, int) from public, anon, 
 revoke all on function public.ww_wallet_credit(uuid, int, boolean) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------
+-- 7d) ตัวจำกัดความถี่ (rate limit) — นับคำขอต่อหน้าต่างเวลาแบบ atomic (เรียกได้เฉพาะ service role จากฟังก์ชันเซิร์ฟเวอร์)
+-- ---------------------------------------------------------------------
+create table if not exists public.ww_rate_limits (
+  key          text primary key,
+  window_start timestamptz not null default now(),
+  hits         int not null default 0
+);
+alter table public.ww_rate_limits enable row level security;
+revoke all on public.ww_rate_limits from anon, authenticated;
+
+create or replace function public.ww_rate_hit(p_key text, p_limit int, p_window int)
+returns boolean language plpgsql security invoker set search_path = public as $$
+declare h int;
+begin
+  insert into public.ww_rate_limits as r (key, window_start, hits) values (p_key, now(), 1)
+  on conflict (key) do update set
+    window_start = case when r.window_start < now() - make_interval(secs => p_window) then now() else r.window_start end,
+    hits = case when r.window_start < now() - make_interval(secs => p_window) then 1 else r.hits + 1 end
+  returning r.hits into h;
+  if random() < 0.01 then
+    delete from public.ww_rate_limits where window_start < now() - interval '1 day'; -- เก็บกวาดแถวเก่าเป็นครั้งคราว
+  end if;
+  return h <= p_limit;
+end
+$$;
+revoke all on function public.ww_rate_hit(text, int, int) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------
 -- 8) เทสต์ความปลอดภัย (รันหลัง setup เสร็จ ด้วยสิทธิ์ anon — ต้องได้ผลตามที่เขียน)
 --    ใน SQL Editor:  set role anon;  แล้วรัน:
 --      select * from public.ww_secrets;        -- ต้อง error: permission denied

@@ -93,6 +93,7 @@ export function createGame(opts: CreateGameOptions): { state: GameState | null; 
     lastExecution: null,
     delayed: [],
     packExtraKill: false,
+    timeAdjust: null,
     veilNext: false,
     voteVeiled: false,
     privateLog: {},

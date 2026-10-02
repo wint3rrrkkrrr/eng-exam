@@ -136,8 +136,18 @@ export interface WwStore {
   getWalletByUsername(username: string): Promise<WalletRow | null>;
   /** ผูกกระเป๋ากับบัญชี + ตั้งตั๋วของกระเป๋าให้ตรงกับบัญชี (ล็อกอินเครื่องไหนก็ใช้กระเป๋าเดียวกัน) */
   bindWalletToAccount(walletId: string, username: string, tokenHash: string): Promise<void>;
-  /** แฮชรหัสผ่านของบัญชีเว็บ (ตาราง winter_users) — exists=false ถ้าไม่มีบัญชีนี้ */
-  getAccountPasswordHash(username: string): Promise<{ exists: boolean; hash: string | null }>;
+  // ---- บัญชีผู้ใช้ของเว็บ (ตาราง winter_credentials/winter_sessions — เบราว์เซอร์อ่าน/เขียนไม่ได้เลย)
+  /** แฮชรหัสผ่านที่เก็บไว้ (null = ยังไม่มีบัญชีนี้/ยังไม่เคยตั้งรหัส) */
+  getCredential(username: string): Promise<string | null>;
+  /** สร้างรหัสผ่านใหม่ — คืน false ถ้ามีอยู่แล้ว (กันสองคนแย่งตั้งรหัสชื่อเดียวกันพร้อมกัน) */
+  createCredential(username: string, hash: string): Promise<boolean>;
+  updateCredential(username: string, hash: string): Promise<void>;
+  /** ให้แน่ใจว่ามีแถวผู้ใช้ใน winter_users (ตารางสาธารณะของหน้าอันดับ/แชท) */
+  ensureUser(username: string): Promise<void>;
+  createSession(tokenHash: string, username: string, expiresAtIso: string): Promise<void>;
+  getSession(tokenHash: string): Promise<{ username: string; expires_at: string } | null>;
+  /** นับคำขอในหน้าต่างเวลา — คืน true ถ้ายังไม่เกินลิมิต (atomic) */
+  rateHit(key: string, limit: number, windowSeconds: number): Promise<boolean>;
   walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult>;
   walletCredit(walletId: string, amount: number, won: boolean): Promise<WalletRow | null>;
   walletSetAvatar(walletId: string, avatar: Record<string, string>): Promise<void>;
