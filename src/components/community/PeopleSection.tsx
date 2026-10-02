@@ -4,18 +4,26 @@ import { supabaseSim } from '../../utils/supabaseSim';
 import type { FriendRequest, RegisteredUser } from '../../utils/supabaseSim';
 import { Avatar, Glass, SectionTitle, isOnline, pill, timeAgo } from './ui';
 
-type Tab = 'friends' | 'discover' | 'requests';
+type Tab = 'friends' | 'all' | 'requests';
+type Sort = 'active' | 'name' | 'joined';
+const PAGE = 30;
 
 interface Props {
   username: string;
   isDark: boolean;
   onChat: (friend: string) => void;
   onTap?: () => void;
+  /** แท็บที่เปิดเป็นอันแรก (หน้าแรกส่ง 'all' มาเมื่อกด "สมาชิกทั้งหมด") */
+  initialTab?: Tab;
 }
 
 /** ผู้คนใน Winter Community: เพื่อนของฉัน · ค้นหาสมาชิก · คำขอเป็นเพื่อน (ข้อมูลจากระบบเพื่อนเดิมของเว็บ) */
-export const PeopleSection: React.FC<Props> = ({ username, isDark, onChat, onTap }) => {
-  const [tab, setTab] = useState<Tab>('friends');
+export const PeopleSection: React.FC<Props> = ({ username, isDark, onChat, onTap, initialTab }) => {
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'friends');
+  const [sort, setSort] = useState<Sort>('active');
+  const [shown, setShown] = useState(PAGE);
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
+  useEffect(() => { setShown(PAGE); }, [tab, sort]);
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [friends, setFriends] = useState<string[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -50,13 +58,18 @@ export const PeopleSection: React.FC<Props> = ({ username, isDark, onChat, onTap
     () => friends.map((n) => ({ name: n, last: byName.get(n.toLowerCase())?.last_active ?? null })).sort((a, b) => Number(isOnline(b.last)) - Number(isOnline(a.last)) || a.name.localeCompare(b.name)),
     [friends, byName],
   );
-  const discover = useMemo(() => {
+  const everyone = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const t = (iso: string) => { const n = Date.parse(iso); return Number.isFinite(n) ? n : 0; };
     return users
-      .filter((u) => u.username.toLowerCase() !== me && (!q || u.username.toLowerCase().includes(q)))
-      .sort((a, b) => Number(isOnline(b.last_active)) - Number(isOnline(a.last_active)) || Date.parse(b.last_active) - Date.parse(a.last_active))
-      .slice(0, 60);
-  }, [users, query, me]);
+      .filter((u) => !q || u.username.toLowerCase().includes(q))
+      .sort((a, b) => {
+        if (sort === 'name') return a.username.localeCompare(b.username, 'th');
+        if (sort === 'joined') return t(b.joined_at) - t(a.joined_at);
+        return Number(isOnline(b.last_active)) - Number(isOnline(a.last_active)) || t(b.last_active) - t(a.last_active);
+      });
+  }, [users, query, sort]);
+  const onlineTotal = useMemo(() => users.filter((u) => isOnline(u.last_active)).length, [users]);
 
   const add = async (name: string) => {
     onTap?.();
@@ -77,11 +90,11 @@ export const PeopleSection: React.FC<Props> = ({ username, isDark, onChat, onTap
 
   return (
     <div className="space-y-4">
-      <SectionTitle isDark={isDark} icon="👥" title="ผู้คน" hint={`สมาชิกทั้งหมด ${users.length} คน · เพื่อนของคุณ ${friends.length} คน`} />
+      <SectionTitle isDark={isDark} icon="👥" title="ผู้คน" hint={`สมาชิกทั้งหมด ${users.length} คน · ออนไลน์ ${onlineTotal} คน · เพื่อนของคุณ ${friends.length} คน`} />
 
       <div className="flex gap-2 overflow-x-auto pb-1" role="tablist">
         <button role="tab" aria-selected={tab === 'friends'} className={pill(isDark, tab === 'friends')} onClick={() => setTab('friends')}>💙 เพื่อนของฉัน</button>
-        <button role="tab" aria-selected={tab === 'discover'} className={pill(isDark, tab === 'discover')} onClick={() => setTab('discover')}>🔎 ค้นหาสมาชิก</button>
+        <button role="tab" aria-selected={tab === 'all'} className={pill(isDark, tab === 'all')} onClick={() => setTab('all')}>🌍 สมาชิกทั้งหมด ({users.length})</button>
         <button role="tab" aria-selected={tab === 'requests'} className={pill(isDark, tab === 'requests')} onClick={() => setTab('requests')}>
           📨 คำขอ{requests.length > 0 && <span className="ml-1.5 inline-flex min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[11px] items-center justify-center">{requests.length}</span>}
         </button>
@@ -96,8 +109,8 @@ export const PeopleSection: React.FC<Props> = ({ username, isDark, onChat, onTap
           <div className="text-center py-10 space-y-2">
             <div className="text-4xl">🫂</div>
             <p className={`font-bold ${strong}`}>ยังไม่มีเพื่อน</p>
-            <p className={`text-sm ${muted}`}>ไปที่แท็บ "ค้นหาสมาชิก" เพื่อเพิ่มเพื่อนคนแรกของคุณ</p>
-            <button className={pill(isDark, true)} onClick={() => setTab('discover')}>ค้นหาสมาชิก</button>
+            <p className={`text-sm ${muted}`}>ไปที่แท็บ "สมาชิกทั้งหมด" เพื่อเพิ่มเพื่อนคนแรกของคุณ</p>
+            <button className={pill(isDark, true)} onClick={() => setTab('all')}>ดูสมาชิกทั้งหมด</button>
           </div>
         ) : friendRows.map((f) => (
           <div key={f.name} className={row}>
@@ -112,35 +125,53 @@ export const PeopleSection: React.FC<Props> = ({ username, isDark, onChat, onTap
           </div>
         )))}
 
-        {!loading && tab === 'discover' && (
+        {!loading && tab === 'all' && (
           <>
-            <label className={`flex items-center gap-2 px-4 min-h-12 rounded-2xl border ${isDark ? 'bg-black/20 border-white/10' : 'bg-white border-slate-200'}`}>
-              <Search className={`w-4 h-4 ${muted}`} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาชื่อสมาชิก…"
-                aria-label="ค้นหาสมาชิก"
-                className={`flex-1 bg-transparent outline-none text-sm ${strong}`}
-              />
-            </label>
-            {discover.length === 0 && <p className={`text-sm text-center py-6 ${muted}`}>ไม่พบสมาชิกที่ตรงกับคำค้น</p>}
-            {discover.map((u) => (
-              <div key={u.username} className={row}>
-                <Avatar username={u.username} size={46} online={isOnline(u.last_active)} />
-                <div className="min-w-0 flex-1">
-                  <div className={`font-black truncate ${strong}`}>{u.username}</div>
-                  <div className={`text-xs truncate ${muted}`}>{isOnline(u.last_active) ? '🟢 ออนไลน์อยู่' : `ใช้งานล่าสุด ${timeAgo(u.last_active)}`}</div>
-                </div>
-                {isFriend(u.username) ? (
-                  <span className="text-xs font-black text-emerald-400 px-3">เพื่อนกัน ✓</span>
-                ) : (
-                  <button onClick={() => add(u.username)} aria-label={`เพิ่มเพื่อน ${u.username}`} className={`${iconBtn} px-4 gap-1.5 text-xs font-black bg-gradient-to-r from-cyan-400 to-violet-500 text-white`}>
-                    <UserPlus className="w-4 h-4" /> เพิ่ม
-                  </button>
-                )}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label className={`flex-1 flex items-center gap-2 px-4 min-h-12 rounded-2xl border ${isDark ? 'bg-black/20 border-white/10' : 'bg-white border-slate-200'}`}>
+                <Search className={`w-4 h-4 ${muted}`} />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="ค้นหาชื่อสมาชิก…"
+                  aria-label="ค้นหาสมาชิก"
+                  className={`flex-1 bg-transparent outline-none text-sm ${strong}`}
+                />
+              </label>
+              <div className="flex gap-1.5" role="radiogroup" aria-label="เรียงตาม">
+                {([['active', 'ใช้งานล่าสุด'], ['joined', 'สมัครล่าสุด'], ['name', 'ชื่อ ก–ฮ']] as const).map(([k, label]) => (
+                  <button key={k} role="radio" aria-checked={sort === k} onClick={() => setSort(k)} className={pill(isDark, sort === k)}>{label}</button>
+                ))}
               </div>
-            ))}
+            </div>
+            <p className={`text-xs px-1 ${muted}`}>พบ {everyone.length} คน{query ? ` จากคำค้น "${query}"` : ''}</p>
+            {everyone.length === 0 && <p className={`text-sm text-center py-6 ${muted}`}>ไม่พบสมาชิกที่ตรงกับคำค้น</p>}
+            {everyone.slice(0, shown).map((u) => {
+              const mine = u.username.toLowerCase() === me;
+              const prof = supabaseSim.getProfile(u.username);
+              return (
+                <div key={u.username} className={row}>
+                  <Avatar username={u.username} size={50} online={isOnline(u.last_active)} />
+                  <div className="min-w-0 flex-1">
+                    <div className={`font-black truncate ${strong}`}>{u.username}{mine && <span className="ml-1.5 text-[11px] text-cyan-300">(คุณ)</span>}</div>
+                    <div className={`text-xs truncate ${muted}`}>{prof.bio}</div>
+                    <div className={`text-[11px] ${muted}`}>{isOnline(u.last_active) ? '🟢 ออนไลน์อยู่' : `ใช้งานล่าสุด ${timeAgo(u.last_active)}`} · เข้าร่วม {u.joined_at ? new Date(u.joined_at).toLocaleDateString('th-TH') : 'ไม่ทราบ'}</div>
+                  </div>
+                  {mine ? null : isFriend(u.username) ? (
+                    <button onClick={() => { onTap?.(); onChat(u.username); }} aria-label={`แชทกับ ${u.username}`} className={`${iconBtn} bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25`}><MessageCircle className="w-4 h-4" /></button>
+                  ) : (
+                    <button onClick={() => add(u.username)} aria-label={`เพิ่มเพื่อน ${u.username}`} className={`${iconBtn} px-4 gap-1.5 text-xs font-black bg-gradient-to-r from-cyan-400 to-violet-500 text-white`}>
+                      <UserPlus className="w-4 h-4" /> เพิ่ม
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {shown < everyone.length && (
+              <button onClick={() => setShown((n) => n + PAGE)} className={`w-full min-h-12 rounded-2xl text-sm font-black cursor-pointer ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-200' : 'bg-slate-900/5 hover:bg-slate-900/10 text-slate-700'}`}>
+                แสดงเพิ่มอีก {Math.min(PAGE, everyone.length - shown)} คน (เหลือ {everyone.length - shown})
+              </button>
+            )}
           </>
         )}
 

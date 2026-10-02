@@ -1,7 +1,7 @@
 # CLAUDE.md — คู่มือสำหรับ Claude ที่ทำงานใน repo นี้
 
 ## โปรเจกต์นี้คืออะไร
-**WINTER Prep Hub** — เว็บคลังข้อสอบ ม.5 ภาษาไทย (React 19 + Vite 6 + TypeScript + Tailwind 4 + motion + lucide-react)
+**Winter Community** (เดิมชื่อ WINTER Prep Hub) — ชุมชนเกม/เพื่อน + เว็บคลังข้อสอบ ม.5 ภาษาไทย (React 19 + Vite 6 + TypeScript + Tailwind 4 + motion + lucide-react)
 เจ้าของเว็บ **ไม่ถนัดเขียนโค้ด** → อธิบายเป็นภาษาไทยง่ายๆ อธิบายศัพท์เทคนิคทุกครั้งที่ใช้ และทุกครั้งที่จบขั้นตอนให้บอก **วิธีรัน** และ **วิธีทดสอบ** เป็นข้อๆ
 
 ในเว็บนี้มี 2 ส่วน:

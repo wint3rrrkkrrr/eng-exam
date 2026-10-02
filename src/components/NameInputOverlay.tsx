@@ -162,7 +162,7 @@ export const NameInputOverlay: React.FC<NameInputOverlayProps> = ({
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/10 text-amber-300 border border-amber-500/20">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>WINTER PREP HUB ❄️</span>
+              <span>WINTER COMMUNITY ❄️</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-amber-300">
               {isRegister ? 'สร้างบัญชีใหม่ 🚀' : 'ยินดีต้อนรับกลับมา! 👋'}

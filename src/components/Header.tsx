@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-700 hover:border-zinc-600'
                     : 'bg-stone-100 hover:bg-stone-200 text-stone-800 border-stone-200 hover:border-stone-300'
                 }`}
-                title="กลับสู่หน้าแรก (WINTER Prep Hub)"
+                title="กลับสู่หน้าแรก (Winter Community)"
                 id="back-to-home-btn"
               >
                 <Home className="w-3.5 h-3.5 text-amber-500" />

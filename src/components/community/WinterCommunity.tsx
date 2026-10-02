@@ -71,6 +71,7 @@ export const WinterCommunity: React.FC<Props> = ({
   const isDark = theme === 'dark';
   const [section, setSection] = useState<Section>('home');
   const [chatWith, setChatWith] = useState<string | null>(null);
+  const [peopleTab, setPeopleTab] = useState<'friends' | 'all' | 'requests'>('friends');
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [friends, setFriends] = useState<string[]>([]);
   const [requestCount, setRequestCount] = useState(0);
@@ -95,7 +96,7 @@ export const WinterCommunity: React.FC<Props> = ({
   const online = useMemo(() => users.filter((u) => isOnline(u.last_active) && u.username.toLowerCase() !== me), [users, me]);
   const profile = supabaseSim.getProfile(username);
 
-  const go = (s: Section) => { onTap(); setSection(s); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const go = (s: Section, ptab: 'friends' | 'all' | 'requests' = 'friends') => { onTap(); if (s === 'people') setPeopleTab(ptab); setSection(s); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const play = (id: GameCard['id']) => { onTap(); if (id === 'werewolf') onOpenWerewolf(); else if (id === 'cheese') onOpenCheese(); else onStartExam(); };
 
   const strong = isDark ? 'text-white' : 'text-slate-900';
@@ -116,7 +117,7 @@ export const WinterCommunity: React.FC<Props> = ({
             <div className="flex flex-wrap gap-2 pt-2 text-xs font-black">
               <span className="px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-400">🟢 ออนไลน์ {online.length + 1} คน</span>
               <span className="px-3 py-1.5 rounded-full bg-cyan-500/15 text-cyan-400">💙 เพื่อน {friends.length} คน</span>
-              <span className="px-3 py-1.5 rounded-full bg-violet-500/15 text-violet-400">👥 สมาชิก {users.length} คน</span>
+              <button onClick={() => go('people', 'all')} className="px-3 py-1.5 rounded-full bg-violet-500/15 text-violet-400 hover:bg-violet-500/25 cursor-pointer">👥 สมาชิก {users.length} คน ›</button>
             </div>
           </div>
         </div>
@@ -131,14 +132,14 @@ export const WinterCommunity: React.FC<Props> = ({
       </Glass>
 
       <section className="space-y-3">
-        <SectionTitle isDark={isDark} icon="🟢" title="ออนไลน์ตอนนี้" hint={online.length ? 'แตะที่ชื่อเพื่อดูในหน้าผู้คน' : 'ตอนนี้ยังไม่มีคนอื่นออนไลน์'} right={<button onClick={() => go('people')} className="text-xs font-black text-cyan-400 hover:underline cursor-pointer">ดูทั้งหมด</button>} />
+        <SectionTitle isDark={isDark} icon="🟢" title="ออนไลน์ตอนนี้" hint={online.length ? 'แตะที่ชื่อเพื่อดูในหน้าผู้คน' : 'ตอนนี้ยังไม่มีคนอื่นออนไลน์'} right={<button onClick={() => go('people', 'all')} className="text-xs font-black text-cyan-400 hover:underline cursor-pointer">ดูสมาชิกทั้งหมด</button>} />
         <Glass isDark={isDark} className="p-4">
           {online.length === 0 ? (
             <p className={`text-sm text-center py-3 ${muted}`}>ชวนเพื่อนเข้ามาคุยกัน แล้วจะเห็นชื่อที่นี่ ✨</p>
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-1">
               {online.slice(0, 20).map((u) => (
-                <button key={u.username} onClick={() => go('people')} className="shrink-0 w-16 text-center space-y-1.5 cursor-pointer">
+                <button key={u.username} onClick={() => go('people', 'all')} className="shrink-0 w-16 text-center space-y-1.5 cursor-pointer">
                   <Avatar username={u.username} size={56} online />
                   <div className={`text-[11px] font-bold truncate ${strong}`}>{u.username}</div>
                 </button>
@@ -238,7 +239,7 @@ export const WinterCommunity: React.FC<Props> = ({
         <main className="flex-1 min-w-0 pb-28 md:pb-10">
           {section === 'home' && home}
           {section === 'games' && games}
-          {section === 'people' && <PeopleSection username={username} isDark={isDark} onTap={onTap} onChat={(f) => { setChatWith(f); setSection('chat'); window.scrollTo({ top: 0 }); }} />}
+          {section === 'people' && <PeopleSection username={username} isDark={isDark} onTap={onTap} initialTab={peopleTab} onChat={(f) => { setChatWith(f); setSection('chat'); window.scrollTo({ top: 0 }); }} />}
           {section === 'chat' && <ChatSection username={username} isDark={isDark} initialFriend={chatWith} onTap={onTap} />}
           {section === 'ranking' && <RankingSection username={username} isDark={isDark} onTap={onTap} />}
           <p className={`mt-10 text-center text-[11px] font-bold ${muted}`}>สร้างสรรค์โดย WINTER ❄️ · Winter Community</p>
