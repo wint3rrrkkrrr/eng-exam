@@ -97,6 +97,12 @@ export interface WalletRow {
 }
 
 // (โปรเจกต์ไม่เปิด strict จึงใช้รูปแบบเดียว: ตรวจ ok ก่อนแล้วค่อยอ่าน wallet/reason)
+export interface SpinResult {
+  ok: boolean;
+  duplicate?: boolean;
+  reason?: 'poor' | 'none';
+}
+
 export interface BuyResult {
   ok: boolean;
   wallet?: WalletRow;
@@ -150,6 +156,10 @@ export interface WwStore {
   rateHit(key: string, limit: number, windowSeconds: number): Promise<boolean>;
   walletBuy(walletId: string, itemId: string, price: number): Promise<BuyResult>;
   walletCredit(walletId: string, amount: number, won: boolean): Promise<WalletRow | null>;
+  /** หมุนกาชา: หักเหรียญ + ใส่ของ (หรือคืนเหรียญถ้าซ้ำ) ใน transaction เดียว — item ถูกเลือกโดยเซิร์ฟเวอร์ */
+  walletSpin(walletId: string, cost: number, itemId: string, refund: number): Promise<SpinResult>;
+  /** ให้ของหลายชิ้น (แลกโค้ด) — ข้ามชิ้นที่มีแล้ว คืนจำนวนที่เพิ่มจริง */
+  walletGrant(walletId: string, itemIds: string[]): Promise<number | null>;
   walletSetAvatar(walletId: string, avatar: Record<string, string>): Promise<void>;
   /** ผูกที่นั่งในห้องกับกระเป๋า (ไว้จ่ายเหรียญตอนจบเกม) */
   setPlayerWallet(playerId: string, walletId: string | null): Promise<void>;

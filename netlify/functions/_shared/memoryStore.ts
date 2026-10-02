@@ -1,7 +1,7 @@
 // _shared/memoryStore.ts — ที่เก็บในหน่วยความจำ: ใช้ทดสอบ และรันเกมในเครื่องโดยไม่ต้องมี Supabase
 // (ข้อมูลหายเมื่อปิดโปรแกรม · ไม่มี Realtime — ไคลเอนต์ใช้การดึงซ้ำ (poll) แทน)
 import type {
-  BuyResult, ChatRecord, Commit, EventRow, PlayerRow, PublicEventRecord, RoomRow, RoomSecrets, WalletRow, WwStore,
+  BuyResult, SpinResult, ChatRecord, Commit, EventRow, PlayerRow, PublicEventRecord, RoomRow, RoomSecrets, WalletRow, WwStore,
 } from './store';
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
@@ -204,6 +204,27 @@ export class MemoryStore implements WwStore {
     w.games_played += 1;
     if (won) w.wins += 1;
     return this.view(w);
+  }
+
+  async walletSpin(walletId: string, cost: number, itemId: string, refund: number): Promise<SpinResult> {
+    const w = this.wallets.get(walletId);
+    if (!w) return { ok: false, reason: 'none' };
+    if (w.coins < cost) return { ok: false, reason: 'poor' };
+    if (w.owned.includes(itemId)) {
+      w.coins = w.coins - cost + refund;
+      return { ok: true, duplicate: true };
+    }
+    w.coins -= cost;
+    w.owned = [...w.owned, itemId];
+    return { ok: true, duplicate: false };
+  }
+
+  async walletGrant(walletId: string, itemIds: string[]): Promise<number | null> {
+    const w = this.wallets.get(walletId);
+    if (!w) return null;
+    let added = 0;
+    for (const id of itemIds) if (!w.owned.includes(id)) { w.owned = [...w.owned, id]; added++; }
+    return added;
   }
 
   async walletSetAvatar(walletId: string, avatar: Record<string, string>) {

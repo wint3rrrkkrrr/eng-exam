@@ -1,7 +1,7 @@
 // net/wallet.ts — กระเป๋าเงิน/ร้านค้าฝั่งเบราว์เซอร์: เก็บ "ตั๋วกระเป๋า" ในเครื่อง + เรียกเซิร์ฟเวอร์
 // ★ เหรียญ/ของที่ซื้อ อยู่ที่เซิร์ฟเวอร์ — เครื่องผู้เล่นเก็บแค่ตั๋ว ไม่มีทางแก้เหรียญเองได้
 import type { AvatarConfig } from '../shared/avatar';
-import type { WalletCreated, WalletView } from '../shared/api';
+import type { GachaResponse, RedeemResponse, WalletCreated, WalletView } from '../shared/api';
 import { api } from './werewolfClient';
 import type { ApiResult } from './werewolfClient';
 
@@ -89,5 +89,7 @@ export async function ensureWallet(): Promise<ApiResult<{ creds: WalletCreds; wa
   return { ok: true, status: 200, data: { creds, wallet: made.data.wallet }, errorTh: '' };
 }
 
+export const spinGacha = (c: WalletCreds, wheel: string, count: number) => api<GachaResponse>('gacha-spin', { wheel, count }, null, headers(c));
+export const redeemCode = (c: WalletCreds, code: string) => api<RedeemResponse>('redeem-code', { code }, null, headers(c));
 export const buyItem = (c: WalletCreds, itemId: string) => api<WalletView>('shop-buy', { itemId }, null, headers(c));
 export const saveAvatar = (c: WalletCreds, avatar: AvatarConfig) => api<WalletView>('avatar-save', { avatar }, null, headers(c));

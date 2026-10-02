@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { AVATAR_ITEMS, DEFAULT_AVATAR, ITEM_BY_ID, SLOTS, STARTING_COINS, randomFreeAvatar, sanitizeAvatar } from './avatar';
+import { AVATAR_ITEMS, DEFAULT_AVATAR, FREE_ITEM_IDS, ITEM_BY_ID, SLOTS, STARTING_COINS, randomFreeAvatar, sanitizeAvatar } from './avatar';
+import { VARIANTS, VARIANT_SLOTS } from './avatarExtra';
+import { isSpecialId } from '../components/avatar/layersSpecial';
 import type { AvatarSlot } from './avatar';
 import { AvatarArt, GraveArt } from '../components/avatar/AvatarArt';
 import { BACKDROP_IDS } from '../components/avatar/layersBackdrop';
@@ -24,7 +26,11 @@ describe('แคตตาล็อกอวตาร', () => {
       expect(ITEM_BY_ID[DEFAULT_AVATAR[slot]]?.slot).toBe(slot);
       expect(ITEM_BY_ID[DEFAULT_AVATAR[slot]].price).toBe(0);
     }
-    expect(AVATAR_ITEMS.length).toBeGreaterThan(280);
+    expect(AVATAR_ITEMS.length).toBeGreaterThan(3500); // ของเดิม + เสื้อลาย + แรปเปอร์ + เซ็ตพิเศษ + โทนสีของทุกชิ้น
+  });
+  it('อวตารสุ่ม/ของฟรีไม่เคยมีของเซ็ตพิเศษ (ได้จากโค้ดเท่านั้น)', () => {
+    expect(FREE_ITEM_IDS.some((id) => id.startsWith('sp_'))).toBe(false);
+    for (let i = 0; i < 200; i++) for (const id of Object.values(randomFreeAvatar(`seed${i}`))) expect(ITEM_BY_ID[id].exclusive, id).toBeUndefined();
   });
   it('sanitize: ของไม่มี/ของข้ามช่อง → ค่าเริ่มต้น · สุ่มฟรีใช้ได้', () => {
     expect(sanitizeAvatar({ ...DEFAULT_AVATAR, headwear: 'hw_crown', badge: 'bd_star' }, []).headwear).toBe('hw_none');
@@ -37,19 +43,46 @@ describe('ตัววาดอวตารครบทุกชิ้น', () =
   const baseline = new Map<AvatarSlot, string>();
   for (const slot of Object.keys(DEFAULT_AVATAR) as AvatarSlot[]) baseline.set(slot, art({}));
 
-  it('ทุกชิ้น (ยกเว้นค่าว่าง/ค่าเริ่มต้น) วาดผลต่างจากภาพเริ่มต้น = ไม่ตกไป default เงียบๆ', () => {
+  it('ทุกชิ้น (ยกเว้นค่าว่าง/ค่าเริ่มต้น/โทนสี) วาดผลต่างจากภาพเริ่มต้น = ไม่ตกไป default เงียบๆ', () => {
     const missing: string[] = [];
     const base = strip(baseline.get('skin')!);
     for (const item of AVATAR_ITEMS) {
+      if (item.id.includes('~')) continue; // โทนสีตรวจแยกด้านล่าง
       if (item.slot === 'grave' || item.slot === 'backdrop') continue;
       if (DEFAULT_AVATAR[item.slot] === item.id || /_none$/.test(item.id)) continue;
       if (strip(art({ [item.slot]: item.id })) === base) missing.push(item.id);
     }
     expect(missing).toEqual([]);
+  }, 60_000);
+  it('โทนสีทุกแบบ × ทุกช่องที่คูณได้: ใส่ฟิลเตอร์จริงและต่างจากต้นฉบับ', () => {
+    const sample: Record<string, string> = { outfit: 'of_hoodie', headwear: 'hw_tophat', eyewear: 'ew_round', accessory: 'ac_scarf', effect: 'fx_fire', backdrop: 'bg_castle', grave: 'gr_cross' };
+    for (const slot of VARIANT_SLOTS) {
+      const base = sample[slot];
+      expect(ITEM_BY_ID[base], base).toBeDefined();
+      for (const v of VARIANTS) {
+        const id = `${base}~${v.key}`;
+        expect(ITEM_BY_ID[id]?.slot, id).toBe(slot);
+        const svg = slot === 'grave'
+          ? renderToStaticMarkup(React.createElement(GraveArt, { grave: id, role: 'seer', still: true }))
+          : art({ [slot]: id });
+        expect(svg, id).toContain('filter=');
+        const plain = slot === 'grave'
+          ? renderToStaticMarkup(React.createElement(GraveArt, { grave: base, role: 'seer', still: true }))
+          : art({ [slot]: base });
+        expect(strip(svg), id).not.toBe(strip(plain));
+      }
+    }
+  });
+  it('เสื้อลายทุกลาย × ทุกสี และของเซ็ตพิเศษทุกชิ้น วาดได้ (ไม่ตกไป default)', () => {
+    const base = strip(baseline.get('skin')!);
+    for (const item of AVATAR_ITEMS.filter((i) => i.id.startsWith('of_pat_') || i.exclusive)) {
+      if (item.slot === 'grave' || item.slot === 'backdrop') continue;
+      expect(strip(art({ [item.slot]: item.id })), item.id).not.toBe(base);
+    }
   });
   it('ฉากหลังทุกธีมมีทั้งกลางวัน/กลางคืน และต่างกัน', () => {
-    for (const item of AVATAR_ITEMS.filter((i) => i.slot === 'backdrop')) {
-      expect(BACKDROP_IDS, item.id).toContain(item.id);
+    for (const item of AVATAR_ITEMS.filter((i) => i.slot === 'backdrop' && !i.id.includes('~'))) {
+      if (!isSpecialId(item.id)) expect(BACKDROP_IDS, item.id).toContain(item.id);
       expect(strip(art({ backdrop: item.id }, false)), item.id).not.toBe(strip(art({ backdrop: item.id }, true)));
     }
   });

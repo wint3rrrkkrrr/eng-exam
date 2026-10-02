@@ -1,6 +1,7 @@
 // components/avatar/layersHead.tsx — ทรงผม · ดวงตา · ปาก · หนวดเครา (วาดด้วย SVG ล้วน ไม่มีรูปภาพ)
 // พิกัด: viewBox 0 0 100 125 · หัวอยู่กลาง (50,50) กว้าง 42 สูง 48 · ตา y=50 · ปาก y=66
 import React from 'react';
+import { RapMouth, isRapId } from './layersRap';
 import { INK, shade } from './colors';
 import { Blink, Move, Pulse, heartPath, starPath } from './anim';
 
@@ -345,6 +346,7 @@ export const Nose: React.FC<{ c: Ctx }> = ({ c }) => (
 
 // ================================================================ ปาก
 export const Mouth: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
+  if (isRapId(id)) return <RapMouth id={id} c={c} />; // ฟันกริลล์ของคอลเลกชันแรปเปอร์
   const line = { stroke: INK, strokeWidth: 2, strokeLinecap: 'round' as const, fill: 'none' };
   const fang = (x: number, tip: string) => <path d={`M${x} 66.6 L${x + 1.8} 72 L${x + 3.6} 67.4 Z`} fill="#fff" stroke={INK} strokeWidth=".7" />;
   switch (id) {

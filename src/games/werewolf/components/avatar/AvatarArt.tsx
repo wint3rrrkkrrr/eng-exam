@@ -10,6 +10,11 @@ import { AccessoryBack, AccessoryFront, Outfit } from './layersBody';
 import { EffectBack, EffectFront } from './layersFx';
 import { Move } from './anim';
 import { RoleGlyph } from './RoleIcon';
+import { Tone, VariantDefs, splitVariantId } from './variants';
+import {
+  SpecialAccessoryBack, SpecialAccessoryFront, SpecialBackdrop, SpecialEffectBack, SpecialEffectFront, SpecialEyewear,
+  SpecialHeadwear, SpecialOutfit, isSpecialId, specialGraveBody,
+} from './layersSpecial';
 import { prefersReducedMotion, useNight } from './TimeContext';
 
 interface Props {
@@ -48,20 +53,28 @@ export const AvatarArt: React.FC<Props> = ({ config, className, title, night, st
   const hairBase = HAIR[cfg.hairColor] ?? HAIR.hc_brown;
   const hair = hairBase.startsWith('grad:') ? `url(#${uid}${hairBase.slice(5)})` : hairBase;
   const c: Ctx = { skin, hair, uid, anim };
+  // โทนสี (id รูปแบบ ของเดิม~โทน) + เซ็ตพิเศษ (sp_...)
+  const bd = splitVariantId(cfg.backdrop);
+  const fxv = splitVariantId(cfg.effect);
+  const acv = splitVariantId(cfg.accessory);
+  const ofv = splitVariantId(cfg.outfit);
+  const ewv = splitVariantId(cfg.eyewear);
+  const hwv = splitVariantId(cfg.headwear);
 
   return (
     <svg viewBox="0 0 100 125" preserveAspectRatio="xMidYMid slice" className={className} role="img" aria-label={title ?? 'อวตาร'}>
       {title && <title>{title}</title>}
       <HairGradients uid={uid} anim={anim} />
+      <VariantDefs uid={uid} ids={[cfg.backdrop, cfg.effect, cfg.accessory, cfg.outfit, cfg.eyewear, cfg.headwear]} />
 
-      <Backdrop id={cfg.backdrop} uid={uid} anim={anim} night={isNight} />
-      <EffectBack id={cfg.effect} uid={uid} anim={anim} />
-      <AccessoryBack id={cfg.accessory} c={c} />
+      <Tone variant={bd.variant} uid={uid}>{isSpecialId(bd.base) ? <SpecialBackdrop id={bd.base} uid={uid} anim={anim} night={isNight} /> : <Backdrop id={bd.base} uid={uid} anim={anim} night={isNight} />}</Tone>
+      <Tone variant={fxv.variant} uid={uid}>{isSpecialId(fxv.base) ? <SpecialEffectBack id={fxv.base} uid={uid} anim={anim} /> : <EffectBack id={fxv.base} uid={uid} anim={anim} />}</Tone>
+      <Tone variant={acv.variant} uid={uid}>{isSpecialId(acv.base) ? <SpecialAccessoryBack id={acv.base} c={c} /> : <AccessoryBack id={acv.base} c={c} />}</Tone>
       <HairBack id={cfg.hairStyle} c={c} />
 
       {/* คอ + เสื้อผ้า */}
       <rect x="43" y="68" width="14" height="24" rx="6" fill={shade(skin, 0.1)} />
-      <Outfit id={cfg.outfit} c={c} />
+      <Tone variant={ofv.variant} uid={uid}>{isSpecialId(ofv.base) ? <SpecialOutfit id={ofv.base} c={c} /> : <Outfit id={ofv.base} c={c} />}</Tone>
 
       {/* หัว */}
       <circle cx="29.5" cy="52" r="4.8" fill={skin} /><circle cx="29.5" cy="52" r="2.2" fill={shade(skin, 0.12)} />
@@ -74,10 +87,10 @@ export const AvatarArt: React.FC<Props> = ({ config, className, title, night, st
       <Mouth id={cfg.mouth} c={c} />
       <FacialHair id={cfg.facialHair} c={c} />
       <HairFront id={cfg.hairStyle} c={c} />
-      <Eyewear id={cfg.eyewear} c={c} />
-      <Headwear id={cfg.headwear} c={c} />
-      <AccessoryFront id={cfg.accessory} c={c} />
-      <EffectFront id={cfg.effect} uid={uid} anim={anim} />
+      <Tone variant={ewv.variant} uid={uid}>{isSpecialId(ewv.base) ? <SpecialEyewear id={ewv.base} c={c} /> : <Eyewear id={ewv.base} c={c} />}</Tone>
+      <Tone variant={hwv.variant} uid={uid}>{isSpecialId(hwv.base) ? <SpecialHeadwear id={hwv.base} c={c} /> : <Headwear id={hwv.base} c={c} />}</Tone>
+      <Tone variant={acv.variant} uid={uid}>{isSpecialId(acv.base) ? <SpecialAccessoryFront id={acv.base} c={c} /> : <AccessoryFront id={acv.base} c={c} />}</Tone>
+      <Tone variant={fxv.variant} uid={uid}>{isSpecialId(fxv.base) ? <SpecialEffectFront id={fxv.base} uid={uid} anim={anim} /> : <EffectFront id={fxv.base} uid={uid} anim={anim} />}</Tone>
     </svg>
   );
 };
@@ -232,14 +245,17 @@ export const GraveArt: React.FC<{ backdrop?: string; grave?: string; role?: stri
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const ctxNight = useNight();
   const anim = !still && !prefersReducedMotion();
-  const { shape, plate, lines } = graveBody(grave ?? 'gr_stone', anim);
+  const gv = splitVariantId(grave ?? 'gr_stone');
+  const bgv = splitVariantId(backdrop ?? 'bg_meadow');
+  const { shape, plate, lines } = isSpecialId(gv.base) ? { ...specialGraveBody(gv.base, anim), lines: false } : graveBody(gv.base, anim);
   const [px, py, pr] = plate;
   return (
     <svg viewBox="0 0 100 125" preserveAspectRatio="xMidYMid slice" className={className} role="img" aria-label="ตายแล้ว">
-      <Backdrop id={backdrop ?? 'bg_meadow'} uid={uid} anim={anim} night={night ?? ctxNight} />
+      <VariantDefs uid={uid} ids={[backdrop ?? '', grave ?? '']} />
+      <Tone variant={bgv.variant} uid={uid}>{isSpecialId(bgv.base) ? <SpecialBackdrop id={bgv.base} uid={uid} anim={anim} night={night ?? ctxNight} /> : <Backdrop id={bgv.base} uid={uid} anim={anim} night={night ?? ctxNight} />}</Tone>
       <rect width="100" height="125" fill="rgba(20,20,40,.18)" />
       <ellipse cx="50" cy="104" rx="30" ry="6" fill="rgba(0,0,0,.18)" />
-      {shape}
+      <Tone variant={gv.variant} uid={uid}>{shape}</Tone>
       {/* แผ่นป้ายบทบนหลุมศพ */}
       <circle cx={px} cy={py} r={pr + 1.6} fill="#8d94a2" opacity=".55" />
       <circle cx={px} cy={py} r={pr} fill="#f6f7fb" stroke="#7c8392" strokeWidth="1.4" />

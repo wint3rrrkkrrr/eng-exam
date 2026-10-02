@@ -103,6 +103,24 @@ export interface WalletView {
   wins: number;
 }
 
+export interface GachaResult {
+  itemId: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  duplicate: boolean;
+  refund: number; // เหรียญที่คืนเมื่อได้ของซ้ำ
+}
+export interface GachaResponse {
+  wheel: string;
+  results: GachaResult[];
+  wallet: WalletView;
+}
+export interface RedeemResponse {
+  setId: string;
+  itemIds: string[];
+  added: number;
+  wallet: WalletView;
+}
+
 export interface WalletCreated {
   walletId: string;
   token: string;

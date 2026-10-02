@@ -1,6 +1,8 @@
 // shared/avatar.ts — แคตตาล็อกของแต่งตัวอวตาร + ราคา + กติกาเหรียญ (ข้อมูลล้วน ใช้ร่วมกันทั้งเบราว์เซอร์และเซิร์ฟเวอร์)
 // ★ ราคา/สิทธิ์การเป็นเจ้าของตัดสินที่เซิร์ฟเวอร์เสมอ — ไฟล์นี้บอกแค่ "มีอะไรขายบ้าง ราคาเท่าไร"
 
+import { buildPatternOutfits, buildRapItems, buildSpecialItems, buildVariantItems } from './avatarExtra';
+
 export type AvatarSlot =
   | 'skin' | 'hairStyle' | 'hairColor' | 'eyes' | 'mouth' | 'facialHair'
   | 'eyewear' | 'headwear' | 'outfit' | 'accessory' | 'effect' | 'backdrop' | 'grave';
@@ -13,6 +15,9 @@ export interface AvatarItem {
   nameTh: string;
   price: number; // 0 = ฟรี (มีให้ทุกคนตั้งแต่เริ่ม)
   animated?: boolean; // มีการขยับ (แสดงป้าย ✨ ในร้าน)
+  /** ของเซ็ตพิเศษ: ได้จากโค้ดเท่านั้น (ไม่ขาย ไม่ออกกาชา) — ค่าคือรหัสเซ็ต */
+  exclusive?: string;
+  rarity?: Rarity; // กำหนดระดับตรงๆ (ของเซ็ตพิเศษ) · ไม่ระบุ = คำนวณจากราคา
 }
 
 export type AvatarConfig = Record<AvatarSlot, string>;
@@ -37,7 +42,7 @@ const it = (slot: AvatarSlot, id: string, nameTh: string, price: number, animate
   animated ? { id, slot, nameTh, price, animated } : { id, slot, nameTh, price }
 );
 
-export const AVATAR_ITEMS: AvatarItem[] = [
+const BASE_ITEMS: AvatarItem[] = [
   // ================================================================ สีผิว
   it('skin', 'skin_light', 'ผิวขาว', 0), it('skin', 'skin_fair', 'ผิวสว่าง', 0), it('skin', 'skin_tan', 'ผิวแทน', 0),
   it('skin', 'skin_brown', 'ผิวน้ำตาล', 0), it('skin', 'skin_dark', 'ผิวเข้ม', 0), it('skin', 'skin_deep', 'ผิวเข้มมาก', 0),
@@ -168,6 +173,12 @@ export const AVATAR_ITEMS: AvatarItem[] = [
   it('grave', 'gr_gold', 'สุสานทองคำ', 250),
 ];
 
+const PATTERN_ITEMS = buildPatternOutfits();
+const RAP_ITEMS = buildRapItems();
+const SPECIAL_ITEMS = buildSpecialItems();
+/** ของทั้งหมด = ของเดิม + เสื้อลาย + เซ็ตพิเศษ + โทนสีของทุกชิ้นที่คูณได้ (หลายพันชิ้น) */
+export const AVATAR_ITEMS: AvatarItem[] = [...BASE_ITEMS, ...PATTERN_ITEMS, ...RAP_ITEMS, ...SPECIAL_ITEMS, ...buildVariantItems([...BASE_ITEMS, ...PATTERN_ITEMS, ...RAP_ITEMS])];
+
 export const ITEM_BY_ID: Record<string, AvatarItem> = Object.fromEntries(AVATAR_ITEMS.map((i) => [i.id, i]));
 
 export const DEFAULT_AVATAR: AvatarConfig = {
@@ -190,17 +201,27 @@ export function itemsOfSlot(slot: AvatarSlot): AvatarItem[] {
   return AVATAR_ITEMS.filter((i) => i.slot === slot);
 }
 
+export function itemRarity(item: AvatarItem): Rarity {
+  return item.rarity ?? rarityOf(item.price);
+}
+
+/** ของที่สุ่มออกจากกาชาได้ = ของที่ขายในร้าน (ราคา > 0) ที่ไม่ใช่เซ็ตพิเศษ */
+export function gachaPool(): AvatarItem[] {
+  return AVATAR_ITEMS.filter((i) => i.price > 0 && !i.exclusive);
+}
+
 export function rarityOf(price: number): Rarity {
+  // เกณฑ์ปรับให้ของ ~3,500 ชิ้น กระจายประมาณ ธรรมดา 40% · หายาก 30% · หายากมาก 22% · ในตำนาน 8%
   if (price >= 300) return 'legendary';
-  if (price >= 120) return 'epic';
-  if (price >= 50) return 'rare';
+  if (price >= 170) return 'epic';
+  if (price >= 120) return 'rare';
   return 'common';
 }
 
 export const RARITY_TH: Record<Rarity, string> = { common: 'ธรรมดา', rare: 'หายาก', epic: 'หายากมาก', legendary: 'ในตำนาน' };
 
 /** ของที่ทุกคนมีตั้งแต่เริ่ม (ราคา 0) */
-export const FREE_ITEM_IDS: string[] = AVATAR_ITEMS.filter((i) => i.price === 0).map((i) => i.id);
+export const FREE_ITEM_IDS: string[] = AVATAR_ITEMS.filter((i) => i.price === 0 && !i.exclusive).map((i) => i.id);
 
 /**
  * ทำความสะอาดอวตาร: ช่องที่ไม่รู้จัก/ไม่ได้เป็นเจ้าของ → ใช้ค่าเริ่มต้นของช่องนั้น
@@ -244,7 +265,7 @@ export function randomFreeAvatar(seed: string): AvatarConfig {
   const next = () => { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; return h / 4294967296; };
   const out = { ...DEFAULT_AVATAR };
   for (const slot of Object.keys(DEFAULT_AVATAR) as AvatarSlot[]) {
-    const free = itemsOfSlot(slot).filter((i) => i.price === 0);
+    const free = itemsOfSlot(slot).filter((i) => i.price === 0 && !i.exclusive); // ห้ามหยิบของเซ็ตพิเศษ (ราคา 0 แต่ได้จากโค้ดเท่านั้น)
     out[slot] = free[Math.floor(next() * free.length)].id;
   }
   return out;

@@ -3,6 +3,7 @@ import React from 'react';
 import { INK, shade } from './colors';
 import { Blink, Move, Pulse, heartPath, starPath } from './anim';
 import type { Ctx } from './layersHead';
+import { PATTERN_COLOR_BY_KEY } from '../../shared/avatarExtra';
 
 const TORSO = 'M6 125 C6 100 26 86 50 86 C74 86 94 100 94 125 Z';
 const TEES: Record<string, [string, string]> = {
@@ -11,8 +12,41 @@ const TEES: Record<string, [string, string]> = {
   of_tee_black: ['#33343f', '#1b1c24'], of_tee_white: ['#f6f7fb', '#cfd5e2'],
 };
 
+// ================================================================ เสื้อลาย: id = of_pat_<ลาย>_<สี> (ลายถูกตัดให้อยู่ในตัวเสื้อด้วย clipPath)
+const PatternOutfit: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
+  const [, , pat, colorKey] = id.split('_');
+  const col = PATTERN_COLOR_BY_KEY[colorKey] ?? PATTERN_COLOR_BY_KEY.red;
+  const clip = `${c.uid}pc${pat}${colorKey}`;
+  const dark = shade(col.main, 0.22);
+  let art: React.ReactNode = null;
+  switch (pat) {
+    case 'stripe': art = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => <rect key={i} x={4 + i * 12.5} y="80" width="6.2" height="50" fill={col.alt} />); break;
+    case 'dots': art = [0, 1, 2, 3, 4].flatMap((r) => [0, 1, 2, 3, 4, 5].map((q) => <circle key={`${r}${q}`} cx={10 + q * 16 + (r % 2) * 8} cy={90 + r * 9} r="2.6" fill={col.alt} />)); break;
+    case 'stars': art = [0, 1, 2, 3].flatMap((r) => [0, 1, 2, 3, 4].map((q) => <g key={`${r}${q}`} transform={`translate(${12 + q * 19 + (r % 2) * 9} ${92 + r * 11})`}><path d={starPath(3.2)} fill={col.alt} /></g>)); break;
+    case 'check': art = [0, 1, 2, 3, 4, 5].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((q) => ((r + q) % 2 ? <rect key={`${r}${q}`} x={4 + q * 12.5} y={84 + r * 8} width="12.5" height="8" fill={col.alt} /> : null))); break;
+    case 'hearts': art = [0, 1, 2, 3].flatMap((r) => [0, 1, 2, 3, 4].map((q) => <g key={`${r}${q}`} transform={`translate(${12 + q * 19 + (r % 2) * 9} ${94 + r * 11})`}><path d={heartPath(2.6)} fill={col.alt} /></g>)); break;
+    case 'zigzag': art = [0, 1, 2, 3].map((r) => <path key={r} d={`M0 ${92 + r * 9} ${Array.from({ length: 11 }, (_, q) => `L${q * 10} ${(q % 2 ? 87 : 95) + r * 9}`).join(' ')}`} stroke={col.alt} strokeWidth="2.2" fill="none" />); break;
+    case 'camo': art = [[18, 98, 11, 7], [44, 94, 13, 8], [70, 100, 12, 7], [30, 114, 13, 7], [62, 116, 12, 7], [86, 92, 8, 6]].map(([x, y, rx, ry], i) => <ellipse key={i} cx={x} cy={y} rx={rx} ry={ry} fill={i % 2 ? dark : col.alt} opacity=".85" />); break;
+    default: art = null;
+  }
+  const gid = `${clip}g`;
+  return (
+    <g>
+      <defs>
+        <clipPath id={clip}><path d={TORSO} /></clipPath>
+        {pat === 'gradient' && <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={col.main} /><stop offset="1" stopColor={col.alt} /></linearGradient>}
+      </defs>
+      <path d={TORSO} fill={pat === 'gradient' ? `url(#${gid})` : col.main} />
+      {pat !== 'gradient' && <g clipPath={`url(#${clip})`}>{art}</g>}
+      <path d="M42 86 L50 100 L58 86 Z" fill={shade(c.skin, 0.1)} />
+      <path d="M40 86 C44 94 56 94 60 86" stroke={dark} strokeWidth="2" fill="none" />
+    </g>
+  );
+};
+
 // ================================================================ เสื้อผ้า (ครึ่งตัวบน)
 export const Outfit: React.FC<{ id: string; c: Ctx }> = ({ id, c }) => {
+  if (id.startsWith('of_pat_')) return <PatternOutfit id={id} c={c} />;
   const neckV = <path d="M42 86 L50 100 L58 86 Z" fill={shade(c.skin, 0.1)} />;
   const tee = TEES[id];
   if (tee) return <g><path d={TORSO} fill={tee[0]} />{neckV}<path d="M40 86 C44 94 56 94 60 86" stroke={tee[1]} strokeWidth="2" fill="none" /></g>;

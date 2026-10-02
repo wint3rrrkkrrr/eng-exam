@@ -8,12 +8,12 @@ import type { Ctx, Headers, HandlerResult } from './handlers';
 export type Route =
   | 'create-room' | 'join-room' | 'update-settings' | 'start-game' | 'my-view'
   | 'action' | 'nominate' | 'vote' | 'chat' | 'release-seat' | 'tick' | 'play-again'
-  | 'auth-login' | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
+  | 'gacha-spin' | 'redeem-code' | 'auth-login' | 'wallet-create' | 'wallet-login' | 'wallet' | 'shop-buy' | 'avatar-save' | 'sync-avatar';
 
 export const ROUTES: Route[] = [
   'create-room', 'join-room', 'update-settings', 'start-game', 'my-view',
   'action', 'nominate', 'vote', 'chat', 'release-seat', 'tick', 'play-again',
-  'auth-login', 'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
+  'gacha-spin', 'redeem-code', 'auth-login', 'wallet-create', 'wallet-login', 'wallet', 'shop-buy', 'avatar-save', 'sync-avatar',
 ];
 
 let cachedStore: WwStore | null = null;
@@ -38,6 +38,7 @@ export const RATE_LIMITS: Record<Route, [number, number]> = {
   'release-seat': [30, 60], 'tick': [120, 60], 'play-again': [10, 60],
   'auth-login': [20, 60], 'wallet-create': [10, 60], 'wallet-login': [20, 60], 'wallet': [120, 60],
   'shop-buy': [30, 60], 'avatar-save': [30, 60], 'sync-avatar': [30, 60],
+  'gacha-spin': [40, 60], 'redeem-code': [10, 60],
 };
 
 // ต้องมีตั๋วผู้เล่น/กระเป๋าถึงจะรู้ตัวตน — เส้นทางอื่นนับตาม IP
@@ -86,6 +87,8 @@ export async function dispatch(
       case 'release-seat': return await H.releaseSeat(ctx, headers, body);
       case 'tick': return await H.tick(ctx, headers, body);
       case 'play-again': return await H.playAgain(ctx, headers, body);
+      case 'gacha-spin': return await H.gachaSpin(ctx, headers, body);
+      case 'redeem-code': return await H.redeemCode(ctx, headers, body);
       case 'auth-login': return await H.authLogin(ctx, body);
       case 'wallet-create': return await H.walletCreate(ctx);
       case 'wallet-login': return await H.walletLogin(ctx, body);

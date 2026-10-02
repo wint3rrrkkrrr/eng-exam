@@ -381,6 +381,43 @@ revoke all on function public.ww_wallet_buy(uuid, text, int) from public, anon, 
 revoke all on function public.ww_wallet_credit(uuid, int, boolean) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------
+-- 7c-2) กาชา + แลกโค้ด (เหมือน supabase_gacha_migration.sql — เก็บไว้ที่นี่เพื่อตั้งโปรเจกต์ใหม่ครั้งเดียวจบ)
+-- ---------------------------------------------------------------------
+create or replace function public.ww_wallet_spin(p_wallet uuid, p_cost int, p_item text, p_refund int)
+returns jsonb language plpgsql security invoker set search_path = public as $$
+declare w public.ww_wallets%rowtype;
+begin
+  select * into w from public.ww_wallets where wallet_id = p_wallet for update;
+  if not found then return jsonb_build_object('ok', false, 'reason', 'none'); end if;
+  if w.coins < p_cost then return jsonb_build_object('ok', false, 'reason', 'poor'); end if;
+  if w.owned ? p_item then
+    update public.ww_wallets set coins = coins - p_cost + greatest(p_refund, 0) where wallet_id = p_wallet;
+    return jsonb_build_object('ok', true, 'duplicate', true);
+  end if;
+  update public.ww_wallets set coins = coins - p_cost, owned = owned || to_jsonb(p_item) where wallet_id = p_wallet;
+  return jsonb_build_object('ok', true, 'duplicate', false);
+end
+$$;
+
+create or replace function public.ww_wallet_grant(p_wallet uuid, p_items text[])
+returns int language plpgsql security invoker set search_path = public as $$
+declare w public.ww_wallets%rowtype; it text; added int := 0; cur jsonb;
+begin
+  select * into w from public.ww_wallets where wallet_id = p_wallet for update;
+  if not found then return null; end if;
+  cur := w.owned;
+  foreach it in array p_items loop
+    if not (cur ? it) then cur := cur || to_jsonb(it); added := added + 1; end if;
+  end loop;
+  update public.ww_wallets set owned = cur where wallet_id = p_wallet;
+  return added;
+end
+$$;
+
+revoke all on function public.ww_wallet_spin(uuid, int, text, int) from public, anon, authenticated;
+revoke all on function public.ww_wallet_grant(uuid, text[]) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------
 -- 7d) ตัวจำกัดความถี่ (rate limit) — นับคำขอต่อหน้าต่างเวลาแบบ atomic (เรียกได้เฉพาะ service role จากฟังก์ชันเซิร์ฟเวอร์)
 -- ---------------------------------------------------------------------
 create table if not exists public.ww_rate_limits (

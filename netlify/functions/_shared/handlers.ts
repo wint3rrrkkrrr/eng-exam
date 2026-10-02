@@ -11,12 +11,15 @@ import {
 } from '../../../src/games/werewolf/shared/lobby';
 import type { LobbySettings } from '../../../src/games/werewolf/shared/lobby';
 import type {
-  ActionRequest, AuthResponse, ChatLine, ChatRequest, LobbyPlayer, MyViewResponse, WalletCreated, WalletView,
+  ActionRequest, AuthResponse, ChatLine, ChatRequest, GachaResponse, GachaResult, LobbyPlayer, MyViewResponse, RedeemResponse, WalletCreated, WalletView,
 } from '../../../src/games/werewolf/shared/api';
 import {
-  ITEM_BY_ID, STARTING_COINS, computeReward, randomFreeAvatar, sanitizeAvatar, serializeAvatar,
+  ITEM_BY_ID, STARTING_COINS, gachaPool, itemRarity, computeReward, randomFreeAvatar, sanitizeAvatar, serializeAvatar,
 } from '../../../src/games/werewolf/shared/avatar';
-import type { AvatarConfig, RewardBreakdown } from '../../../src/games/werewolf/shared/avatar';
+import type { AvatarConfig, AvatarItem, Rarity, RewardBreakdown } from '../../../src/games/werewolf/shared/avatar';
+import { DUPLICATE_REFUND_PCT, SPIN_COUNTS, WHEEL_BY_ID, setItemIds } from '../../../src/games/werewolf/shared/avatarExtra';
+import { randomInt } from 'node:crypto';
+import { setForCode } from './redeemCodes';
 import {
   checkPassword, hashPassword, hashToken, isLegacySha256, legacySha256, newId, newRoomCode, newSeed, newToken, randBetween, safeEqual, walletTokenFor,
 } from './crypto';
@@ -265,6 +268,7 @@ export async function shopBuy(ctx: Ctx, headers: Headers, body: Record<string, u
   if (isWalletFail(w)) return w;
   const item = typeof body.itemId === 'string' ? ITEM_BY_ID[body.itemId] : undefined;
   if (!item) return fail(404, 'ไม่พบสินค้านี้', 'no_item');
+  if (item.exclusive) return fail(403, 'ของชิ้นนี้ได้จากโค้ดพิเศษเท่านั้น', 'exclusive');
   if (item.price <= 0) return fail(400, 'ของชิ้นนี้ฟรีอยู่แล้ว', 'free');
   const r = await ctx.store.walletBuy(w.wallet_id, item.id, item.price); // ★ ราคามาจากแคตตาล็อกฝั่งเซิร์ฟเวอร์ ไม่เชื่อราคาจากเบราว์เซอร์
   if (!r.ok) {
@@ -273,6 +277,68 @@ export async function shopBuy(ctx: Ctx, headers: Headers, body: Record<string, u
     return fail(404, 'ไม่พบกระเป๋า', 'bad_wallet');
   }
   return ok(walletView(r.wallet));
+}
+
+/** หมุนวงล้อกาชา: เซิร์ฟเวอร์สุ่มระดับ (ตามอัตราวงล้อ) แล้วสุ่มของในระดับนั้น · ซ้ำ = คืนเหรียญบางส่วน · ทุกอย่างเป็น atomic */
+export async function gachaSpin(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {
+  const w = await walletFromHeaders(ctx, headers);
+  if (isWalletFail(w)) return w;
+  const wheel = typeof body.wheel === 'string' ? WHEEL_BY_ID[body.wheel] : undefined;
+  if (!wheel) return fail(404, 'ไม่พบวงล้อนี้', 'no_wheel');
+  const count = Number(body.count ?? 1);
+  if (!(SPIN_COUNTS as readonly number[]).includes(count)) return fail(400, 'หมุนได้ครั้งละ 1 หรือ 10 ครั้ง', 'bad_count');
+
+  const pool = gachaPool();
+  const byRarity: Record<Rarity, AvatarItem[]> = { common: [], rare: [], epic: [], legendary: [] };
+  for (const it of pool) byRarity[itemRarity(it)].push(it);
+
+  const results: GachaResult[] = [];
+  for (let i = 0; i < count; i++) {
+    const rarity = rollRarity(wheel.rates, byRarity);
+    const list = byRarity[rarity];
+    const item = list[randomInt(list.length)];
+    const refund = Math.floor((item.price * DUPLICATE_REFUND_PCT) / 100);
+    const r = await ctx.store.walletSpin(w.wallet_id, wheel.cost, item.id, refund);
+    if (!r.ok) {
+      if (results.length === 0) return fail(r.reason === 'poor' ? 402 : 404, r.reason === 'poor' ? 'เหรียญไม่พอ' : 'ไม่พบกระเป๋า', r.reason === 'poor' ? 'poor' : 'bad_wallet');
+      break; // เหรียญหมดกลางทาง (หมุน ×10) — ส่งผลที่หมุนไปแล้ว
+    }
+    results.push({ itemId: item.id, rarity, duplicate: r.duplicate === true, refund: r.duplicate ? refund : 0 });
+  }
+  const fresh = (await ctx.store.getWallet(w.wallet_id))!;
+  const res: GachaResponse = { wheel: wheel.id, results, wallet: walletView(fresh) };
+  return ok(res);
+}
+
+/** เลือกระดับตามน้ำหนักของวงล้อ (ข้ามระดับที่ไม่มีของในกอง) */
+function rollRarity(rates: Record<Rarity, number>, byRarity: Record<Rarity, AvatarItem[]>): Rarity {
+  const order: Rarity[] = ['common', 'rare', 'epic', 'legendary'];
+  const usable = order.filter((r) => rates[r] > 0 && byRarity[r].length > 0);
+  const total = usable.reduce((s, r) => s + rates[r], 0);
+  let x = (randomInt(1_000_000) / 1_000_000) * total;
+  for (const r of usable) {
+    x -= rates[r];
+    if (x < 0) return r;
+  }
+  return usable[usable.length - 1];
+}
+
+/** แลกโค้ดเซ็ตพิเศษ: โค้ดตรวจด้วยแฮชที่เซิร์ฟเวอร์ · ได้ของทั้งเซ็ตเข้ากระเป๋า · เซ็ตเดียวกันแลกซ้ำไม่ได้ */
+export async function redeemCode(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {
+  const w = await walletFromHeaders(ctx, headers);
+  if (isWalletFail(w)) return w;
+  const raw = typeof body.code === 'string' ? body.code : '';
+  if (raw.length < 4 || raw.length > 60) return fail(400, 'กรอกโค้ดให้ถูกต้อง', 'bad_code_format');
+  const setId = setForCode(raw);
+  if (!setId) return fail(404, 'โค้ดนี้ไม่ถูกต้องหรือหมดอายุ', 'bad_code');
+  const items = setItemIds(setId);
+  const have = new Set(w.owned);
+  if (items.every((id) => have.has(id))) return fail(409, 'คุณแลกโค้ดนี้ไปแล้ว', 'already_redeemed');
+  const added = await ctx.store.walletGrant(w.wallet_id, items);
+  if (added === null) return fail(404, 'ไม่พบกระเป๋า', 'bad_wallet');
+  const fresh = (await ctx.store.getWallet(w.wallet_id))!;
+  const res: RedeemResponse = { setId, itemIds: items, added, wallet: walletView(fresh) };
+  return ok(res);
 }
 
 export async function avatarSave(ctx: Ctx, headers: Headers, body: Record<string, unknown>): Promise<HandlerResult> {

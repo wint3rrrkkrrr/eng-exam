@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  BuyResult, ChatRecord, Commit, EventRow, PlayerRow, PublicEventRecord, RoomRow, RoomSecrets, WalletRow, WwStore,
+  BuyResult, SpinResult, ChatRecord, Commit, EventRow, PlayerRow, PublicEventRecord, RoomRow, RoomSecrets, WalletRow, WwStore,
 } from './store';
 
 function must<T>(res: { data: T | null; error: { message: string; code?: string } | null }, what: string): T {
@@ -183,6 +183,18 @@ export class SupabaseStore implements WwStore {
     const res = await this.db.rpc('ww_wallet_credit', { p_wallet: walletId, p_amount: amount, p_won: won });
     if (res.error) throw new Error(`walletCredit: ${res.error.message}`);
     return this.getWallet(walletId);
+  }
+
+  async walletSpin(walletId: string, cost: number, itemId: string, refund: number): Promise<SpinResult> {
+    const res = await this.db.rpc('ww_wallet_spin', { p_wallet: walletId, p_cost: cost, p_item: itemId, p_refund: refund });
+    if (res.error) throw new Error(`walletSpin: ${res.error.message}`);
+    return res.data as SpinResult;
+  }
+
+  async walletGrant(walletId: string, itemIds: string[]): Promise<number | null> {
+    const res = await this.db.rpc('ww_wallet_grant', { p_wallet: walletId, p_items: itemIds });
+    if (res.error) throw new Error(`walletGrant: ${res.error.message}`);
+    return typeof res.data === 'number' ? res.data : null;
   }
 
   async walletSetAvatar(walletId: string, avatar: Record<string, string>): Promise<void> {
