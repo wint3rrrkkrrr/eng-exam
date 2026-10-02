@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { parseAppRoute, routePath, samePath } from './utils/appRoute';
 import type { AppRoute } from './utils/appRoute';
+
+const CHEESE_ROOM_KEY = 'cheese_game_room_code_v1'; // ต้องตรงกับ CheeseGameApp
+const readCheeseRoom = (): string | null => { try { return localStorage.getItem(CHEESE_ROOM_KEY); } catch { return null; } };
+const writeCheeseRoom = (c: string) => { try { localStorage.setItem(CHEESE_ROOM_KEY, c); } catch { /* ข้าม */ } };
 import { motion, AnimatePresence } from 'motion/react';
 import { AmbientParticles } from './components/AmbientParticles';
 import { Header } from './components/Header';
@@ -160,7 +164,11 @@ export default function App() {
   });
 
   // Subject state
-  const [initialRoute] = useState<AppRoute>(() => parseAppRoute(window.location.pathname));
+  const [initialRoute] = useState<AppRoute>(() => {
+    const r = parseAppRoute(window.location.pathname);
+    if (r.kind === 'cheese' && r.code) writeCheeseRoom(r.code); // ลิงก์ห้องหนูชีส → ให้เกมเข้าห้องนั้นตอนเปิด
+    return r;
+  });
   const [currentSubjectId, setCurrentSubjectId] = useState<string>(() => {
     if (initialRoute.kind === 'exam' && initialRoute.subject && subjectsList.some((s) => s.id === initialRoute.subject)) return initialRoute.subject;
     try {
@@ -187,13 +195,14 @@ export default function App() {
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [showCheeseGame, setShowCheeseGame] = useState<boolean>(initialRoute.kind === 'cheese');
+  const [cheeseRoomCode, setCheeseRoomCode] = useState<string | null>(initialRoute.kind === 'cheese' ? (initialRoute.code ?? readCheeseRoom()) : null);
   const [showWerewolfGame, setShowWerewolfGame] = useState<boolean>(initialRoute.kind === 'werewolf');
   const [wwRoomCode, setWwRoomCode] = useState<string | null>(initialRoute.kind === 'werewolf' ? initialRoute.code : null);
   const wwUrlCode = useRef<string | null>(initialRoute.kind === 'werewolf' ? initialRoute.code : null);
 
-  // ลิงก์ของหน้า: / · /เกม[/ห้อง] · /หนูชีส · /ข้อสอบ[/วิชา] — รีเฟรชแล้วอยู่หน้าเดิม, ปุ่มย้อนกลับของเบราว์เซอร์ใช้ได้
+  // ลิงก์ของหน้า: / · /werewolf[/ห้อง] · /cheese[/ห้อง] · /exam[/วิชา] — รีเฟรชแล้วอยู่หน้าเดิม, ปุ่มย้อนกลับของเบราว์เซอร์ใช้ได้
   const currentRoute: AppRoute = showWerewolfGame ? { kind: 'werewolf', code: wwRoomCode }
-    : showCheeseGame ? { kind: 'cheese' }
+    : showCheeseGame ? { kind: 'cheese', code: cheeseRoomCode }
     : !showLandingPage ? { kind: 'exam', subject: currentSubjectId }
     : { kind: 'home' };
   const routeWanted = routePath(currentRoute);
@@ -204,11 +213,18 @@ export default function App() {
     }
     routeFirst.current = false;
   }, [routeWanted]);
+  // หนูชีสเก็บห้องไว้ในเครื่องเอง (แก้โค้ดเกมนั้นไม่ได้) — คอยอ่านค่ามาสะท้อนใน URL
+  useEffect(() => {
+    if (!showCheeseGame) return;
+    const t = setInterval(() => setCheeseRoomCode(readCheeseRoom()), 500);
+    return () => clearInterval(t);
+  }, [showCheeseGame]);
   useEffect(() => {
     const onPop = () => {
       const r = parseAppRoute(window.location.pathname);
       setShowWerewolfGame(r.kind === 'werewolf');
       setShowCheeseGame(r.kind === 'cheese');
+      if (r.kind === 'cheese') { if (r.code) writeCheeseRoom(r.code); setCheeseRoomCode(r.code); }
       if (r.kind === 'werewolf') { wwUrlCode.current = r.code; setWwRoomCode(r.code); }
       setShowLandingPage(r.kind !== 'exam');
       if (r.kind === 'exam' && r.subject && subjectsList.some((s) => s.id === r.subject)) setCurrentSubjectId(r.subject);
@@ -1093,7 +1109,7 @@ export default function App() {
           onToggleTheme={handleToggleTheme}
           onToggleSound={handleToggleSound}
           onStartExam={() => { setShowLandingPage(false); setShowSubjectSelector(true); }}
-          onOpenCheese={() => setShowCheeseGame(true)}
+          onOpenCheese={() => { setCheeseRoomCode(readCheeseRoom()); setShowCheeseGame(true); }}
           onOpenWerewolf={() => setShowWerewolfGame(true)}
           onOpenProfile={() => setShowProfileModal(true)}
           onLogout={handleLogoutUser}
