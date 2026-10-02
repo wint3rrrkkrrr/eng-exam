@@ -15,7 +15,7 @@ const art = (cfg: Record<string, string>, night = false) => renderToStaticMarkup
 const strip = (s: string) => s.replace(/(?:id|url\(#|href="#)[^"\s)]*/g, '');
 
 describe('แคตตาล็อกอวตาร', () => {
-  it('เหรียญเริ่มต้น 100', () => expect(STARTING_COINS).toBe(100));
+  it('เหรียญเริ่มต้น 5000', () => expect(STARTING_COINS).toBe(5000));
   it('ไม่มีช่องป้ายมุม (badge) แล้ว · มีช่องเอฟเฟกต์และหลุมศพ', () => {
     expect(Object.keys(DEFAULT_AVATAR)).not.toContain('badge');
     expect(SLOTS.map((s) => s.slot)).toEqual(expect.arrayContaining(['effect', 'grave']));

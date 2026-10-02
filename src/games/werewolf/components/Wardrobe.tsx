@@ -198,7 +198,7 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'ward
               <button onClick={() => setNight((n) => !n)} className="min-h-12 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold cursor-pointer" aria-pressed={night}>
                 {night ? '🌙 กลางคืน — แตะเพื่อดูกลางวัน' : '☀️ กลางวัน — แตะเพื่อดูกลางคืน'}
               </button>
-              <p className="text-[11px] text-slate-500">เล่นจบเกมได้เหรียญ: เล่น +20 · ชนะ +30 · รอดชีวิต +10</p>
+              <p className="text-[11px] text-slate-500">เล่นจบเกมได้เหรียญ: เล่น +200 · ชนะ +300 · รอดชีวิต +100</p>
             </section>
 
             {tab === 'gacha' && <GachaPanel creds={creds} wallet={wallet} draft={draft} onWallet={setWallet} onEquip={(id) => { equip(id); setTab('wardrobe'); setSlot(ITEM_BY_ID[id].slot); flash('ใส่ของใหม่แล้ว — อย่าลืมกดบันทึก'); }} />}

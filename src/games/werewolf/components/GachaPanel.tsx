@@ -188,7 +188,7 @@ export const GachaPanel: React.FC<Props> = ({ creds, wallet, draft, onWallet, on
                 หมุน ×10 · 🪙 {w.cost * 10}
               </button>
             </div>
-            {wallet.coins < w.cost && <p className="text-center text-[11px] text-red-300">เหรียญไม่พอ — เล่นเกมเพื่อสะสมเหรียญ (เล่น +20 · ชนะ +30 · รอด +10)</p>}
+            {wallet.coins < w.cost && <p className="text-center text-[11px] text-red-300">เหรียญไม่พอ — เล่นเกมเพื่อสะสมเหรียญ (เล่น +200 · ชนะ +300 · รอด +100)</p>}
           </section>
         );
       })}

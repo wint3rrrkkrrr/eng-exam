@@ -687,10 +687,10 @@ describe('กระเป๋าเงิน', () => {
     expect(v.coins).toBe(STARTING_COINS - priceOf('hw_cap'));
     expect(v.owned).toEqual(['hw_cap']);
     expect((await H.shopBuy(env.ctx, wh(w), { itemId: 'hw_cap' })).status).toBe(409);
-    expect((await H.shopBuy(env.ctx, wh(w), { itemId: 'hw_crown' })).status).toBe(402); // 500 เหรียญ ไม่พอ
+    expect((await H.shopBuy(env.ctx, wh(w), { itemId: 'hw_crown' })).status).toBe(200); // 500 เหรียญ ซื้อได้แล้ว
     expect((await H.shopBuy(env.ctx, wh(w), { itemId: 'hw_none' })).status).toBe(400);
     expect((await H.shopBuy(env.ctx, wh(w), { itemId: 'ไม่มีจริง' })).status).toBe(404);
-    expect(env.store.wallets.get(w.walletId)!.coins).toBe(STARTING_COINS - priceOf('hw_cap'));
+    expect(env.store.wallets.get(w.walletId)!.coins).toBe(STARTING_COINS - priceOf('hw_cap') - priceOf('hw_crown'));
   });
 
   it('★ กดซื้อพร้อมกันหลายครั้ง → หักเหรียญครั้งเดียว (ไม่ซื้อซ้อน)', async () => {
@@ -786,7 +786,7 @@ describe('รางวัลเหรียญตอนจบเกม', () => {
 
     for (const [wallet, pl] of [[w1, host], [w2, players[1]]] as const) {
       const alive = game.players.find((p) => p.id === pl.playerId)!.alive;
-      const expected = STARTING_COINS + 20 + (winners.has(pl.playerId) ? 30 : 0) + (alive ? 10 : 0);
+      const expected = STARTING_COINS + 200 + (winners.has(pl.playerId) ? 300 : 0) + (alive ? 100 : 0);
       expect(env.store.wallets.get(wallet.walletId)!.coins, `เหรียญของ ${pl.playerId}`).toBe(expected);
       expect(env.store.wallets.get(wallet.walletId)!.games_played).toBe(1);
       expect((await view(env, host.roomCode, pl)).reward!.total).toBe(expected - STARTING_COINS);
