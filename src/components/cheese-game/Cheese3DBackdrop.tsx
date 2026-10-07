@@ -19,11 +19,11 @@ interface ModeStyle {
 }
 
 const MODES: Record<CheeseBackdropMode, ModeStyle> = {
-  lobby:  { skyTop: '#1b1646', skyBottom: '#7a4a7e', ground: '#4f8f5b', hemiSky: '#ffd9b0', hemiGround: '#3b4a6b', sun: '#ffd9a0', sunIntensity: 1.5, body: '#ffe9b0', bodyPos: [-9, 7, -14], stars: 0.55, cam: [0, 3.6, 10], speed: 1 },
-  night:  { skyTop: '#04061a', skyBottom: '#152049', ground: '#243a4d', hemiSky: '#6f86ff', hemiGround: '#141b30', sun: '#9fb4ff', sunIntensity: 0.9, body: '#e8efff', bodyPos: [8, 8, -15], stars: 1, cam: [0, 2.6, 8.5], speed: 0.6 },
-  day:    { skyTop: '#4aa8ee', skyBottom: '#fde6b0', ground: '#6bbf59', hemiSky: '#ffffff', hemiGround: '#a8c97a', sun: '#fff2c4', sunIntensity: 2.1, body: '#ffd447', bodyPos: [9, 9, -15], stars: 0, cam: [0, 4.2, 10.5], speed: 1.15 },
-  voting: { skyTop: '#2a0d44', skyBottom: '#b04a70', ground: '#5a3f78', hemiSky: '#ffb3d1', hemiGround: '#2a1a40', sun: '#ff9ec4', sunIntensity: 1.3, body: '#ffc0d9', bodyPos: [-8, 6, -14], stars: 0.45, cam: [0, 3.0, 9], speed: 1.4 },
-  ended:  { skyTop: '#3a2a08', skyBottom: '#f0b43c', ground: '#c9953a', hemiSky: '#fff0b8', hemiGround: '#6b4a14', sun: '#ffe08a', sunIntensity: 1.8, body: '#fff6cc', bodyPos: [0, 8, -15], stars: 0.35, cam: [0, 3.8, 10], speed: 0.8 },
+  lobby:  { skyTop: '#1b1646', skyBottom: '#7a4a7e', ground: '#4f8f5b', hemiSky: '#ffd9b0', hemiGround: '#3b4a6b', sun: '#ffd9a0', sunIntensity: 1.5, body: '#ffe9b0', bodyPos: [-9, 7, -14], stars: 0.55, cam: [0, 7.2, 9.5], speed: 1 },
+  night:  { skyTop: '#04061a', skyBottom: '#152049', ground: '#243a4d', hemiSky: '#6f86ff', hemiGround: '#141b30', sun: '#9fb4ff', sunIntensity: 0.9, body: '#e8efff', bodyPos: [8, 8, -15], stars: 1, cam: [0, 6.4, 9], speed: 0.6 },
+  day:    { skyTop: '#4aa8ee', skyBottom: '#fde6b0', ground: '#6bbf59', hemiSky: '#ffffff', hemiGround: '#a8c97a', sun: '#fff2c4', sunIntensity: 2.1, body: '#ffd447', bodyPos: [9, 9, -15], stars: 0, cam: [0, 7.6, 10], speed: 1.15 },
+  voting: { skyTop: '#2a0d44', skyBottom: '#b04a70', ground: '#5a3f78', hemiSky: '#ffb3d1', hemiGround: '#2a1a40', sun: '#ff9ec4', sunIntensity: 1.3, body: '#ffc0d9', bodyPos: [-8, 6, -14], stars: 0.45, cam: [0, 6.6, 9], speed: 1.4 },
+  ended:  { skyTop: '#3a2a08', skyBottom: '#f0b43c', ground: '#c9953a', hemiSky: '#fff0b8', hemiGround: '#6b4a14', sun: '#ffe08a', sunIntensity: 1.8, body: '#fff6cc', bodyPos: [0, 8, -15], stars: 0.35, cam: [0, 7.2, 10], speed: 0.8 },
 };
 
 const MOUSE_COLORS = ['#c9ccd6', '#f3d9c4', '#9aa0b4', '#e8b4a0', '#b9a58e'];
@@ -132,20 +132,22 @@ export const Cheese3DBackdrop: React.FC<{ mode: CheeseBackdropMode }> = ({ mode 
 
     // hero cheese
     const cheese = makeCheese();
-    cheese.position.y = 0.6;
+    cheese.scale.set(2.4, 0.6, 2.4);
+    cheese.position.y = 0.3;
     scene.add(cheese);
 
     // mice circling the cheese
     const mice = MOUSE_COLORS.map((c, i) => {
       const m = makeMouse(c);
+      m.scale.setScalar(0.8);
       scene.add(m);
-      return { m, r: 2.9 + i * 0.7, ang: (i / MOUSE_COLORS.length) * Math.PI * 2, spd: (0.22 + (i % 3) * 0.07) * (i % 2 ? -1 : 1), off: i * 1.7 };
+      return { m, r: 4.4 + i * 0.5, ang: (i / MOUSE_COLORS.length) * Math.PI * 2, spd: (0.22 + (i % 3) * 0.07) * (i % 2 ? -1 : 1), off: i * 1.7 };
     });
 
     // floating cheese cubes
     const cubeMat = new THREE.MeshLambertMaterial({ color: '#ffd84a', flatShading: true });
     const CUBES = 12;
-    const cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), cubeMat, CUBES);
+    const cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), cubeMat, CUBES);
     const cubeSeed = Array.from({ length: CUBES }, (_, i) => ({
       x: Math.cos(i * 2.4) * (4 + (i % 4) * 1.4),
       z: -2 - (i % 5) * 1.6 + Math.sin(i * 1.3) * 2,
@@ -249,14 +251,14 @@ export const Cheese3DBackdrop: React.FC<{ mode: CheeseBackdropMode }> = ({ mode 
 
       const portrait = camera.aspect < 0.8 ? 1.5 : 1;
       camera.position.set(
-        cur.cam.x + Math.sin(t * 0.18) * 1.6 + pointer.x * 0.9,
-        cur.cam.y + pointer.y * -0.5,
+        cur.cam.x + Math.sin(t * 0.18) * 0.8 + pointer.x * 0.5,
+        cur.cam.y + pointer.y * -0.3,
         cur.cam.z * portrait,
       );
-      camera.lookAt(0, 1.2, 0);
+      camera.lookAt(0, -1.3, 0);
 
-      cheese.rotation.y = t * 0.35;
-      cheese.position.y = 0.6 + Math.sin(t * 1.4) * 0.12;
+      cheese.rotation.y = t * 0.12;
+      cheese.position.y = 0.3 + Math.sin(t * 1.4) * 0.03;
 
       for (const o of mice) {
         o.ang += o.spd * dt * cur.speed;
