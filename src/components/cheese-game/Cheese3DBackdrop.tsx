@@ -27,7 +27,7 @@ const MODES: Record<CheeseBackdropMode, ModeStyle> = {
 };
 
 const MOUSE_COLORS = ['#c9ccd6', '#f3d9c4', '#9aa0b4', '#e8b4a0', '#b9a58e'];
-const FRAME_MS = 1000 / 30;
+const FRAME_MS = 1000 / 60 - 2; // ~60fps; margin so rAF timing jitter never drops a frame
 
 function makeMouse(color: string): THREE.Group {
   const g = new THREE.Group();
