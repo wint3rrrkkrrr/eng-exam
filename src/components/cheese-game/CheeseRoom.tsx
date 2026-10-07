@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, Suspense, lazy } from 'react';
 import { cheeseGame, CheeseRoom as CheeseRoomType, CheesePlayer } from '../../utils/cheeseGameClient';
 import { CheeseLobbyPhase } from './phases/CheeseLobbyPhase';
 import { CheeseNightPhase } from './phases/CheeseNightPhase';
@@ -6,6 +6,11 @@ import { CheeseDayPhase } from './phases/CheeseDayPhase';
 import { CheeseVotingPhase } from './phases/CheeseVotingPhase';
 import { CheeseEndedPhase } from './phases/CheeseEndedPhase';
 import { Loader2, LogOut } from 'lucide-react';
+
+import type { CheeseBackdropMode } from './Cheese3DBackdrop';
+
+// three.js is heavy: load it as its own chunk, only when a room is opened
+const Cheese3DBackdrop = lazy(() => import('./Cheese3DBackdrop'));
 
 interface CheeseRoomProps {
   roomCode: string;
@@ -97,9 +102,16 @@ export const CheeseRoom: React.FC<CheeseRoomProps> = ({ roomCode, username, avat
     }
   })();
 
+  const backdropMode: CheeseBackdropMode =
+    room.phase === 'night' ? (room.current_hour >= 7 ? 'day' : 'night') : room.phase;
+
   return (
     <>
-      {phaseEl}
+      <Suspense fallback={null}>
+        <Cheese3DBackdrop mode={backdropMode} />
+      </Suspense>
+      {/* phases keep their own layout; their opaque page background is made transparent so the 3D scene shows through */}
+      <div className="relative z-10 [&>div:first-child]:!bg-transparent">{phaseEl}</div>
       {showFloatingExit && (
         <button
           onClick={handleLeave}

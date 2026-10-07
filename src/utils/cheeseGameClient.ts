@@ -316,6 +316,11 @@ export const cheeseGame = {
     await supabase.from('cheese_rooms').update({ cheese_location: 'stolen' }).eq('room_code', roomCode);
   },
 
+  // End of night: force the steal if the thief never pressed it (idempotent)
+  ensureCheeseStolen: async (roomCode: string) => {
+    await supabase.from('cheese_rooms').update({ cheese_location: 'stolen' }).eq('room_code', roomCode).neq('cheese_location', 'stolen');
+  },
+
   // Thief picks accomplices at hour 6 (instead of random assignment at game start)
   thiefAssignAccomplices: async (roomCode: string, usernames: string[]) => {
     for (const u of usernames) {

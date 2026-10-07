@@ -436,6 +436,15 @@ export const CheeseNightPhase: React.FC<CheesePhaseProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iAmAwakeNow, room.current_hour]);
 
+  // ---- forced steal at end of night (hour 7): thief who never pressed steal, or any lost timer ----
+  // Both the thief's own client and the host run this so it works even if one is offline/backgrounded.
+  useEffect(() => {
+    if (room.current_hour < 7 || room.cheese_location === 'stolen') return;
+    if (!isThief && !isHost) return;
+    cheeseGame.ensureCheeseStolen(roomCode).then(() => refresh());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.current_hour, room.cheese_location, isThief, isHost, roomCode]);
+
   const handleSteal = async () => {
     await cheeseGame.thiefStealCheese(roomCode);
     setStealDone(true);
