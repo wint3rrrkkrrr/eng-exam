@@ -15,6 +15,7 @@ import { AvatarArt, GraveArt } from './avatar/AvatarArt';
 import { GachaPanel } from './GachaPanel';
 import { RedeemPanel } from './RedeemPanel';
 import { CollectionView, ShopFront } from './ShopFront';
+import { ScrollRow } from './ScrollRow';
 
 export type WardrobeTab = 'store' | 'wardrobe' | 'gacha' | 'redeem';
 
@@ -257,7 +258,8 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'stor
               <>
                 {/* หมวดหมู่ (ติดขอบบนตอนเลื่อน) */}
                 <style>{'.ww-noscroll{scrollbar-width:none}.ww-noscroll::-webkit-scrollbar{display:none}'}</style>
-                <nav className="ww-noscroll sticky top-[65px] z-10 mt-4 px-3 py-2 flex gap-1.5 overflow-x-auto bg-[#0b1020]/95 backdrop-blur" role="tablist" aria-label="หมวดของแต่งตัว">
+                <nav className="sticky top-[65px] z-10 mt-4 px-3 bg-[#0b1020]/95 backdrop-blur">
+                  <ScrollRow className="py-2 flex gap-1.5" role="tablist" aria-label="หมวดของแต่งตัว">
                   {SLOTS.map((s) => (
                     <button
                       key={s.slot}
@@ -269,6 +271,7 @@ export const Wardrobe: React.FC<Props> = ({ onClose, onSaved, initialTab = 'stor
                       <span>{s.icon}</span>{s.labelTh}
                     </button>
                   ))}
+                  </ScrollRow>
                 </nav>
 
                 {/* ค้นหา + ตัวกรอง */}
